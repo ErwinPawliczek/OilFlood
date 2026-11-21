@@ -38,6 +38,12 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
 - 2026-11-21 A2-data: started (claim T2 data work on branch a2-data)
 - 2026-11-21 A3 (branch a3-globe): `web/` Vite+TS globe app (MapLibre v5 globe + deck.gl 9 interleaved), see web/README.md. Dev: `cd web && npm i && npm run dev` -> http://localhost:5273 (proxies /api to 5200); `npm run build` -> web/dist. Historical mode (pins, fly-to, observed outlines + hindcast particles, polls 202 hindcasts), prediction mode (click ocean -> POST /api/spill -> progress -> 72 h playback), windy-style current streaks colored by speed, time bar (play/pause/speed/scrub/UTC clock), oil budget panel. Verified end to end against the live backend (real NESDIS DWH outlines, real Texas City Y hindcast, real prediction runs, real live currents). Per-endpoint mock fallback (`?mock=1` forces it) with a red MOCK DATA badge naming which parts are synthetic. Gotcha: LineLayer/TextLayer/TripsLayer misrender on the MapLibre globe; used binary PathLayers + HTML marker labels instead.
 
+- 2026-11-21 A2-data (branch a2-data): T2 forcing + catalog done. See data/README.md for commands, sources and formats. All forcing NetCDF opens in OpenDrift 1.14.11 `reader_netCDF_CF_generic` (`oilflood` env), and short OceanDrift test runs work on MC209, Texas City Y and DWH. Cached on the tower under `/home/shmiggy/OilFlood-a2-data/data/cache/` (gitignored):
+  - `forcing/<window>/{currents,winds}.nc` (x/y_sea_water_velocity, x/y_wind, dims time/lat/lon, lon −180..180). Hindcasts use HYCOM-TSIS GOMb0.04 reanalysis currents + its 10 m winds: texas_city_y (2014-03-21..26 hourly, 83 MB), dwh (2010-04-20..07-16 6-hourly, 234 MB), mc209_2017 (3 h, 53 MB), dbl_152 (3 h, 46 MB), eugene_island_2009 (1 h, 95 MB), main_pass_2023 (3 h, 40 MB). live = ESPC-D-V02 currents 2026-11-21 12Z..11-24 12Z (3 h) + GFS 0.25° winds to 11-25 00Z (4 MB).
+  - `fields/<window>/`: index.json + per-step `<unix>.json` (same shape as /api/currents/{t}) + `<unix>.png` u/v texture, 0.1°, 181×130.
+  - Committed: `data/spills/catalog.json` (9 Gulf spills from NOAA IncidentNews; Ixtoc I, Burmah Agate and Mega Borg predate HYCOM, so `forcing: null`) and `data/spills/dwh/footprints/dwh_YYYYMMDD.geojson` (94 days of NOAA/NESDIS outlines, 2010-05-02..08-25, 3.7 MB).
+  - To use: `OILFLOOD_DATA_DIR=/home/shmiggy/OilFlood-a2-data/data`, or copy `data/cache/` into the main checkout. Refresh live before the demo: `cd data && .venv/bin/python fetch_live.py --force && .venv/bin/python export_fields.py live --force`.
+
 ## Roles
 - Erwin builds everything (T2–T7).
 - Brother does testing and bug fixes (T8–T9).
@@ -52,5 +58,8 @@ Format: `- [open|fixed] short title — steps to reproduce — who found / who f
 - [open] Prediction click on land (e.g. inland Mexico, outside the frontend's coarse mask) returns `Simulation stopped within first timestep`; the UI shows the error, but the backend could return a friendlier "seed point on land" — found by A3
 
 ## Blockers
+- A2: Galveston Bay is land in HYCOM GOMb0.04 (~4 km). The Texas City Y point 29.363N 94.798W is NaN, and the nearest water is Bolivar Roads, about 29.33N 94.72W. A1 may want to nudge hindcast seeds there.
+- A2: the live ESPC-D-V02 forecast ends 2026-11-24 12Z (~8 h short of now+72 h at fetch time). RTOFS is not used because NOMADS retired OPeNDAP and the full files are global and very large. Runs past the end fall back per A1's forcing logic.
+- A2: the HYCOM THREDDS server sometimes hangs on a request. The scripts retry with a 5 min timeout and resume from raw chunks.
 - A1: no real forcing yet (A2's data/cache empty when tested). Backend runs on constant fallback (SW current 0.09 m/s, SE wind 5 m/s) until then. To use A2's cache: `OILFLOOD_DATA_DIR=/home/shmiggy/OilFlood-a2-data/data` (or after merge, just `data/`). Check `GET /api/forcing` to confirm files are detected; any CF NetCDF with x/eastward_sea_water_velocity or x/eastward_wind standard names works.
 - A1 note: Texas City Y seed is inside Galveston Bay; with ~4 km HYCOM nearly all oil strands in the bay within hours (expected, see RESEARCH.md risks). Offshore clicks drift normally.
