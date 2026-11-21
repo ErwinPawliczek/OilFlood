@@ -36,7 +36,7 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
 - Brother does testing and bug fixes (T8–T9).
 
 ## Data outline (brother)
-_Waiting on brother's data outline; paste it here or in docs/DATA.md._
+See docs/DATA.md (received 2026-11-21 11:23 PT). Agent A2: prefer these sources; until ERA5/CMEMS accounts exist, use no-signup fallbacks.
 
 ## Bugs
 Format: `- [open|fixed] short title — steps to reproduce — who found / who fixed`
