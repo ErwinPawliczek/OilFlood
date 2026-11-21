@@ -23,6 +23,7 @@ export interface CatalogSpill {
 
 export interface SpillEvent {
   date: string; // YYYY-MM-DD or YYYY-MM
+  date_approx?: boolean;
   note: string;
   src: string; // citation URL
   quote?: string;
@@ -34,6 +35,7 @@ export type ResponseCategory =
 
 export interface ResponseAction {
   date: string; // YYYY-MM-DD or YYYY-MM
+  date_approx?: boolean;
   category: ResponseCategory;
   action: string;
   src: string; // citation URL

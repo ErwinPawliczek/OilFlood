@@ -10,10 +10,27 @@ Two modes:
 Modeling (ML correction, skill scores, response guidance) comes **after** visualization works.
 
 ### Historical spill catalog
-`data/spills/catalog.json`: `[{id, name, date_start, date_end, lat, lon, volume_bbl, oil_type, source_urls, has_observed_outlines}]`, seeded from NOAA IncidentNews for the Gulf of Mexico. Starter set: Deepwater Horizon (2010), Texas City Y (2014), Ixtoc I (1979, if forcing exists), plus 3–5 more Gulf incidents.
+`data/spills/catalog.json`: a JSON array, one record per Gulf spill, seeded from NOAA IncidentNews. Check it with `python3 data/spills/validate_catalog.py`.
+
+Core fields: `id, name, location, date_start, date_end (ISO UTC), lat, lon, volume_bbl, volume_note, oil_type, commodity, release, incidentnews_id, source_urls[], summary, has_observed_outlines, forcing ("hycom_gomb0.04" | null), forcing_window?`.
+
+Response database fields (T13), so models can use past spills as data points:
+- `evolution[]`: where the oil went over time. `{date, date_approx?, note, src, quote?}`.
+- `observed_outlines?`: pointer to time-resolved slick polygons, e.g. DWH `{source, path: "data/spills/dwh/footprints", count, first, last}` (served by `/api/spills/{id}/footprints`).
+- `response[]`: dated responder actions, chronological. `{date, date_approx?, category, action, src, quote?}`.
+  - `category`: one of `notification | assessment | source_control | boom | skimming | dispersant | in_situ_burn | shoreline_cleanup | wildlife | closure | waste | recovery_total | outcome | other`. `closure` covers port, waterway, fishery and area closures and safety zones.
+  - `src` is a citation URL, usually one IncidentNews post (`https://incidentnews.noaa.gov/incident/<incident>/<post>`; PDF updates are attached to that post). `quote` is a short verbatim excerpt from that source that supports the action.
+- `response_summary`: `{outcome, totals: {recovered, dispersant, burned, boom, shoreline_oiled, ...: string|null}, measures: {skimming, shoreline_cleanup, bioremediation, dispersant, in_situ_burn: true|false|null}, measures_source, gaps[]}`.
+  - `null` means the source says nothing. `gaps` lists what the sources don't say.
+
+Rules:
+- `date` is `YYYY-MM-DD` (local calendar date as reported) or `YYYY-MM` when only the month is known.
+- `date_approx: true` marks dates the source does not state exactly (e.g. case-history summaries).
+- Nothing is inferred. If a source does not say it, it stays out of `response` and goes into `gaps`.
 
 ### API contract (Step A)
-- `GET /api/spills` -> historical catalog
+- `GET /api/spills` -> historical catalog (full records incl. `evolution`, `response`, `response_summary`)
+- `GET /api/spills/{id}` -> one catalog record (404 if unknown)
 - `GET /api/spills/{id}/footprints` -> time series of observed outlines (GeoJSON per timestep) if available
 - `GET /api/spills/{id}/tracks` -> hindcast particle tracks (same shape as prediction tracks)
 - `GET /api/currents?start=&end=&bbox=` -> list of timesteps; `GET /api/currents/{t}` -> downsampled u/v grid for the flow layer

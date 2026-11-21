@@ -159,7 +159,7 @@ export function responseHTML(s: CatalogSpill, open: { resp: boolean; evo: boolea
       .map((a) => {
         const [lab, col] = RESPONSE_CATS[a.category] ?? RESPONSE_CATS.other;
         return `<div class="ev" data-t="${eventUnix(a.date)}" title="${escH(a.quote ? `“${a.quote}”` : '')}">
-          <button class="d" title="Jump to ${escH(a.date)}">${shortDate(a.date, y0)}</button>
+          <button class="d" title="Jump to ${escH(a.date)}${a.date_approx ? ' (approximate)' : ''}">${a.date_approx ? '~' : ''}${shortDate(a.date, y0)}</button>
           <i style="--c:${col}">${lab}</i>
           <span>${escH(a.action)} <a href="${escH(a.src)}" target="_blank" rel="noopener" title="${escH(srcLabel(a.src))}">src</a></span></div>`;
       })
@@ -170,7 +170,7 @@ export function responseHTML(s: CatalogSpill, open: { resp: boolean; evo: boolea
   if (evo.length) {
     html += `<details class="resp" data-k="evo" ${open.evo ? 'open' : ''}><summary>Where the oil went <small>${evo.length} notes</small></summary><div class="tl">${evo
       .map((e) => `<div class="ev" data-t="${eventUnix(e.date)}" title="${escH(e.quote ? `“${e.quote}”` : '')}">
-          <button class="d" title="Jump to ${escH(e.date)}">${shortDate(e.date, y0)}</button>
+          <button class="d" title="Jump to ${escH(e.date)}${e.date_approx ? ' (approximate)' : ''}">${e.date_approx ? '~' : ''}${shortDate(e.date, y0)}</button>
           <span>${escH(e.note)} <a href="${escH(e.src)}" target="_blank" rel="noopener" title="${escH(srcLabel(e.src))}">src</a></span></div>`)
       .join('')}</div></details>`;
   }
