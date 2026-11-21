@@ -11,6 +11,43 @@ export interface CatalogSpill {
   oil_type?: string | null;
   source_urls?: string[];
   has_observed_outlines?: boolean;
+  location?: string;
+  volume_note?: string;
+  release?: string;
+  /** dated notes on where the oil went (docs/ARCHITECTURE.md) */
+  evolution?: SpillEvent[];
+  /** dated responder actions, chronological */
+  response?: ResponseAction[];
+  response_summary?: ResponseSummary;
+}
+
+export interface SpillEvent {
+  date: string; // YYYY-MM-DD or YYYY-MM
+  date_approx?: boolean;
+  note: string;
+  src: string; // citation URL
+  quote?: string;
+}
+
+export type ResponseCategory =
+  | 'notification' | 'assessment' | 'source_control' | 'boom' | 'skimming' | 'dispersant' | 'in_situ_burn'
+  | 'shoreline_cleanup' | 'wildlife' | 'closure' | 'waste' | 'recovery_total' | 'outcome' | 'other';
+
+export interface ResponseAction {
+  date: string; // YYYY-MM-DD or YYYY-MM
+  date_approx?: boolean;
+  category: ResponseCategory;
+  action: string;
+  src: string; // citation URL
+  quote?: string;
+}
+
+export interface ResponseSummary {
+  /** IncidentNews measure flags: true used, false not used, null not recorded */
+  measures?: Record<string, boolean | null>;
+  totals?: Record<string, string | null>;
+  outcome?: string;
+  gaps?: string[];
 }
 
 /** Wire format of GET /api/spill/{id}/tracks and /api/spills/{id}/tracks */

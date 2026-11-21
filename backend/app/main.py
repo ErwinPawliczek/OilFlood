@@ -125,7 +125,14 @@ def _spill(spill_id: str) -> dict:
 
 @app.get("/api/spills")
 def get_spills():
+    """Full catalog records, including the evolution notes and `response` log
+    (schema: docs/ARCHITECTURE.md, "Historical spill catalog")."""
     return _catalog()
+
+
+@app.get("/api/spills/{spill_id}")
+def get_spill_record(spill_id: str):
+    return _spill(spill_id)
 
 
 @app.get("/api/spills/{spill_id}/footprints")

@@ -1,6 +1,7 @@
 // The app's single floating window: drag by its header, position + collapsed state kept in localStorage.
 
 import { SPEED_RAMP } from './flow';
+import type { CatalogSpill, ResponseCategory } from './types';
 
 const KEY = 'oilflood.panel.v1';
 
@@ -100,4 +101,78 @@ export function autoRateIdx(durationH: number, targetS = 25) {
 export function rateLabel(h: number) {
   if (h >= 24) { const d = h / 24; return `${Number.isInteger(d) ? d : d.toFixed(1)} days/sec`; }
   return `${h} ${h === 1 ? 'hour' : 'hours'}/sec`;
+}
+
+// ---------------------------------------------------------------- historical response timeline
+
+
+const escH = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** Short label + colour per response category. */
+export const RESPONSE_CATS: Record<ResponseCategory, [string, string]> = {
+  notification: ['report', '#9aa4b2'],
+  assessment: ['assess', '#8fb8ff'],
+  source_control: ['source', '#c79bff'],
+  boom: ['boom', '#ffd166'],
+  skimming: ['skim', '#62d5c0'],
+  dispersant: ['dispers.', '#6fa8ff'],
+  in_situ_burn: ['burn', '#ff7a45'],
+  shoreline_cleanup: ['shore', '#e8b07a'],
+  wildlife: ['wildlife', '#9be37a'],
+  closure: ['closure', '#ff5a64'],
+  waste: ['waste', '#b0a090'],
+  recovery_total: ['totals', '#ffffff'],
+  outcome: ['outcome', '#d0d6e0'],
+  other: ['other', '#9aa4b2'],
+};
+
+/** "YYYY-MM-DD" | "YYYY-MM" -> unix seconds (UTC noon, so it lands inside that day). */
+export function eventUnix(date: string) {
+  const m = /^(\d{4})-(\d{2})(?:-(\d{2}))?/.exec(date);
+  if (!m) return NaN;
+  return Date.UTC(+m[1], +m[2] - 1, m[3] ? +m[3] : 1, 12) / 1000;
+}
+
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+function shortDate(date: string, year0: string) {
+  const m = /^(\d{4})-(\d{2})(?:-(\d{2}))?/.exec(date);
+  if (!m) return escH(date);
+  const md = m[3] ? `${MON[+m[2] - 1]} ${+m[3]}` : MON[+m[2] - 1];
+  return m[1] === year0 ? md : `${md} ’${m[1].slice(2)}`;
+}
+
+const srcLabel = (u: string) => u.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+
+/** Compact, sourced response timeline (+ collapsed oil-movement notes) for a catalog spill.
+ *  Rows carry data-t (unix s) so a click can move the clock there. */
+export function responseHTML(s: CatalogSpill, open: { resp: boolean; evo: boolean }) {
+  const resp = s.response ?? [];
+  const evo = s.evolution ?? [];
+  const sum = s.response_summary;
+  if (!resp.length && !evo.length && !sum) return '';
+  const y0 = s.date_start.slice(0, 4);
+  let html = '';
+  if (resp.length || sum) {
+    html += `<details class="resp" data-k="resp" ${open.resp ? 'open' : ''}><summary>Response log <small>${resp.length} dated actions</small></summary>`;
+    if (sum?.outcome) html += `<div class="resp-out">${escH(sum.outcome)}</div>`;
+    html += `<div class="tl">${resp
+      .map((a) => {
+        const [lab, col] = RESPONSE_CATS[a.category] ?? RESPONSE_CATS.other;
+        return `<div class="ev" data-t="${eventUnix(a.date)}" title="${escH(a.quote ? `“${a.quote}”` : '')}">
+          <button class="d" title="Jump to ${escH(a.date)}${a.date_approx ? ' (approximate)' : ''}">${a.date_approx ? '~' : ''}${shortDate(a.date, y0)}</button>
+          <i style="--c:${col}">${lab}</i>
+          <span>${escH(a.action)} <a href="${escH(a.src)}" target="_blank" rel="noopener" title="${escH(srcLabel(a.src))}">src</a></span></div>`;
+      })
+      .join('')}</div>`;
+    if (sum?.gaps?.length) html += `<div class="gaps"><b>Not in the sources:</b> ${sum.gaps.map(escH).join(' · ')}</div>`;
+    html += `</details>`;
+  }
+  if (evo.length) {
+    html += `<details class="resp" data-k="evo" ${open.evo ? 'open' : ''}><summary>Where the oil went <small>${evo.length} notes</small></summary><div class="tl">${evo
+      .map((e) => `<div class="ev" data-t="${eventUnix(e.date)}" title="${escH(e.quote ? `“${e.quote}”` : '')}">
+          <button class="d" title="Jump to ${escH(e.date)}${e.date_approx ? ' (approximate)' : ''}">${e.date_approx ? '~' : ''}${shortDate(e.date, y0)}</button>
+          <span>${escH(e.note)} <a href="${escH(e.src)}" target="_blank" rel="noopener" title="${escH(srcLabel(e.src))}">src</a></span></div>`)
+      .join('')}</div></details>`;
+  }
+  return html;
 }
