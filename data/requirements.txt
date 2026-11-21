@@ -1,0 +1,12 @@
+# data/ fetch scripts (python >= 3.10)
+xarray
+netCDF4
+numpy
+pandas
+dask
+scipy
+requests
+pyshp
+shapely
+pyproj
+pillow
