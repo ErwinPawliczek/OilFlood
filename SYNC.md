@@ -16,7 +16,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T2 | Data: currents/wind source + historical spill set (e.g. NOAA) | Erwin | in progress (agent A2, branch a2-data) |
 | T3 | Trajectory model (particle drift + AI correction) | Erwin | in progress (agent A1, branch a1-model) |
 | T4 | Backtest on historical spills + metrics | Erwin | todo |
-| T5 | Globe UI: click-to-spill + time playback (Step A); response layer is Step B | Erwin | in progress (agent A3, branch a3-globe) |
+| T5 | Bare globe UI: historical mode (past spills + currents over time) + prediction mode (click-to-spill); response layer later | Erwin | in progress (agent A3, branch a3-globe) |
 | T6 | Demo video (2–3 min) | Erwin | todo |
 | T7 | Devpost write-up + README setup steps | Erwin | todo |
 | T8 | Testing: follow README setup on a clean machine, test every feature, log bugs below | Brother | todo |
@@ -34,6 +34,9 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
 ## Roles
 - Erwin builds everything (T2–T7).
 - Brother does testing and bug fixes (T8–T9).
+
+## Data outline (brother)
+_Waiting on brother's data outline; paste it here or in docs/DATA.md._
 
 ## Bugs
 Format: `- [open|fixed] short title — steps to reproduce — who found / who fixed`
