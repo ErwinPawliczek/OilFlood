@@ -1,0 +1,7 @@
+# pip fallback; conda (environment.yml) is the tested path. Tested with opendrift 1.14.11.
+opendrift>=1.14
+adios_db
+xarray
+netCDF4
+fastapi
+uvicorn[standard]

@@ -5,7 +5,7 @@ import json
 import logging
 import re
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -110,7 +110,7 @@ def get_footprints(spill_id: str):
             continue
         for f in sorted(list(fp.glob("*.geojson")) + list(fp.glob("*.json"))):
             m = re.search(r"(\d{4})-?(\d{2})-?(\d{2})", f.name)
-            t = int(datetime(int(m[1]), int(m[2]), int(m[3])).timestamp()) if m else None
+            t = int(datetime(int(m[1]), int(m[2]), int(m[3]), tzinfo=timezone.utc).timestamp()) if m else None
             out.append({"t": t, "name": f.stem, "geojson": json.loads(f.read_text())})
         break
     return {"id": s.get("id"), "footprints": out}

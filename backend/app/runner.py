@@ -185,7 +185,7 @@ def build_tracks(o, start: datetime, duration: timedelta, step_min: int) -> dict
         if name not in ("active", "stranded", "evaporated"):
             name = "evaporated" if "evapor" in name else "active"
         particles.append({
-            "path": [[round(float(lon[i, j]), 5), round(float(lat[i, j]), 5)] for j in idx],
+            "path": [[round(float(lon[i, j]), 4), round(float(lat[i, j]), 4)] for j in idx],
             "timestamps": [int(sim_times[j]) for j in idx],
             "status_end": name,
         })
