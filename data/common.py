@@ -97,7 +97,8 @@ def to_opendrift(ds: xr.Dataset, rename: dict, kind: str, source: str) -> xr.Dat
         "wind": {"x_wind": "eastward 10 m wind", "y_wind": "northward 10 m wind"},
     }[kind]
     for v, ln in names.items():
-        ds[v] = ds[v].astype("float32")
+        # HYCOM fill (1.27e30) is not always decoded as NaN; mask anything unphysical
+        ds[v] = ds[v].where(np.abs(ds[v]) < 100).astype("float32")
         ds[v].attrs = {"standard_name": v, "long_name": ln, "units": "m s-1"}
     ds.attrs = {"Conventions": "CF-1.6", "title": f"OilFlood {kind} forcing", "source": source,
                 "history": f"{iso(now_utc())} built by OilFlood data/ scripts"}
@@ -124,6 +125,9 @@ def verify(path: Path, kind: str) -> str:
             raise ValueError(f"{path}: missing standard_name {missing}")
         t = ds.time.values
         sp = np.hypot(ds[need[0]].values, ds[need[1]].values)
+        lim = {"current": 5.0, "wind": 80.0}[kind]
+        if not np.isfinite(sp).any() or np.nanmax(sp) > lim:
+            raise ValueError(f"{path}: implausible speeds (max {np.nanmax(sp):.3g} m/s > {lim})")
         return (f"{path.relative_to(DATA)}: {len(t)} steps {str(t[0])[:16]}..{str(t[-1])[:16]} "
                 f"grid {ds.sizes['lat']}x{ds.sizes['lon']} max|v|={np.nanmax(sp):.2f} m/s "
                 f"{path.stat().st_size / 1e6:.1f} MB")
