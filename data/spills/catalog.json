@@ -26,6 +26,972 @@
    "count": 94,
    "first": "2010-05-02",
    "last": "2010-08-25"
+  },
+  "evolution": [
+   {
+    "date": "2010-04-22",
+    "note": "Oil on water at site where rig sank, ~42-52 miles SE of Venice, LA",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526093",
+    "quote": "Response boats work to clean up oil where the Deepwater Horizon oil rig sank April 22, 2010."
+   },
+   {
+    "date": "2010-04-24",
+    "note": "Rainbow sheen 20 x 20 miles, about 25 times larger than a day earlier",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526141",
+    "quote": "The rainbow-colored sheen of oil stretched 20 miles by 20 miles on Saturday — about 25 times larger than it appeared to be a day earlier, Landry said."
+   },
+   {
+    "date": "2010-04-25",
+    "note": "Overflight: spill approximately 31.5 miles from nearest shore",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526195",
+    "quote": "indicating that the spill is approximately 31.5 miles from the nearest shore as of 6:55 a.m., Sunday, April 25, 2010."
+   },
+   {
+    "date": "2010-04-26",
+    "note": "600-mile circumference rainbow sheen with emulsified crude ~36 miles off Louisiana",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526285",
+    "quote": "An overflight on Monday, April 26 at 1:30 PM CST determined there was a 600-mile circumference rainbow sheen with areas of emulsified crude approximately 36 miles offshore the coast of Louisiana."
+   },
+   {
+    "date": "2010-05-01",
+    "note": "Overflight photos: no visible oil at Mississippi River outflow plume and birdsfoot delta (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526522",
+    "quote": "Birdsfoot deltas can be seen at the mouth of the Mississippi. No oil is visible in this photo."
+   },
+   {
+    "date": "2010-05-01",
+    "note": "Flow estimated 5000 bbl/day from three seafloor leaks; persistent SE winds forecast to push surface oil toward shore",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526534",
+    "quote": "National Weather Service forecasts persistent southeast winds through the weekend which will push surface oil towards shore"
+   },
+   {
+    "date": "2010-05-06",
+    "note": "First confirmed shoreline oiling: Chandeleur Islands (La.)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526712",
+    "quote": "NOAA overflights confirmed reports of shoreline oiling in the Chandeleur Islands."
+   },
+   {
+    "date": "2010-05-07",
+    "note": "Emulsified oil found within Breton National Wildlife Refuge",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526800",
+    "quote": "Overflight and shoreline surveys have found emulsified oil within the Breton National Wildlife Refuge."
+   },
+   {
+    "date": "2010-05-07",
+    "note": "Slick generally centered over the leaking well but spreading both west and east",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526800",
+    "quote": "The latest trajectory forecast shows the oil slick generally centered over the leaking well, but spreading both west and east."
+   },
+   {
+    "date": "2010-05-08",
+    "note": "Delta, Breton and Chandeleur Sounds threatened; westward movement with western edge forecast nearing Atchafalaya Bay on Monday",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526903",
+    "quote": "The westerly movement of the oil is expected to continue though the forecast period with the western edge nearing Atchafalaya Bay on Monday."
+   },
+   {
+    "date": "2010-05-12",
+    "note": "Persistent SE winds: oil may threaten Breton Sound and the Mississippi Delta",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527103",
+    "quote": "pose a threat to Breton Sound and the Mississippi Delta."
+   },
+   {
+    "date": "2010-05-15",
+    "note": "Tarballs reported from west of Galveston, Texas to the Florida panhandle; some confirmed from this spill, others not",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527210",
+    "quote": "Tarballs were reported west of Galveston, Texas to the Florida panhandle. Testing already underway has"
+   },
+   {
+    "date": "2010-05-17",
+    "note": "Satellite: main oil dozens of miles from Loop Current, but a tendril of light oil transported close to it; could reach Florida Straits in 8-10 days if entrained",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527343",
+    "quote": "the Loop Current, but that a tendril of light oil has been transported down close to the Loop"
+   },
+   {
+    "date": "2010-05-19",
+    "note": "Small portion of slick reached the Loop Current as light to very light sheens",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527391",
+    "quote": "that NOAA's latest observations indicate that a small portion of the oil slick has reached the Loop"
+   },
+   {
+    "date": "2010-05-23",
+    "note": "Oil moved closer to the Chandeleur Islands (significant oil SE of the islands seen May 22); coastal threat remains high",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527599",
+    "quote": "anticipated, areas of oil moved closer to the Chandeleur Islands today. With winds forecast from the"
+   },
+   {
+    "date": "2010-05-25",
+    "note": "Small portion of oil moving SE entrained in counter-clockwise eddy north of the Loop Current; sheens no longer visible in eddy",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527697",
+    "quote": "being entrained into a counter-clockwise rotating eddy to the north of the Loop Current. Sheens were"
+   },
+   {
+    "date": "2010-05-27",
+    "note": "Mississippi Delta west to Timbalier Bay, Breton Sound and Chandeleur Islands threatened with shoreline contacts",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527789",
+    "quote": "reprieve in new shoreline impacts, but the Mississippi Delta west to Timbalier Bay, Breton Sound and"
+   },
+   {
+    "date": "2010-05-29",
+    "note": "Emulsified oil streamers in SE tendril seen no further south than approx. 28 N; some oil may move north toward MS/AL barrier islands",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527882",
+    "quote": "approximately 28 degrees N, with contiguous, colorless sheens continuing in a narrow band as seen in"
+   },
+   {
+    "date": "2010-06-01",
+    "note": "Subsurface oil plume tracked by R/V Walton Smith extending 8-9 nm WSW of wellhead at 1100-1300 m depth",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528068",
+    "quote": "Tracking subsurface oil plume feature they are describing as extending 8-9 nm WSW of"
+   },
+   {
+    "date": "2010-06-01",
+    "note": "Offshore SE sheens entrained in large clockwise eddy (Eddy Franklin) pinched off the Loop Current; impacts possible near Timbalier Bay and Alabama islands",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528068",
+    "quote": "be entrained in a large clockwise eddy (Eddy Franklin) that has pinched off the main Loop Current."
+   },
+   {
+    "date": "2010-06-02",
+    "note": "Oil moving north/northeast toward MS/AL barrier islands, threatening shorelines as far east as Pensacola, Fla.",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528126",
+    "quote": "could continue over the next few days threatening shorelines as far east as Pensacola, Fla. Threats to"
+   },
+   {
+    "date": "2010-06-02",
+    "note": "Overflight saw one narrow semi-contiguous colorless sheen band approx. 60 miles long SE/ESE of main slick (reported June 3)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528165",
+    "quote": "sheen stretching approximately 60 miles. Trajectories suggest these sheens will continue to be entrained"
+   },
+   {
+    "date": "2010-06-03",
+    "note": "Onshore winds moving oil toward Alabama, Mississippi and as far east as Freeport, Florida",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528165",
+    "quote": "continue moving oil toward shorelines in Alabama, Mississippi, and as far east as Freeport, Florida."
+   },
+   {
+    "date": "2010-06-04",
+    "note": "More oil reported on Grand Isle beach, with oiled animals and debris; oil moving toward LA, MS, AL and Florida panhandle",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528222",
+    "quote": "Alabama, and the panhandle of Florida. More oil was reported on Grand Isle beach, along with oiled"
+   },
+   {
+    "date": "2010-06-05",
+    "note": "Tar balls and small oil patties coming ashore from western Mississippi towards Pensacola",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528288",
+    "quote": "spill perimeter closer to Mississippi-Alabama. Tar balls and small oil patties are coming ashore from"
+   },
+   {
+    "date": "2010-06-07",
+    "note": "Slick moved toward MS/AL barrier islands and east along Florida Panhandle; Loop Current search flight found no sheen or surface oil",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528428",
+    "quote": "the Mississippi and Alabama barrier islands. The westerly component of winds has moved oil east along"
+   },
+   {
+    "date": "2010-06-09",
+    "note": "Research vessel confirmed tarballs mixed with seaweed along NE edge of main Loop Current eddy; limited oiling Horn Island to Pensacola possible",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528643",
+    "quote": "vessel confirmed tarballs mixed in with seaweed along the NE edge of the main LC eddy."
+   },
+   {
+    "date": "2010-06-10",
+    "note": "SE winds moving oil back toward Chandeleur and Breton Sound and the Mississippi Delta; Mississippi Sound west of Pensacola may see oiling",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528689",
+    "quote": "movement of oil towards Chandeleur and Breton Sound and the Mississippi Delta."
+   },
+   {
+    "date": "2010-06-13",
+    "note": "Heavy oil ashore at Orange Beach, Gulf State Park, Bon Secour AL; slick moving north to MS/AL barrier islands and FL Panhandle (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528934",
+    "quote": "Persistent onshore winds have resulted in northward movement of the slick towards the Mississippi/Alabama barrier islands and the Florida Panhandle."
+   },
+   {
+    "date": "2010-06-15",
+    "note": "Sheens/tar balls S-SE of slick may be entrained in Eddy Franklin; no oil on West Florida shelf or Florida Strait",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529052",
+    "quote": "A NESDIS satellite analysis on Saturday night did not report any oil on the West Florida shelf or in the Florida Strait."
+   },
+   {
+    "date": "2010-06-16",
+    "note": "Slick moving NE; oil moving east along FL coast; Dauphin Island AL to Panama City FL threatened; tarballs south of Chandeleurs",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529108",
+    "quote": "Coastal regions between Dauphin Island, Alabama and Panama City, Florida are threatened by shoreline contacts within this forecast period."
+   },
+   {
+    "date": "2010-06-19",
+    "note": "Offshore trajectories suspended: Loop Current pinched off into Eddy Franklin; no recoverable oil in Loop Current",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529327",
+    "quote": "there have been no reports of recoverable oil in the Loop Current or Eddy Franklin, and the oil has moved to the north and away from the Eddy Franklin."
+   },
+   {
+    "date": "2010-06-22",
+    "note": "Westward currents in Mississippi Bight to inhibit eastward spread; Horn Island MS to Panama City FL threatened",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529517",
+    "quote": "Coastal regions between Horn Island, Mississippi and Panama City, Florida are threatened by shoreline contacts within this forecast period."
+   },
+   {
+    "date": "2010-06-26",
+    "note": "Dark brown oil within ~7 mi of Southwest Pass moving west toward Terrebonne Bay; MS/AL and FL Panhandle to Freeport threatened",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529762",
+    "quote": "An overflight today observed dark brown oil south of the Delta (within ~7 miles of Southwest pass) -- westward currents are moving oil from this region west towards Terrebonne Bay."
+   },
+   {
+    "date": "2010-06-28",
+    "note": "Significant oil south of Delta extending to Barataria Bay; may move west to Caillou Bay",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529890",
+    "quote": "An overflight today observed significant amounts of oil south of the Delta extending towards Barataria Bay. Some of this oil may begin moving westward, threatening shorelines as far west as Caillou Bay."
+   },
+   {
+    "date": "2010-06-30",
+    "note": "Oil has not entered the Loop Current",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530013",
+    "quote": "So far, oil from the Deepwater Horizon/BP oil spill has not entered the Loop Current."
+   },
+   {
+    "date": "2010-07-03",
+    "note": "Small tar balls in surf at Crystal Beach, Bolivar Peninsula, Texas confirmed as DWH oil; transport route unclear",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530340",
+    "quote": "Tar balls collected from the Crystal Beach area of the Bolivar Peninsula on Saturday came from the Deepwater Horizon spill, tests have confirmed, but it is unclear how the material got to Texas."
+   },
+   {
+    "date": "2010-07-04",
+    "note": "Light sheens near Horn and Ship Island, none further west; buried oil exposed by erosion at Grand Isle, LA",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530223",
+    "quote": "An overflight today to western Mississippi Sound saw light sheens near Horn and Ship Island, but no oil further to the west."
+   },
+   {
+    "date": "2010-07-05",
+    "note": "Possible small oil patches south of Vermillion Bay, LA; rapid westward transport could bring scattered tarballs to Texas",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530340",
+    "quote": "satellite-based observations on July 5 indicate possible small patches of oil south of Vermillion Bay, LA."
+   },
+   {
+    "date": "2010-07-11",
+    "note": "Oil off Marsh Island, Caillou and Terrebonne Bays moving east; floating patch between Galveston and Sabine Pass threatens TX-LA border",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530654",
+    "quote": "a patch of floating oil observed between Galveston and Sabine Pass is projected to move eastward, threatening the shoreline around the Texas-Louisiana border."
+   },
+   {
+    "date": "2010-07-14",
+    "note": "Oil from source moving south/southeast; very little oil remaining to the north",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530852",
+    "quote": "Remote sensing imagery and overflights indicate that oil from the source is continuing to move to the south/southeast and there is very little oil remaining to the north."
+   },
+   {
+    "date": "2010-07-17",
+    "note": "Remaining surface oil in NE-SW band ~40 miles off the Mississippi Delta, spreading north and west",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531020",
+    "quote": "remaining surface oil is in a northeast-southwest oriented band situated approximately 40 miles off the Mississippi Delta."
+   },
+   {
+    "date": "2010-07-19",
+    "note": "Surface oil moved west toward Delta, not across river convergence line; Delta to Terrebonne Bay and Chandeleurs threatened",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531161",
+    "quote": "Satellite analysis and overflights indicate surface oil has moved west toward the Delta but has not yet crossed the convergence line associated with the Mississippi River outflow."
+   },
+   {
+    "date": "2010-07-21",
+    "note": "Surface oil breaking into patches; first time no surface oil seen near source; leading edge moving NW to Delta",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531271",
+    "quote": "for the first time no surface oil was observed in the vicinity of the source."
+   },
+   {
+    "date": "2010-07-22",
+    "note": "Leading edge moving NW into Breton Sound/Chandeleurs; oil west of Delta collecting in river convergence line, threatening to Caillou Bay",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531326",
+    "quote": "Trajectories indicate the leading edge to the north will continue to move northwestward into Breton Sound and towards the Chandeleur Islands."
+   },
+   {
+    "date": "2010-07-26",
+    "note": "No oil near source; surface oil in smaller scattered patches; Chandeleurs, Breton Sound, Delta to Caillou Bay may be hit",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531492",
+    "quote": "An overflight this afternoon saw no oil in the vicinity of the source."
+   }
+  ],
+  "response": [
+   {
+    "date": "2010-04-20",
+    "category": "notification",
+    "action": "USCG District Eight received report ~10 p.m. of explosion and fire aboard MODU Deepwater Horizon; CG helicopters, planes and cutters responded",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526020",
+    "quote": "Watchstanders at the U.S. Coast Guard District Eight command center here received a report at approximately 10 p.m. Tuesday of an explosion and fire aboard the MODU Deepwater Horizon."
+   },
+   {
+    "date": "2010-04-21",
+    "category": "other",
+    "action": "SAR for 11 missing of 126 aboard; 115 accounted for (17 medevaced, 94 to Port Fourchon); CG establishing safety zone and 5 nm/4,000 ft airspace restriction",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526034",
+    "quote": "The Coast Guard continues the search for 11 missing crewmembers from the mobile offshore drilling unit (MODU) Deepwater Horizon."
+   },
+   {
+    "date": "2010-04-23",
+    "category": "boom",
+    "action": "11,360 ft of containment boom deployed out of 118,258 ft available on standby",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526195",
+    "quote": "As of April 23, 11,360 feet of containment boom has been deployed out of the 118,258 feet available on standby."
+   },
+   {
+    "date": "2010-04-24",
+    "category": "assessment",
+    "action": "USCG discovered oil leaking from the damaged well; officials estimated up to 1,000 barrels/day from ROV data and slick size; bad weather halted cleanup",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526141",
+    "quote": "Coast Guard and company officials estimate that as much as 1,000 barrels of oil is escaping each day after studying information from remotely operated vehicles and the size of the oil slick"
+   },
+   {
+    "date": "2010-04-26",
+    "category": "source_control",
+    "action": "Unified command approved plan to use ROVs to activate the blowout preventer on the sea floor to stop the flow (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526191",
+    "quote": "The unified command has approved a plan that utilizes Remotely Operated Vehicles (ROV) in an effort to activate the blowout preventer on the sea floor and to stop the flow of oil"
+   },
+   {
+    "date": "2010-04-26",
+    "category": "source_control",
+    "action": "Transocean Development Driller III expected on site Monday April 26 to drill relief wells if BOP efforts fail",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526194",
+    "quote": "The drilling unit will be used to drill relief wells in order to stop the flow of oil emanating from the wellhead if efforts to secure the blow off preventor are unsuccessful."
+   },
+   {
+    "date": "2010-04-26",
+    "category": "dispersant",
+    "action": "NOAA overflight observed windrows of emulsified oil sprayed with dispersant",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526253",
+    "quote": "Windrows of emulsified oil (bright orange) sprayed w/dispersant. Photo taken 4/26/2010 as part of an aerial observation overflight."
+   },
+   {
+    "date": "2010-04-27",
+    "category": "boom",
+    "action": "More than 29,280 ft of boom assigned; additional 80,900 ft available and 36,100 ft ordered; >1,000 personnel involved",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526285",
+    "quote": "More than 29,280 feet of boom (barrier) has been assigned to contain the spill. An additional 80,900 feet is available and 36,100 feet has been ordered."
+   },
+   {
+    "date": "2010-04-27",
+    "category": "recovery_total",
+    "action": "1,152 barrels (43,384 gallons) of oil-water mix recovered to date using 49 response vessels (skimmers, tugs, barges, recovery vessels)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526285",
+    "quote": "To date, the oil spill response team has recovered 1,152 barrels (43,384 gallons) of an oil-water mix."
+   },
+   {
+    "date": "2010-04-27",
+    "category": "dispersant",
+    "action": "29,140 gallons of dispersant deployed; additional 119,734 gallons available",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526285",
+    "quote": "29,140 gallons of dispersant have been deployed and an additional 119,734 gallons are available."
+   },
+   {
+    "date": "2010-04-27",
+    "category": "other",
+    "action": "Five staging areas set up to protect shorelines: Biloxi MS, Pensacola FL, Venice LA, Pascagoula MS, Theodore AL",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526285",
+    "quote": "Five staging areas are in place and ready to protect sensitive shorelines. These areas include: Biloxi, Miss., Pensacola, Fla. Venice, La., Pascagoula, Miss. and Theodore, Ala."
+   },
+   {
+    "date": "2010-05",
+    "date_approx": true,
+    "category": "source_control",
+    "action": "Junk shot (debris injected into the blowout preventer) being examined after dome hydrate problem; undated update (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526936",
+    "quote": "A process known as a “junk shot”, in which debris is injected into the blow out preventer, is being examined."
+   },
+   {
+    "date": "2010-05-01",
+    "category": "in_situ_burn",
+    "action": "Vessels towing fire-resistant burn boom in preparation for in-situ burn (photo) (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526507",
+    "quote": "Vessels towing burn boom (fire-resistant boom) in preparation for an in-situ burn."
+   },
+   {
+    "date": "2010-05-01",
+    "category": "skimming",
+    "action": "HOSS barge and MSRC vessels skimming oil offshore (photos) (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526508",
+    "quote": "HOSS (High Volume Open Sea Skimmer System) barge skimming oil."
+   },
+   {
+    "date": "2010-05-01",
+    "category": "dispersant",
+    "action": "NOAA tested a new technique to apply dispersants at the source, 5000 ft below the surface; further tests needed before operational",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526534",
+    "quote": "This afternoon NOAA tested a new technique to apply dispersants to oil at the source - 5000’ below the surface."
+   },
+   {
+    "date": "2010-05-01",
+    "category": "closure",
+    "action": "Louisiana Dept of Wildlife and Fisheries closed recreational and commercial fishing in areas of likely impact; LDHH closed oyster harvest in 2 parishes",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526534",
+    "quote": "The Louisiana Department of Wildlife and Fisheries announced the closure of both recreational and commercial fishing in areas of likely impact"
+   },
+   {
+    "date": "2010-05-02",
+    "category": "closure",
+    "action": "NOAA restricted (closed) fishing in federal waters from the mouth of the Mississippi to Pensacola Bay, for at least 10 days",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526557",
+    "quote": "Today NOAA restricted fishing in federal waters of the Gulf of Mexico threatened by the BP oil spill - from the mouth of the Mississippi to Pensacola Bay"
+   },
+   {
+    "date": "2010-05-02",
+    "category": "source_control",
+    "action": "Drilling of a relief or cut-off well started; expected to take several months to stop the flow",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526557",
+    "quote": "Drilling of a relief or cut-off well started today, but it will take several months to stop the flow."
+   },
+   {
+    "date": "2010-05-04",
+    "category": "source_control",
+    "action": "ROVs cut off a section at the end of the riser pipe and capped it with a valve, stopping one of the three leaks",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526617",
+    "quote": "Remotely Operated Vehicles (ROVs) cut off a section at the end of the riser pipe, which used to lead from the well to the rig, and capped it with a valve."
+   },
+   {
+    "date": "2010-05-04",
+    "category": "in_situ_burn",
+    "action": "With improved weather, skimming, boom placement, aerial dispersant application, in situ burning and overflights all took place",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526617",
+    "quote": "skimming, boom placement, aerial application of dispersants, imaging of the oil plume, in situ burning and observation overflights all took place"
+   },
+   {
+    "date": "2010-05-04",
+    "category": "source_control",
+    "action": "First collection dome (cofferdam-like structure to funnel oil to surface) deployed; expected about a week to be rigged and functional",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526617",
+    "quote": "The first collection dome, a large cofferdam-like structure that collects oil at the sea floor and funnels it for collection at the surface, was deployed today."
+   },
+   {
+    "date": "2010-05-05",
+    "category": "in_situ_burn",
+    "action": "Two in-situ burns conducted; up to 1,000 gallons of oil burned",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526664",
+    "quote": "Two in-situ burns also occurred today, and up to 1,000 gallons of oil were burned."
+   },
+   {
+    "date": "2010-05-06",
+    "category": "in_situ_burn",
+    "action": "Additional in-situ burns conducted; experimental containment dome arrived at the source site",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526712",
+    "quote": "Additional in-situ burns were conducted today. The experimental containment dome arrived at the site of the source."
+   },
+   {
+    "date": "2010-05-07",
+    "category": "recovery_total",
+    "action": "Containment dome lowered to just above sea floor; more than 8,500 responders; approximately 1.89 million gallons of oily liquid recovered",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526800",
+    "quote": "The unified command reports that more than 8,500 responders are working on the incident, and approximately 1.89 million gallons of oily liquid have been recovered."
+   },
+   {
+    "date": "2010-05-07",
+    "category": "closure",
+    "action": "USFWS closed Breton National Wildlife Refuge so cleanup and recovery personnel could work safely",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526800",
+    "quote": "The U.S. Fish and Wildlife Service closed the Refuge today to allow personnel conducting cleanup operations and recovery efforts to work safely and efficiently."
+   },
+   {
+    "date": "2010-05-07",
+    "category": "source_control",
+    "action": "Containment dome positioned over leaking riser overnight but removed after methane hydrate crystals accumulated inside it",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526903",
+    "quote": "The experimental containment dome was successfully positioned over the leaking riser pipe last night, but then had to be removed after a large volume of ice-like methane hydrate crystals accumulated inside of the structure."
+   },
+   {
+    "date": "2010-05-08",
+    "category": "boom",
+    "action": "Over 190,000 feet of boom placed and another 1.3 million feet staged (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526903",
+    "quote": "To date over 190,000 feet of boom have been placed, another 1.3 million feet have been staged"
+   },
+   {
+    "date": "2010-05-08",
+    "category": "recovery_total",
+    "action": "Approximately 2.1 million gallons of oil-water mix recovered and 290,000 gallons of dispersant applied to date (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526903",
+    "quote": "approximately 2.1 million gallons of oil and water mix have been recovered, and 290,000 gallons of dispersant have been applied to the spilled oil."
+   },
+   {
+    "date": "2010-05-10",
+    "category": "source_control",
+    "action": "Alternative to the failed containment dome, a 'top hat', being developed; skimming and in-situ burning halted by weather, aerial dispersant applied",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526984",
+    "quote": "containment dome, an alternative structure is being developed. The alternative is called a “top hat.”"
+   },
+   {
+    "date": "2010-05-10",
+    "category": "recovery_total",
+    "action": "More than 1 million feet of boom deployed; nearly 3.5 million gallons oil-water mix recovered; approx. 325,000 gallons dispersant deployed (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/526984",
+    "quote": "Nearly 3.5 million gallons of an oil-water mix have been recovered."
+   },
+   {
+    "date": "2010-05-11",
+    "category": "closure",
+    "action": "NOAA modified closed area to include federal waters from near Timbalier Island to off Choctawhatchee Bay, leaving more than 93 percent of federal waters open",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527020",
+    "quote": "more than 93 percent of the Gulf’s federal waters open for fishing, and supporting productive fisheries"
+   },
+   {
+    "date": "2010-05-14",
+    "category": "shoreline_cleanup",
+    "action": "SCAT teams surveyed 19 miles of Dauphin Island, Ala. and Jackson County shoreline (minimal tarballs); five more teams sent to Bon Secour NWR to recover tarballs",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527168",
+    "quote": "NOAA Shoreline Cleanup and Assessment Teams (SCAT) surveyed 19 miles of Dauphin Island, Ala., and"
+   },
+   {
+    "date": "2010-05-15",
+    "category": "dispersant",
+    "action": "Undersea dispersant application resumed with continuous testing by BP; aerial dispersant applied, skimming and burning postponed by weather",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527210",
+    "quote": "Undersea dispersant application resumed this morning and BP is doing continuous testing."
+   },
+   {
+    "date": "2010-05-16",
+    "category": "source_control",
+    "action": "Riser Insertion Tube Tool tested and inserted overnight, capturing some oil (stored on Discoverer Enterprise) and flaring gas; re-inserted after dislodging",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527253",
+    "quote": "The Unified Area Command reports that overnight, the Riser Insertion Tube Tool was successfully tested"
+   },
+   {
+    "date": "2010-05-16",
+    "category": "recovery_total",
+    "action": "Approx. 6.3 million gallons oil-water mix recovered; approx. 600,000 gal dispersant; 1.25 million ft containment + 440,000 ft sorbent boom (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527253",
+    "quote": "Approximately 6.3 million gallons of an oil-water mix have been recovered."
+   },
+   {
+    "date": "2010-05-18",
+    "category": "closure",
+    "action": "Fishery closure expanded into northern Loop Current area, effective 6 PM: just over 45,000 square miles, about 19% of Gulf federal waters",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527343",
+    "quote": "closure will be effective at 6 PM this evening and is just over 45,000 square miles, or just about"
+   },
+   {
+    "date": "2010-05-18",
+    "category": "recovery_total",
+    "action": "Total boom deployed more than 1.8 million feet; oily water recovered more than 7.65 million gallon; dispersant used more than 590,000 gallons (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527343",
+    "quote": "Oily water recovered: more than 7.65 million gallon"
+   },
+   {
+    "date": "2010-05-19",
+    "category": "in_situ_burn",
+    "action": "Weather allowed several controlled burns and collection of fairly high concentrations of oil-water mix (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527391",
+    "quote": "controlled burns and collection of fairly high concentrations of oil-water mix. Admiral Landry closed the"
+   },
+   {
+    "date": "2010-05-19",
+    "category": "dispersant",
+    "action": "As of May 19: surface dispersant approx. 600,000 gallons, subsea dispersant approx. 55,000, total approx. 655,000",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527437",
+    "quote": "Subsea dispersant used: approximately 55,000"
+   },
+   {
+    "date": "2010-05-20",
+    "category": "dispersant",
+    "action": "EPA directive required BP to identify and use a less toxic, more effective dispersant from EPA's authorized list",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527437",
+    "quote": "The U.S. Environmental Protection Agency (EPA) issued a directive requiring BP to identify and use a less"
+   },
+   {
+    "date": "2010-05-21",
+    "category": "closure",
+    "action": "Closure adjusted to 48,005 square miles, just under 20% of Gulf EEZ (vs May 18: 45,728 sq mi, about 19%)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527501",
+    "quote": "latest oil spill trajectories. The new closure area measures 48,005 square miles, which is just under 20%"
+   },
+   {
+    "date": "2010-05-25",
+    "category": "closure",
+    "action": "Closure revised effective 6 p.m. EDT May 25 to slightly more than 22 percent of Gulf federal waters (EEZ)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527697",
+    "quote": "closure now encompasses slightly more than 22 percent of the federal waters in the Gulf of Mexico"
+   },
+   {
+    "date": "2010-05-26",
+    "category": "wildlife",
+    "action": "First stranded oiled wildlife noted: one dead Kemp's ridley with external oil; one of 24 dead dolphins with external oil, found on an oiled beach (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527789",
+    "quote": "One of the turtles, a Kemp's ridley turtle, that stranded dead has had visible evidence of external oil. All"
+   },
+   {
+    "date": "2010-05-27",
+    "category": "assessment",
+    "action": "Flow Rate Technical Group initial estimate of leak rate: 12,000 to 19,000 barrels per day",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527789",
+    "quote": "The flow rate technical team has completed its initial analysis and has estimated the leak rate at 12,000"
+   },
+   {
+    "date": "2010-05-28",
+    "category": "source_control",
+    "action": "Initial 'top kill' efforts unsuccessful; BP restarted top kill in the afternoon",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527838",
+    "quote": "BP's efforts to kill the well continue. The initial efforts have been unsuccessful, but BP restarted the"
+   },
+   {
+    "date": "2010-05-28",
+    "category": "closure",
+    "action": "Closure revised effective 6 p.m. EDT May 28 to approximately 25 percent of Gulf federal waters",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527838",
+    "quote": "The closure now encompasses approximately 25 percent of the federal waters in the Gulf of"
+   },
+   {
+    "date": "2010-05-29",
+    "category": "source_control",
+    "action": "BP conceded top kill (three days of drilling fluids and debris) failed; next approach is LMRP cap, cutting riser and placing a cap, 4-7 days",
+    "src": "https://incidentnews.noaa.gov/incident/8220/527882",
+    "quote": "After three days of trying to kill the well with drilling fluids and debris, BP has conceded that the effort"
+   },
+   {
+    "date": "2010-06-01",
+    "category": "closure",
+    "action": "Closure revised effective 6 p.m. EDT June 1 to slightly more than 31 percent of Gulf EEZ",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528068",
+    "quote": "The closure now encompasses slightly more than 31 percent of the Gulf of Mexico exclusive"
+   },
+   {
+    "date": "2010-06-01",
+    "category": "source_control",
+    "action": "BP completed first cut through riser with diamond bladed saw; on June 2 saw stuck during second cut",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528126",
+    "quote": "a diamond bladed saw, BP managed to successfully complete one cut through the riser pipe. Today,"
+   },
+   {
+    "date": "2010-06-01",
+    "category": "wildlife",
+    "action": "On-water surveys captured 10 heavily oiled young turtles 40 miles offshore; 277 turtles verified Apr 30-Jun 1, 40 in rehab",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528126",
+    "quote": "partners working under the Unified Command captured 10 heavily oiled young turtles (8 Kemp's"
+   },
+   {
+    "date": "2010-06-02",
+    "category": "closure",
+    "action": "Closure revised to approximately 37 percent of Gulf EEZ; 2,637 sq mi area at western boundary south of Louisiana reopened",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528126",
+    "quote": "The closure now encompasses approximately 37 percent of the Gulf of Mexico exclusive"
+   },
+   {
+    "date": "2010-06-03",
+    "category": "source_control",
+    "action": "'Top Hat' placed overnight appears successful; pumping gas and oil to the surface",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528222",
+    "quote": "The BP attempt to place the “Top Hat” last night appears successful and they have begun pumping gas"
+   },
+   {
+    "date": "2010-06-05",
+    "category": "closure",
+    "action": "NOAA added 565 square miles at NE edge (toward Panama City Beach); total closure 78,603 sq mi, about 33% of federal waters",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528288",
+    "quote": "On Saturday, NOAA added 565 square miles to the fishing closed area; the change takes effect at 6 p.m."
+   },
+   {
+    "date": "2010-06-07",
+    "category": "source_control",
+    "action": "Top Hat collecting approximately 10,000-11,000 bbls/day, only a portion of the leak",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528428",
+    "quote": "days ago. The assembly is collecting approximately 10,000-11,000 bbls/day. This is only a portion of the"
+   },
+   {
+    "date": "2010-06-07",
+    "category": "closure",
+    "action": "Closure modified: reopened 430 sq mi of the 565 sq mi closed June 5; total about 32% of Gulf EEZ",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528428",
+    "quote": "closure opens up 430 sq mi of the 565 sq mi area closed on June 5 based on trajectory data. The total"
+   },
+   {
+    "date": "2010-06-08",
+    "category": "in_situ_burn",
+    "action": "Skimmers recovered nearly 15.86 million gallons oily water; nearly 3.58 million gallons oil burned in 131 in-situ burns (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528556",
+    "quote": "nearly 15.86 million gallons of oily water, and nearly 3.58 million gallons of oil have been burned in 131"
+   },
+   {
+    "date": "2010-06-08",
+    "category": "boom",
+    "action": "Responders have deployed more than 4.80 million feet of sorbent and containment boom (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528556",
+    "quote": "in-situ burns. In addition, responders have deployed more than 4.80 million feet of sorbent and"
+   },
+   {
+    "date": "2010-06-10",
+    "category": "source_control",
+    "action": "Top hat oil collection reached 17,000 barrels/day",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528689",
+    "quote": "is improving, with oil collection reaching 17,000 barrels/day today. The transfer of crude oil from the"
+   },
+   {
+    "date": "2010-06-10",
+    "category": "skimming",
+    "action": "Almost 3,600 vessels in response; skimming has recovered in total approximately 383,000 barrels (16.1 million gallons) of oily liquid",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528689",
+    "quote": "approximately 383,000 barrels (16.1 million gallons) of oily liquid."
+   },
+   {
+    "date": "2010-06-10",
+    "category": "wildlife",
+    "action": "351 sea turtles verified Apr 30-Jun 10 (42 with visible oil, 34 captured on-water); 39 stranded dolphins (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528767",
+    "quote": "A total of 351 sea turtles have been verified from April 30 to June 10 within the designated spill area"
+   },
+   {
+    "date": "2010-06-11",
+    "category": "source_control",
+    "action": "Top hat collection leveled at ~15,400 barrels/day; BP plans Q4000 BOP-port riser to collect and burn 5,000-10,000 more barrels/day",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528767",
+    "quote": "procedure. The operation is expected to collect 5,000-10,000 additional barrels of oil per day, which will"
+   },
+   {
+    "date": "2010-06-12",
+    "category": "wildlife",
+    "action": "387 sea turtles verified Apr 30-Jun 12; on-water rescue captured 3 heavily oiled turtles; 52 turtles in rehab; 41 stranded dolphins",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528934",
+    "quote": "A total of 387 sea turtles have been verified from April 30 to June 12 within the designated spill area from the Texas/Louisiana border to Apalachicola, Florida."
+   },
+   {
+    "date": "2010-06-13",
+    "category": "shoreline_cleanup",
+    "action": "Heavy oil ashore in Alabama; UC increased skimming and beach cleanup, preparing 24-hour operations; more than 400 skimmers deployed (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528934",
+    "quote": "the Unified Command has increased skimming and beach cleanup activities and is preparing to move to 24-hour cleanup and skimming operations. More than 400 skimmers are currently deployed"
+   },
+   {
+    "date": "2010-06-13",
+    "category": "skimming",
+    "action": "ICP Mobile skimming collected >240,500 gallons of oil-water mix as far as 50 miles out; Current Buster and Big Gulp skimmers deployed offshore (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/528934",
+    "quote": "Skimming operations directed by ICP Mobile have collected more than 240,500 gallons of oil-water mix from the Gulf as far out as 50 miles."
+   },
+   {
+    "date": "2010-06-16",
+    "category": "source_control",
+    "action": "Second containment system via BOP ports to Q4000 (flared) began; LMRP cap continues collecting ~15,000 bbl/day",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529108",
+    "quote": "BP succeeded today in collecting oil and gas through a second containment system attached to the Deepwater Horizon failed blow out preventer (BOP)."
+   },
+   {
+    "date": "2010-06-16",
+    "category": "in_situ_burn",
+    "action": "Over 200 in-situ burns of nearly 5.20 million gallons of oil conducted to date (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529108",
+    "quote": "There have been over 200 in-situ burns of nearly 5.20 million gallons of oil."
+   },
+   {
+    "date": "2010-06-16",
+    "category": "recovery_total",
+    "action": "Over 5,000 vessels and 95 aircraft deployed; over 400 skimmers collected more than 21.1 million gallons of oily water (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529108",
+    "quote": "Over 5,000 response vessels and 95 aircraft are deployed, and over 400 skimmers have collected more than 21.1 million gallons of oily water."
+   },
+   {
+    "date": "2010-06-16",
+    "category": "shoreline_cleanup",
+    "action": "SCAT teams supporting shoreline cleanup in LA, AL, MS and FL; dispersants still being released and boom staged (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529108",
+    "quote": "Dispersants continue to be released and boom staged. Shoreline Cleanup and Assessment Technique (SCAT) teams are supporting cleanup of shorelines in Louisiana, Alabama, Mississippi, and Florida."
+   },
+   {
+    "date": "2010-06-16",
+    "category": "closure",
+    "action": "NOAA modified fishing closure: 80,806 sq mi (209,286 sq km), about 33% of Gulf EEZ",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529108",
+    "quote": "The closure measures 80,806 sq mi (209,286 sq km), or about 33% of the Gulf of Mexico exclusive economic zone."
+   },
+   {
+    "date": "2010-06-21",
+    "category": "closure",
+    "action": "Closure expanded to 86,985 sq mi (225,290 sq km), about 36% of Gulf EEZ; all fishing prohibited, transit allowed",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529432",
+    "quote": "The closure measures 86,985 sq mi (225,290 sq km) and covers about 36% of the Gulf of Mexico exclusive economic zone."
+   },
+   {
+    "date": "2010-06-22",
+    "category": "source_control",
+    "action": "Record 25,836 barrels recovered at source in last 24 hours via Discoverer Enterprise and Q4000 (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529517",
+    "quote": "In the last 24 hours 25,836 barrels of petroleum was recovered, a new daily record."
+   },
+   {
+    "date": "2010-06-22",
+    "category": "in_situ_burn",
+    "action": "275 controlled burns conducted to date removing more than 9.32 million gallons of oil (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529517",
+    "quote": "In total, 275 burns have been conducted to remove more than 9.32 million gallons of oil from the water."
+   },
+   {
+    "date": "2010-06-23",
+    "category": "source_control",
+    "action": "LMRP containment cap removed after liquid discharge from diverter valve on Discoverer Enterprise; Q4000 choke-line capture continued",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529581",
+    "quote": "the LMRP containment cap system, which is attached to the Discover Enterprise, was removed to ensure the safety of operations and allow the unexpected release of liquids to be analyzed."
+   },
+   {
+    "date": "2010-06-23",
+    "category": "boom",
+    "action": "Severe weather may halt burns, dispersant flights and booming; protective boom in place along many miles of Louisiana coast",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529581",
+    "quote": "These efforts include controlled burns, dispersant flights, and booming operations. Source efforts and some skimming vessels may be operating as long as conditions do not exceed their operating limits. Protective boom is in place"
+   },
+   {
+    "date": "2010-06-23",
+    "category": "closure",
+    "action": "NOAA reopened >8,000 sq mi where no oil observed; closed area now 78,597 sq mi (~32.5% of Gulf federal waters)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529581",
+    "quote": "The closed area now represents 78,597 square miles, which is approximately 32.5 percent of Gulf of Mexico federal waters."
+   },
+   {
+    "date": "2010-06-26",
+    "category": "wildlife",
+    "action": "Wildlife Branch implementing sea turtle nest collection/hatchling release plan: translocating ~700 nests from FL Panhandle and AL beaches",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529762",
+    "quote": "involves translocation of an anticipated 700 nests in an effort to prevent the loss of the entire cohort of hatchlings."
+   },
+   {
+    "date": "2010-06-27",
+    "category": "source_control",
+    "action": "First free standing riser installed for Helix Producer; DD III relief well ~16,400 ft (11,100 ft below sea floor); DD II >12,000 ft; ranging continues",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529843",
+    "quote": "BP has finished installing the first free standing riser, which has greater survivability than a fixed riser and will be connected to a third vessel arriving at the site"
+   },
+   {
+    "date": "2010-06-28",
+    "category": "assessment",
+    "action": "NRDA: over three dozen field teams daily; >1,200 linear miles of shoreline surveyed and ~8,300 samples collected (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529890",
+    "quote": "More than 1,200 linear miles of shoreline have been surveyed and nearly 8,300 NRDA samples have been collected to date."
+   },
+   {
+    "date": "2010-06-28",
+    "category": "closure",
+    "action": "Closure boundary moved east to Cape San Blas; closed area 80,228 sq mi (~33.2% of Gulf federal waters)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/529890",
+    "quote": "The closed area now represents 80,228 square miles, which is approximately 33.2 percent of Gulf of Mexico federal waters."
+   },
+   {
+    "date": "2010-07-04",
+    "category": "shoreline_cleanup",
+    "action": "LA crews checking and repairing damaged/stranded boom in 5 parishes after heavy weather from June 27; Grand Isle plan to collect and wash oiled sand (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530223",
+    "quote": "Reports of damaged and stranded boom have been received from Plaquemines, Terrebonne, Iberia, Jefferson and Lafourche parishes. Crews are beginning a systematic effort to repair any boom that has been damaged."
+   },
+   {
+    "date": "2010-07-04",
+    "category": "closure",
+    "action": "Closure modified to 81,181 sq mi (210,259 sq km), about 34% of Gulf EEZ",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530223",
+    "quote": "The new closure measures 81,181 square miles (210,259 square kilometers) and covers about 34% of the Gulf of Mexico exclusive economic zone."
+   },
+   {
+    "date": "2010-07-05",
+    "category": "skimming",
+    "action": "Heavy Oil Recovery Devices (HORD) built at 8-10 units/day in Pensacola and Bayou La Batre; up to 1,000 units expected (reported)",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530282",
+    "quote": "Up to 1,000 units are expected to be manufactured and put into service in the coming weeks."
+   },
+   {
+    "date": "2010-07-10",
+    "category": "source_control",
+    "action": "After NIC approval BP began capping stack procedure; Helix Producer to raise collection capacity to est. 53,000 bbl/day",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530598",
+    "quote": "After receiving approval from National Incident Commander Admiral Thad Allen, BP began its “capping stack” procedure—designed to capture even greater quantities of oil than the current “top hat” system."
+   },
+   {
+    "date": "2010-07-10",
+    "category": "skimming",
+    "action": "Skimmers massed at well site skimmed est. 25,500 bbl oily water, doubling prior day; 46 skimmers at site, fleet >570; 15 controlled burns",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530654",
+    "quote": "The skimmers were able to skim an estimated 25,500 barrels of oily water Saturday, doubling the amount collected the previous day."
+   },
+   {
+    "date": "2010-07-13",
+    "category": "closure",
+    "action": "Closure modified to 83,927 sq mi (217,371 sq km), about 35% of Gulf EEZ",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530795",
+    "quote": "The new closure measures 83,927 square miles (217,371 square kilometers) and covers about 35% of the Gulf of Mexico exclusive economic zone."
+   },
+   {
+    "date": "2010-07-15",
+    "category": "source_control",
+    "action": "Well integrity test under way; science team analyzing data and seismic mapping; may return to containment collecting up to 80,000 bbl/day",
+    "src": "https://incidentnews.noaa.gov/incident/8220/530928",
+    "quote": "It remains likely that we will return to the containment process using this new stacking cap connected to the risers to attempt to collect up to 80,000 barrels of oil per day"
+   },
+   {
+    "date": "2010-07-17",
+    "category": "recovery_total",
+    "action": "\"A Whale\" not deployed; ~33 million gallons oil-water mix recovered and 387 burns removing 11 million gallons; 593 skimmers, >6,800 vessels",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531020",
+    "quote": "Nearly 33 million gallons of an oil-water mix have been recovered and 387 controlled burns have been conducted, efficiently removing an additional 11 million gallons of oil from the open water"
+   },
+   {
+    "date": "2010-07-18",
+    "category": "source_control",
+    "action": "Well integrity test extended in 24-hour increments with added monitoring; no oil currently being released into the Gulf",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531094",
+    "quote": "While we are pleased that no oil is currently being released into the Gulf of Mexico and want to take all appropriate action to keep it that way"
+   },
+   {
+    "date": "2010-07-22",
+    "category": "other",
+    "action": "Tropical Storm Bonnie: vessels and relief-well rig moved off site, well kill suspended, shut-in continued; skimmers staged for restart",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531326",
+    "quote": "many of the vessels and rigs will be preparing to move out of harm's way beginning tonight. This includes the rig drilling the relief well that will ultimately kill the well"
+   },
+   {
+    "date": "2010-07-22",
+    "category": "closure",
+    "action": "NOAA reopened 26,388 sq mi (a third of closed area) to fishing under FDA/state reopening protocol",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531358",
+    "quote": "NOAA re-opened 26,388 square miles of Gulf waters to commercial and recreational fishing on Thursday"
+   },
+   {
+    "date": "2010-07-23",
+    "category": "source_control",
+    "action": "Wellhead pressure 6,891 psi, rising 14 psi/24h, indicating integrity; static (hydrostatic top) kill planned after casing/cement",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531419",
+    "quote": "As of last night at midnight, we had 6,891 pounds per square inch pressure. This was an increase of 14 pounds per square inch over the last 24 hour time period"
+   },
+   {
+    "date": "2010-07-25",
+    "category": "source_control",
+    "action": "DD II and DD III returned to well site to resume relief wells (17,864 ft and 15,963 ft below surface); recon flights for displaced oil/boom",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531458",
+    "quote": "Development Driller II and Development Driller III have returned to the well site and are making preparations to resume drilling the relief wells."
+   },
+   {
+    "date": "2010-07-25",
+    "category": "wildlife",
+    "action": "720 sea turtles verified Apr 30-Jul 25; 460 hatchlings released in FL from moved nests; 209 turtles in rehab; 69 stranded dolphins",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531492",
+    "quote": "Four hundred and sixty hatchling turtles were released in Florida from nests that were moved from the northern Gulf of Mexico. There are 209 live sea turtles in rehabilitation centers."
+   },
+   {
+    "date": "2010-07-27",
+    "category": "outcome",
+    "action": "NOAA posted its final situation update; readers referred to online trajectory maps and NMFS closure page",
+    "src": "https://incidentnews.noaa.gov/incident/8220/531557",
+    "quote": "is the final update of NOAA's support activities for the Deepwater Horizon (Mississippi Canyon 252) BP oil spill incident."
+   }
+  ],
+  "response_summary": {
+   "outcome": "87-day subsea blowout. Source control went from a containment dome (failed, hydrates 5/7) to a riser tube, top kill (failed 5/29), top hat/LMRP cap (6/3) and a capping stack (7/10); integrity test from 7/15, no oil released as of 7/18. Offshore: 400-593 skimmers, 387 burns, surface + subsea dispersant. Fishery closure peaked near 37% of the Gulf EEZ. Oil came ashore from Louisiana to the Florida Panhandle; tarballs reached Texas.",
+   "totals": {
+    "recovered": "~33 million gal oil-water mix skimmed (as of 2010-07-17); record 25,836 bbl/day collected at the source (2010-06-22)",
+    "dispersant": "~655,000 gal by 2010-05-19 (~600,000 surface + ~55,000 subsea); no later totals in IncidentNews",
+    "burned": "387 controlled burns removing ~11 million gal (as of 2010-07-17)",
+    "boom": ">4.80 million ft sorbent + containment boom deployed (as of 2010-06-08)",
+    "fishery_closure": "peak ~37% of Gulf EEZ (2010-06-02); 86,985 sq mi on 2010-06-21; 26,388 sq mi reopened 2010-07-22",
+    "shoreline_oiled": null
+   },
+   "measures": {
+    "skimming": true,
+    "shoreline_cleanup": true,
+    "bioremediation": true,
+    "dispersant": true,
+    "in_situ_burn": true
+   },
+   "measures_source": "NOAA IncidentNews incidents.csv measure_* flags (true used, false not used, null not recorded)",
+   "gaps": [
+    "no miles of shoreline oiled (the NRDA >1,200 mi figure is miles surveyed)",
+    "no dispersant totals after 2010-05-19; no cumulative subsea total",
+    "no bird counts (wildlife figures cover sea turtles and dolphins)",
+    "IncidentNews posts end 2010-07-27: no static kill / relief-well kill date and no demobilization",
+    "no waste volumes; recovered figures are oily water, not net oil",
+    "Louisiana mainland first-landfall date not stated (Chandeleur Is. 5/6, Grand Isle by 6/4, Alabama heavy oil by 6/13)"
+   ]
   }
  },
  {
