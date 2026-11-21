@@ -85,9 +85,18 @@ def to_opendrift(ds: xr.Dataset, rename: dict, kind: str, source: str) -> xr.Dat
     ds = ds.drop_vars(drop, errors="ignore")
     if float(ds.lon.max()) > 180:
         ds = ds.assign_coords(lon=((ds.lon + 180) % 360) - 180)
+    # HYCOM NCSS times carry float32 jitter (e.g. 01:01:52 for 01:00); snap to 15 min
+    ds = ds.assign_coords(time=ds.time.dt.round("15min"))
     ds = ds.sortby("lon").sortby("lat").sortby("time")
     _, idx = np.unique(ds.time.values, return_index=True)
     ds = ds.isel(time=np.sort(idx))
+    # OpenDrift's generic reader needs constant grid spacing; HYCOM GOM latitudes are
+    # Mercator-spaced, so resample onto a uniform axis with the mean spacing.
+    for c in ("lat", "lon"):
+        d = np.diff(ds[c].values)
+        if len(d) > 1 and (d.max() - d.min()) > 1e-4 * abs(d.mean()):
+            n = len(ds[c])
+            ds = ds.interp({c: np.linspace(float(ds[c][0]), float(ds[c][-1]), n)})
     ds["lon"].attrs = {"standard_name": "longitude", "units": "degrees_east", "axis": "X"}
     ds["lat"].attrs = {"standard_name": "latitude", "units": "degrees_north", "axis": "Y"}
     ds["time"].attrs = {"standard_name": "time", "axis": "T"}
@@ -97,7 +106,8 @@ def to_opendrift(ds: xr.Dataset, rename: dict, kind: str, source: str) -> xr.Dat
         "wind": {"x_wind": "eastward 10 m wind", "y_wind": "northward 10 m wind"},
     }[kind]
     for v, ln in names.items():
-        ds[v] = ds[v].astype("float32")
+        # HYCOM fill (1.27e30) is not always decoded as NaN; mask anything unphysical
+        ds[v] = ds[v].where(np.abs(ds[v]) < 100).astype("float32")
         ds[v].attrs = {"standard_name": v, "long_name": ln, "units": "m s-1"}
     ds.attrs = {"Conventions": "CF-1.6", "title": f"OilFlood {kind} forcing", "source": source,
                 "history": f"{iso(now_utc())} built by OilFlood data/ scripts"}
@@ -106,7 +116,9 @@ def to_opendrift(ds: xr.Dataset, rename: dict, kind: str, source: str) -> xr.Dat
 
 def write_nc(ds: xr.Dataset, dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    enc = {v: {"zlib": True, "complevel": 4, "_FillValue": np.float32(np.nan)} for v in ds.data_vars}
+    # keep 3 decimals (mm/s for currents, cm/s-ish for winds): much better compression
+    enc = {v: {"zlib": True, "complevel": 4, "_FillValue": np.float32(np.nan), "least_significant_digit": 3}
+           for v in ds.data_vars}
     enc["time"] = {"units": "seconds since 1970-01-01 00:00:00", "calendar": "standard", "dtype": "float64"}
     tmp = dest.with_name(dest.name + ".tmp")
     ds.load().to_netcdf(tmp, encoding=enc)
@@ -124,6 +136,9 @@ def verify(path: Path, kind: str) -> str:
             raise ValueError(f"{path}: missing standard_name {missing}")
         t = ds.time.values
         sp = np.hypot(ds[need[0]].values, ds[need[1]].values)
+        lim = {"current": 5.0, "wind": 80.0}[kind]
+        if not np.isfinite(sp).any() or np.nanmax(sp) > lim:
+            raise ValueError(f"{path}: implausible speeds (max {np.nanmax(sp):.3g} m/s > {lim})")
         return (f"{path.relative_to(DATA)}: {len(t)} steps {str(t[0])[:16]}..{str(t[-1])[:16]} "
                 f"grid {ds.sizes['lat']}x{ds.sizes['lon']} max|v|={np.nanmax(sp):.2f} m/s "
                 f"{path.stat().st_size / 1e6:.1f} MB")
