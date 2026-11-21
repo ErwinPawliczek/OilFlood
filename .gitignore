@@ -6,3 +6,8 @@ __pycache__/
 node_modules/
 data/raw/
 .DS_Store
+data/cache/
+web/node_modules/
+web/dist/
+backend/.venv/
+backend/runs/

@@ -1,5 +1,20 @@
 # OilFlood architecture
 
+## Scope now: Step A (modeling + visual)
+Click anywhere on the ocean -> a spill appears -> watch it spread over 0–72 h on a clean floating 3D globe (zoom from whole Earth down to the Galveston coast). Response-guidance layer is **Step B, later**.
+
+### API contract (Step A)
+- `POST /api/spill` body `{lat, lon, start_time (ISO, optional, default now-ish/cached window), duration_h (default 72), volume_m3 (default 500), oil_type (default "IFO 380"), n_particles (default 2000)}` -> `{id, status}`
+- `GET /api/spill/{id}` -> `{id, status: queued|running|done|error, progress, error?}`
+- `GET /api/spill/{id}/tracks` -> JSON `{times: [unix_s...], particles: [{path: [[lon,lat],...], timestamps:[...], status_end: "active"|"stranded"|"evaporated"}...], budget: [{t, surface, evaporated, dispersed, stranded}...]}` (Arrow later if size is a problem)
+- `GET /api/fields/currents?t=` -> u/v grid (JSON or PNG texture) for the flow layer (stretch goal)
+- Frontend dev server proxies `/api` to the backend on port 5200. Production: FastAPI serves the built frontend from `web/dist` on port 5200; Cloudflare tunnel oilflood.xyz -> http://127.0.0.1:5200.
+
+### Repo layout
+- `backend/` FastAPI app + OpenDrift runner (`backend/app/`, `backend/requirements.txt`)
+- `data/` forcing download/cache scripts (`data/fetch_*.py`); cached files in `data/cache/` (gitignored)
+- `web/` Vite + TypeScript frontend
+
 Goal: smooth, GPU-rendered 3D playback of an oil spill forecast (24/48/72 h) over the Gulf of Mexico off Houston/Galveston, plus a responder brief.
 
 ## Flow
@@ -14,7 +29,7 @@ Responder sets spill (location, time, volume, oil type)
 ```
 
 ## Frontend
-- **MapLibre GL** basemap: tilted 3D view, terrain/bathymetry, free tiles.
+- **MapLibre GL v5 globe projection**: floating 3D globe on a dark space background, smooth zoom from planet to coast; free tiles (OpenFreeMap / Esri ocean basemap), no API key.
 - **deck.gl** layers:
   - `TripsLayer`: animated oil particles over time (60 fps, thousands of particles).
   - `HeatmapLayer` / contours: slick density / thickness.
@@ -32,5 +47,5 @@ Responder sets spill (location, time, volume, oil type)
 - Cache results on disk keyed by scenario hash.
 
 ## Not using
-- CesiumJS: full globe, heavier and slower to build.
+- CesiumJS: heavier and slower to build; MapLibre globe + deck.gl is enough.
 - Three.js: would have to rebuild map plumbing.
