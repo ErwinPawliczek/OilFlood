@@ -65,11 +65,20 @@ def list_times(start=None, end=None, bbox=None) -> dict:
     bb = _bbox(bbox)
     t0, t1 = _parse(start), _parse(end)
     ts = set()
+    kinds = set()
     for path, mt in _current_files(bb):
+        n = len(ts)
         for t in _times(path, mt):
             if (t0 is None or t >= t0) and (t1 is None or t <= t1):
                 ts.add(t)
-    return {"bbox": list(bb), "times": sorted(ts)}
+        if len(ts) > n:
+            kinds.add("/forcing/live/" in path.replace("\\", "/"))
+    out = {"bbox": list(bb), "times": sorted(ts)}
+    if kinds == {True}:  # flow layer label: the live forecast model (RTOFS or ESPC), not the Gulf reanalysis
+        lf = forcing.live_forecast()
+        if lf:
+            out["source"] = f"{lf['currents']['model']} forecast"
+    return out
 
 
 def field_at(t: int, bbox=None, step: float = 0.1) -> dict | None:

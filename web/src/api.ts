@@ -106,20 +106,61 @@ export async function getFootprints(s: CatalogSpill): Promise<Footprint[]> {
 // ---------- prediction ----------
 export interface SpillJob {
   id: string;
+  status?: string;
   lat: number; lon: number;
   /** where the backend actually seeded (may be snapped to the nearest model water) */
   seedLat?: number; seedLon?: number;
 }
 
-export const PRED = { durationH: 72, volumeM3: 500, oilType: 'IFO 380', nParticles: 2000 };
+/** Prediction release settings (set in the panel; amount in barrels, oil = id from GET /api/oils). */
+export const PRED = { durationH: 72, volumeBbl: 1000, oilId: 'crude_medium', nParticles: 2000 };
 
-export async function postSpill(lat: number, lon: number): Promise<SpillJob> {
+export interface OilOption { id: string; label: string; adios: string }
+export async function getOils(): Promise<{ default: string; oils: OilOption[] }> {
+  return getJSON('/api/oils');
+}
+
+export interface ForecastPart { model: string; issued_at: string | null; valid_from: string; valid_until: string; source?: string }
+/** GET /api/live: the live forecast every prediction runs on. */
+export interface LiveForecast {
+  available: boolean;
+  currents: ForecastPart;
+  winds: ForecastPart;
+  valid_from: string;
+  valid_until: string;
+  updated_at?: string;
+  hours_available: number;
+  short_by_h: number;
+  stale: boolean;
+  note?: string;
+}
+export async function getLive(): Promise<LiveForecast> {
+  const r = await fetch('/api/live').catch(() => null);
+  if (!r) throw new ApiError('Backend unreachable. Is the server running?');
+  const body = await r.json().catch(() => null);
+  if (!body) throw new ApiError(`${r.status} /api/live`, r.status);
+  if (r.status === 503) throw new ApiError(body.note || 'No live forecast on the server', 503);
+  return body as LiveForecast;
+}
+
+/** What the backend accepted for a run (POST /api/spill and GET /api/spill/{id}). */
+export interface RunSummary {
+  duration_h?: number;
+  requested_duration_h?: number;
+  volume_bbl?: number;
+  oil_type?: string;
+  truncated?: boolean;
+  note?: string;
+  forecast?: { currents: ForecastPart; winds: ForecastPart; valid_from: string; valid_until: string };
+}
+
+export async function postSpill(lat: number, lon: number): Promise<SpillJob & RunSummary> {
   const r = await getJSON<any>('/api/spill', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ lat, lon, duration_h: PRED.durationH, volume_m3: PRED.volumeM3, oil_type: PRED.oilType, n_particles: PRED.nParticles }),
+    body: JSON.stringify({ lat, lon, duration_h: PRED.durationH, volume_bbl: PRED.volumeBbl, oil_type: PRED.oilId, n_particles: PRED.nParticles }),
   });
-  return { id: String(r.id), lat, lon };
+  return { ...r, id: String(r.id), lat, lon };
 }
 
 export async function pollSpill(job: SpillJob): Promise<{ status: string; progress: number; error?: string }> {
@@ -227,7 +268,7 @@ export async function getCurrents(startUnix: number, endUnix: number, bbox: BBox
       bbox,
       t0: steps[0].t,
       t1: steps[steps.length - 1].t,
-      source: 'HYCOM Gulf of Mexico (1/25°)',
+      source: typeof r.source === 'string' ? r.source : 'HYCOM Gulf of Mexico (1/25°)',
       prefetch(t) { const k = idxAt(t); load(k); load(k + 1); load(k + 2); },
       sample(lon, lat, t) {
         if (t < steps[0].t - tol || t > steps[steps.length - 1].t + tol) return null; // no real data for this time

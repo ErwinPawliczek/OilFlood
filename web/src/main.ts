@@ -5,8 +5,8 @@ import { MapboxOverlay } from '@deck.gl/mapbox';
 import { ScatterplotLayer } from '@deck.gl/layers';
 import type { Layer } from '@deck.gl/core';
 import {
-  getCatalog, getHistoricalTracks, getFootprints, getCurrents, postSpill, pollSpill, getSpillTracks,
-  toUnix, PRED, GULF_BBOX, type CurrentsSource, type SpillJob,
+  getCatalog, getHistoricalTracks, getFootprints, getCurrents, postSpill, pollSpill, getSpillTracks, getLive, getOils,
+  toUnix, PRED, GULF_BBOX, type CurrentsSource, type SpillJob, type LiveForecast, type OilOption, type RunSummary,
 } from './api';
 import { FlowField } from './flow';
 import { getGlobalCurrents, type GlobalCurrents } from './globalCurrents';
@@ -105,7 +105,11 @@ const state = {
   selected: null as CatalogSpill | null,
   hist: emptyScene(nowHour(), 72),
   pred: emptyScene(nowHour(), PRED.durationH),
-  job: null as (SpillJob & { status: string; progress: number; error?: string }) | null,
+  job: null as (SpillJob & RunSummary & { status: string; progress: number; error?: string }) | null,
+  /** GET /api/live: the forecast predictions run on */
+  live: null as LiveForecast | null,
+  liveError: null as string | null,
+  oils: [] as OilOption[],
   jobToken: 0,
   tH: 0,
   playing: false,
@@ -195,6 +199,7 @@ ui.innerHTML = `
         <button data-mode="historical">Historical</button>
         <button data-mode="prediction">Prediction</button>
       </div>
+      <div id="predform"></div>
       <div id="content"></div>
       <div class="sec time">
         <div class="clock"><b id="clock-utc"></b><span id="clock-local"></span></div>
@@ -226,7 +231,7 @@ $('slower').addEventListener('click', () => { state.rateIdx = Math.max(0, state.
 $('faster').addEventListener('click', () => { state.rateIdx = Math.min(RATES_H.length - 1, state.rateIdx + 1); renderTime(true); });
 slider.addEventListener('input', () => { state.tH = (Number(slider.value) / 1000) * scene().durationH; state.playing = false; renderTime(true); });
 addEventListener('keydown', (e) => {
-  if (e.code === 'Space' && !(e.target instanceof HTMLInputElement && e.target.type === 'text')) { e.preventDefault(); togglePlay(); }
+  if (e.code === 'Space' && !(e.target instanceof HTMLElement && e.target.closest('input[type=text], input[type=number], select'))) { e.preventDefault(); togglePlay(); }
 });
 content.addEventListener('click', (e) => {
   const b = (e.target as HTMLElement).closest<HTMLButtonElement>('.spills button');
@@ -371,9 +376,10 @@ function renderContent() {
   } else {
     const j = state.job;
     if (!j) {
-      html += `<div class="hint">Click the ocean (Gulf of Mexico) to release ${PRED.volumeM3} m³ of ${esc(PRED.oilType)} and forecast its drift with the live HYCOM currents + GFS winds.</div>`;
+      html += `<div class="hint">Click the ocean (Gulf of Mexico) to release ${fmtBbl(PRED.volumeBbl)} of ${esc(oilLabel(PRED.oilId).toLowerCase())} now and forecast its drift with the live forecast above.</div>`;
     } else {
-      html += `<div class="sec"><h2>Spill prediction</h2><div class="sub">${j.lat.toFixed(3)}°, ${j.lon.toFixed(3)}° · ${PRED.volumeM3} m³ ${esc(PRED.oilType)}</div>`;
+      html += `<div class="sec"><h2>Spill prediction</h2><div class="sub">${j.lat.toFixed(3)}°, ${j.lon.toFixed(3)}°${j.volume_bbl ? ` · ${fmtBbl(j.volume_bbl)}` : ''}${j.oil_type ? ` · ${esc(j.oil_type)}` : ''}</div>`;
+      if (j.note) html += `<div class="warn">${esc(j.note)}</div>`;
       if (j.status !== 'done') {
         html += j.status === 'error'
           ? `<div class="err">${esc(j.error || 'Run failed')}</div>`
@@ -382,7 +388,8 @@ function renderContent() {
       } else if (s.tracks) {
         const m = s.tracks.meta ?? {};
         html += `<div class="kv" style="margin-top:6px"><span>Start</span><span>${fmtUTC(s.tracks.t0)}</span>
-          <span>Horizon</span><span>${Math.round(s.tracks.durationH)} h${m.requested_duration_h && m.requested_duration_h > s.tracks.durationH + 0.5 ? ' (live forecast ends then)' : ''}</span>
+          <span>Horizon</span><span>${Math.round(s.tracks.durationH)} h${m.requested_duration_h && m.requested_duration_h > s.tracks.durationH + 0.5 ? ` of ${Math.round(m.requested_duration_h)} h (forecast ends)` : ''}</span>
+          ${m.forecast ? `<span>Forcing</span><span>${esc(shortModel(m.forecast.currents?.model).split(' ')[0])} ${fmtRun(m.forecast.currents?.issued_at)} · ${esc(shortModel(m.forecast.winds?.model).split(' ')[0])} ${fmtRun(m.forecast.winds?.issued_at)}</span>` : ''}
           <span>Particles</span><span>${s.tracks.particles.length}</span></div>`;
         if (m.seed_moved_km > 0) html += `<div class="hint" style="margin-top:4px">Seeded ${m.seed_moved_km} km away, at the nearest model water cell.</div>`;
       }
@@ -396,6 +403,74 @@ function renderContent() {
   renderDyn();
 }
 
+// ---------------------------------------------------------------- prediction settings + live forecast
+const PRED_KEY = 'oilflood.pred.v1';
+const fmtBbl = (b: number) => `${Number(b).toLocaleString(undefined, { maximumFractionDigits: 1 })} bbl`;
+const oilLabel = (id: string) => state.oils.find((o) => o.id === id)?.label ?? id;
+const shortModel = (m?: string) => (m ?? '').replace(/^NOAA |^NCEP |^HYCOM /, '').replace(/ global/, '');
+const fmtIso = (s?: string | null) => (s ? fmtUTC(Date.parse(s.endsWith('Z') ? s : s + 'Z') / 1000).replace(/^\d{4}-/, '') : '?');
+const fmtRun = (s?: string | null) => (s ? fmtIso(s).replace(/:00 UTC$/, 'z') : '');
+
+function renderForecast() {
+  const el = document.getElementById('p-fc');
+  if (!el) return;
+  const L = state.live;
+  if (!L) { el.innerHTML = state.liveError ? `<div class="err">${esc(state.liveError)}</div>` : '<div class="hint">Loading live forecast…</div>'; return; }
+  el.innerHTML = `<div class="label" style="margin:8px 0 4px">Live forecast</div>
+    <div class="kv">
+      <span>Currents</span><span>${esc(shortModel(L.currents.model))} · issued ${fmtIso(L.currents.issued_at)}</span>
+      <span>Winds</span><span>${esc(shortModel(L.winds.model))} · issued ${fmtIso(L.winds.issued_at)}</span>
+      <span>Valid until</span><span>${fmtIso(L.valid_until)} <small class="hint">(${Math.round(L.hours_available)} h from now)</small></span>
+    </div>${L.note ? `<div class="${L.stale ? 'err' : 'warn'}">${esc(L.note)}</div>` : ''}`;
+}
+
+async function refreshLive() {
+  try {
+    state.live = await getLive();
+    state.liveError = null;
+  } catch (e) {
+    state.live = null;
+    state.liveError = (e as Error).message;
+  }
+  renderForecast();
+}
+
+async function initPredForm() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PRED_KEY) || 'null');
+    if (saved && saved.volumeBbl > 0) PRED.volumeBbl = saved.volumeBbl;
+    if (saved?.oilId) PRED.oilId = saved.oilId;
+  } catch { /* ignore */ }
+  try {
+    const r = await getOils();
+    state.oils = r.oils;
+    if (!state.oils.some((o) => o.id === PRED.oilId)) PRED.oilId = r.default;
+  } catch (e) {
+    state.liveError = `Oil list: ${(e as Error).message}`;
+  }
+  const f = $('predform');
+  f.innerHTML = `<div class="sec pform">
+    <div class="frow"><label for="p-amt">Amount</label><input id="p-amt" type="number" min="1" max="10000000" step="any" value="${PRED.volumeBbl}" /><span class="unit">bbl</span></div>
+    <div class="frow"><label for="p-oil">Oil type</label><select id="p-oil">${state.oils
+      .map((o) => `<option value="${esc(o.id)}" ${o.id === PRED.oilId ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select></div>
+    <div id="p-fc"></div>
+  </div>`;
+  const amt = $('p-amt') as HTMLInputElement, oil = $('p-oil') as HTMLSelectElement;
+  const save = () => {
+    const v = Number(amt.value);
+    amt.classList.toggle('bad', !(v > 0 && v <= 1e7));
+    if (v > 0 && v <= 1e7) PRED.volumeBbl = v;
+    PRED.oilId = oil.value;
+    try { localStorage.setItem(PRED_KEY, JSON.stringify({ volumeBbl: PRED.volumeBbl, oilId: PRED.oilId })); } catch { /* private mode */ }
+    if (!state.job) renderContent();
+  };
+  amt.addEventListener('input', save);
+  oil.addEventListener('change', save);
+  renderForecast();
+  refreshLive();
+  setInterval(refreshLive, 10 * 60 * 1000);
+}
+
 // ---------------------------------------------------------------- modes / data
 function setMode(m: Mode) {
   state.mode = m;
@@ -403,6 +478,7 @@ function setMode(m: Mode) {
   state.playing = false;
   state.tH = 0;
   map.getCanvas().style.cursor = m === 'prediction' ? 'crosshair' : '';
+  $('predform').style.display = m === 'prediction' ? '' : 'none';
   const s = scene();
   state.rateIdx = autoRateIdx(s.durationH);
   loadCurrents(s);
@@ -485,6 +561,7 @@ async function startSpill(lon: number, lat: number) {
     const job = await postSpill(lat, lon);
     if (token !== state.jobToken) return;
     state.job = { ...job, status: 'queued', progress: 0 };
+    if (job.forecast && state.live && job.forecast.valid_until !== state.live.valid_until) refreshLive();
     for (;;) {
       const st = await pollSpill(job);
       if (token !== state.jobToken) return;
@@ -619,6 +696,7 @@ map.on('load', async () => {
   } catch (e) {
     state.catalogError = (e as Error).message;
   }
+  initPredForm();
   const q = new URLSearchParams(location.search);
   setMode(q.get('mode') === 'prediction' ? 'prediction' : 'historical');
   const pick = q.get('spill') && state.catalog.find((c) => c.id === q.get('spill'));

@@ -65,6 +65,13 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .hint { color: var(--muted); font-size: 12px; }
 .progress { height: 4px; background: rgba(255, 255, 255, 0.08); border-radius: 4px; overflow: hidden; margin-top: 6px; }
 .progress > div { height: 100%; background: var(--accent); transition: width 0.3s; }
+.warn { color: #ffd38a; font-size: 12px; margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: rgba(255, 181, 71, 0.08); border: 1px solid rgba(255, 181, 71, 0.22); }
+.pform .frow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.pform label { color: var(--muted); font-size: 12px; width: 62px; flex: none; }
+.pform input, .pform select { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; color: var(--text); background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); border-radius: 7px; padding: 4px 7px; }
+.pform select option { background: #0c1424; }
+.pform input.bad { border-color: rgba(255, 90, 100, 0.6); }
+.pform .unit { color: var(--muted); font-size: 12px; }
 .err { color: #ff8f99; font-size: 12px; margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: rgba(255, 90, 100, 0.1); border: 1px solid rgba(255, 90, 100, 0.22); }
 .notes { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
 .note { font-size: 11.5px; color: #ffd59a; padding: 4px 8px; border-radius: 7px; background: rgba(255, 181, 71, 0.08); border: 1px solid rgba(255, 181, 71, 0.18); }
