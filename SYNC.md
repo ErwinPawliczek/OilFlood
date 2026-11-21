@@ -21,12 +21,14 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T7 | Devpost write-up + README setup steps | Erwin | todo |
 | T8 | Testing: follow README setup on a clean machine, test every feature, log bugs below | Brother | todo |
 | T10 | Global ocean currents layer (RTOFS live + HYCOM global historical), Gulf HYCOM on top | Erwin | in progress (agent A4, branch a4-global) |
+| T11 | Real data only (remove mocks/fallbacks) + single draggable UI panel with date/time + days/sec row | Erwin | in progress (agent A5, branch a5-ui) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-21 Erwin: merged a1/a2/a3 into main; claimed T11 (real data + one draggable panel), agent A5 on branch a5-ui.
 - 2026-11-21 Erwin: claimed T10 (global currents, requested by brother), agent A4 on branch a4-global.
 - 2026-11-21 Erwin: skeleton pushed.
 - 2026-11-21 Erwin: docs/ARCHITECTURE.md (deck.gl + MapLibre frontend, FastAPI + OpenDrift + ML correction backend).
