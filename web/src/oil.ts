@@ -108,10 +108,15 @@ export class OilView {
   }
 }
 
-/** Latest footprint at or before t (unix s); hidden before the first. */
-export function footprintLayer(fps: Footprint[], tUnix: number) {
+/** Latest footprint at or before t (unix s); hidden before the first and once it is older than maxAgeS. */
+export function footprintAt(fps: Footprint[], tUnix: number, maxAgeS = 36 * 3600): Footprint | null {
   let cur: Footprint | null = null;
   for (const f of fps) { if (f.t <= tUnix) cur = f; else break; }
+  return cur && tUnix - cur.t <= maxAgeS ? cur : null;
+}
+
+export function footprintLayer(fps: Footprint[], tUnix: number) {
+  const cur = footprintAt(fps, tUnix);
   return new GeoJsonLayer({
     id: 'footprint',
     data: cur ? cur.geojson : { type: 'FeatureCollection', features: [] },

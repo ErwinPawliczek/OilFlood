@@ -15,7 +15,6 @@ interface Tex { t: number; w: number; h: number; px: Uint8ClampedArray }
 export interface GlobalCurrents extends CurrentsSource {
   times: number[];
   gulfBox: BBox;
-  source: string;
 }
 
 const GULF: BBox = { minLon: -98, minLat: 18, maxLon: -80, maxLat: 31 };
@@ -53,7 +52,6 @@ function sampleTex(tx: Tex, vmax: number, lon: number, lat: number): [number, nu
 
 /** Global currents for [startUnix, endUnix] (padded a day each side); null if the backend has none. */
 export async function getGlobalCurrents(startUnix: number, endUnix: number, maskGulf: () => boolean): Promise<GlobalCurrents | null> {
-  if (new URLSearchParams(location.search).has('mock')) return null;
   const iso = (t: number) => new Date(t * 1000).toISOString().slice(0, 19) + 'Z';
   let r: any;
   try {
@@ -95,6 +93,7 @@ export async function getGlobalCurrents(startUnix: number, endUnix: number, mask
     return lo;
   };
   let lastGood: Tex | null = null;
+  const tol = times.length > 1 ? Math.min(12 * 3600, (times[times.length - 1] - times[0]) / (times.length - 1)) : 6 * 3600;
   const inGulf = (lon: number, lat: number) => {
     const L = ((lon + 540) % 360) - 180;
     return L >= gulfBox.minLon && L <= gulfBox.maxLon && lat >= gulfBox.minLat && lat <= gulfBox.maxLat;
@@ -112,13 +111,15 @@ export async function getGlobalCurrents(startUnix: number, endUnix: number, mask
   };
 
   return {
-    mock: false,
     bbox: { minLon: -180, minLat: -80, maxLon: 180, maxLat: 89 },
     times,
+    t0: times[0],
+    t1: times[times.length - 1],
     gulfBox,
     source: (r.windows ?? []).map((w: any) => w.source).join('; '),
     prefetch(t) { const k = idxAt(t); load(k); load(k + 1); load(k + 2); },
     sample(lon, lat, t) {
+      if (t < times[0] - tol || t > times[times.length - 1] + tol) return null; // no real data for this time
       if (maskGulf() && inGulf(lon, lat)) return null;
       prep(t);
       if (!ta) return null;

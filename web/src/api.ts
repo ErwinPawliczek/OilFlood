@@ -1,37 +1,26 @@
-// Backend client with automatic mock fallback.
-// ?mock=1 forces mock everywhere; otherwise any call whose backend is unreachable falls back to mock
-// and is reported via onMock so the UI can label it.
+// Backend client. Everything shown comes from the backend's real cached data; there is no
+// client-side synthetic fallback. Failures surface as ApiError with the backend's message.
 
-import { MOCK_CATALOG, mockTracks, mockHistoricalTracks, mockFootprints, mockCurrent } from './mock';
-import { MOCK_BBOX } from './geo';
 import type { CatalogSpill, TracksPayload, Tracks, Footprint, CurrentGrid, BudgetRow } from './types';
 
-const qs = new URLSearchParams(location.search);
-export const FORCE_MOCK = qs.has('mock') && qs.get('mock') !== '0';
-
-const mockParts = new Set<string>();
-let mockListener: (parts: string[]) => void = () => {};
-export function onMock(fn: (parts: string[]) => void) { mockListener = fn; fn([...mockParts]); }
-function markMock(part: string) { mockParts.add(part); mockListener([...mockParts]); }
-function markReal(part: string) { if (mockParts.delete(part)) mockListener([...mockParts]); }
-
-class BackendDown extends Error {}
+export class ApiError extends Error {
+  constructor(msg: string, public status = 0) { super(msg); }
+}
 
 async function getJSON<T = any>(url: string, init?: RequestInit): Promise<T> {
-  if (FORCE_MOCK) throw new BackendDown('mock forced');
   let r: Response;
   try {
     r = await fetch(url, init);
-  } catch (e) {
-    throw new BackendDown(String(e));
+  } catch {
+    throw new ApiError('Backend unreachable. Is the server running?');
   }
   const ct = r.headers.get('content-type') || '';
-  // Vite proxy returns 5xx/HTML when the backend is down; treat 404 as "endpoint not implemented yet".
-  if (r.status === 404 || r.status === 502 || r.status === 503 || r.status === 504 || !ct.includes('json')) {
-    throw new BackendDown(`${r.status} ${url}`);
-  }
+  if (!ct.includes('json')) throw new ApiError(r.status >= 500 ? 'Backend unreachable. Is the server running?' : `${r.status} ${url}`, r.status);
   const body = await r.json();
-  if (!r.ok) throw new Error(body?.detail ? String(body.detail) : `${r.status} ${url}`);
+  if (!r.ok && r.status !== 202 && r.status !== 409) {
+    const d = body?.detail;
+    throw new ApiError(typeof d === 'string' ? d : `${r.status} ${url}`, r.status);
+  }
   return body as T;
 }
 
@@ -67,52 +56,30 @@ export function normalizeTracks(p: TracksPayload): Tracks {
     const k = tot > 1.001 ? 1 / tot : 1;
     return { t: (toUnix(b.t) - t0) / 3600, surface: (b.surface || 0) * k, evaporated: (b.evaporated || 0) * k, dispersed: (b.dispersed || 0) * k, stranded: (b.stranded || 0) * k };
   });
-  return { t0, durationH: Math.max(1, (tEnd - t0) / 3600), particles, budget };
+  return { t0, durationH: Math.max(1, (tEnd - t0) / 3600), particles, budget, meta: (p as any).meta };
 }
 
 // ---------- historical ----------
 export async function getCatalog(): Promise<CatalogSpill[]> {
-  try {
-    const r = await getJSON<any>('/api/spills');
-    const list: CatalogSpill[] = Array.isArray(r) ? r : r.spills ?? r.items ?? [];
-    if (!list.length) throw new BackendDown('empty catalog');
-    markReal('catalog');
-    return list;
-  } catch (e) {
-    if (!(e instanceof BackendDown)) console.warn(e);
-    markMock('catalog');
-    return MOCK_CATALOG;
-  }
+  const r = await getJSON<any>('/api/spills');
+  return Array.isArray(r) ? r : r.spills ?? r.items ?? [];
 }
 
-const mockHistCache = new Map<string, TracksPayload>();
-function mockHist(s: CatalogSpill) {
-  let t = mockHistCache.get(s.id);
-  if (!t) { t = mockHistoricalTracks(s); mockHistCache.set(s.id, t); }
-  return t;
-}
-
-/** Hindcast tracks. The backend may answer 202 {id, status, progress} while the run computes; we poll until done. */
+/** Hindcast tracks. The backend answers 202 {id, status, progress} while the run computes; we poll until done.
+ *  Returns null if superseded; throws ApiError (with the backend's message) on failure. */
 export async function getHistoricalTracks(s: CatalogSpill, onProgress: (p: number) => void = () => {}, isStale = () => false): Promise<Tracks | null> {
   const url = `/api/spills/${encodeURIComponent(s.id)}/tracks`;
-  try {
-    let r = await getJSON<any>(url);
-    while (!r.particles && r.id && r.status) {
-      if (r.status === 'error') { console.warn('hindcast failed', r.error); return null; }
-      if (isStale()) return null;
-      onProgress(Number(r.progress ?? 0));
-      await new Promise((res) => setTimeout(res, 1000));
-      const st = await getJSON<any>(`/api/spill/${encodeURIComponent(r.id)}`);
-      if (st.status === 'done') r = await getJSON<any>(url);
-      else r = { ...st, id: st.id ?? r.id };
-    }
-    markReal('hindcast tracks');
-    return normalizeTracks(r as TracksPayload);
-  } catch (e) {
-    if (!(e instanceof BackendDown)) { console.warn(e); return null; }
-    markMock('hindcast tracks');
-    return normalizeTracks(mockHist(s));
+  let r = await getJSON<any>(url);
+  while (!r.particles && r.id && r.status) {
+    if (r.status === 'error') throw new ApiError(r.error || 'Hindcast failed');
+    if (isStale()) return null;
+    onProgress(Number(r.progress ?? 0));
+    await new Promise((res) => setTimeout(res, 1000));
+    const st = await getJSON<any>(`/api/spill/${encodeURIComponent(r.id)}`);
+    if (st.status === 'done') r = await getJSON<any>(url);
+    else r = { ...st, id: st.id ?? r.id };
   }
+  return normalizeTracks(r as TracksPayload);
 }
 
 /** Accepts FeatureCollection with properties.time|t|date, an array of {t|time, geojson|geometry|feature}, or {times, features}. */
@@ -133,47 +100,29 @@ export function normalizeFootprints(r: any): Footprint[] {
 
 export async function getFootprints(s: CatalogSpill): Promise<Footprint[]> {
   if (!s.has_observed_outlines) return [];
-  try {
-    const r = await getJSON<any>(`/api/spills/${encodeURIComponent(s.id)}/footprints`);
-    markReal('observed outlines');
-    return normalizeFootprints(r);
-  } catch (e) {
-    if (!(e instanceof BackendDown)) { console.warn(e); return []; }
-    markMock('observed outlines');
-    return mockFootprints(mockHist(s));
-  }
+  return normalizeFootprints(await getJSON<any>(`/api/spills/${encodeURIComponent(s.id)}/footprints`));
 }
 
 // ---------- prediction ----------
 export interface SpillJob {
   id: string;
-  mock: boolean;
   lat: number; lon: number;
+  /** where the backend actually seeded (may be snapped to the nearest model water) */
+  seedLat?: number; seedLon?: number;
 }
+
+export const PRED = { durationH: 72, volumeM3: 500, oilType: 'IFO 380', nParticles: 2000 };
 
 export async function postSpill(lat: number, lon: number): Promise<SpillJob> {
-  try {
-    const r = await getJSON<any>('/api/spill', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ lat, lon, duration_h: 72, volume_m3: 500, oil_type: 'IFO 380', n_particles: 2000 }),
-    });
-    markReal('prediction run');
-    return { id: String(r.id), mock: false, lat, lon };
-  } catch (e) {
-    if (!(e instanceof BackendDown)) throw e;
-    markMock('prediction run');
-    return { id: `mock-${Date.now()}`, mock: true, lat, lon };
-  }
+  const r = await getJSON<any>('/api/spill', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ lat, lon, duration_h: PRED.durationH, volume_m3: PRED.volumeM3, oil_type: PRED.oilType, n_particles: PRED.nParticles }),
+  });
+  return { id: String(r.id), lat, lon };
 }
 
-const mockJobStart = new Map<string, number>();
 export async function pollSpill(job: SpillJob): Promise<{ status: string; progress: number; error?: string }> {
-  if (job.mock) {
-    const s = mockJobStart.get(job.id) ?? (mockJobStart.set(job.id, performance.now()), performance.now());
-    const p = Math.min(1, (performance.now() - s) / 1600);
-    return { status: p >= 1 ? 'done' : 'running', progress: p };
-  }
   const r = await getJSON<any>(`/api/spill/${encodeURIComponent(job.id)}`);
   let progress = Number(r.progress ?? 0);
   if (progress > 1) progress /= 100;
@@ -181,10 +130,6 @@ export async function pollSpill(job: SpillJob): Promise<{ status: string; progre
 }
 
 export async function getSpillTracks(job: SpillJob): Promise<Tracks> {
-  if (job.mock) {
-    const now = Math.floor(Date.now() / 3600000) * 3600;
-    return normalizeTracks(mockTracks({ lat: job.lat, lon: job.lon, startUnix: now, durationH: 72 }));
-  }
   return normalizeTracks(await getJSON<TracksPayload>(`/api/spill/${encodeURIComponent(job.id)}/tracks`));
 }
 
@@ -217,15 +162,17 @@ export function parseGrid(r: any, tFallback: number): CurrentGrid {
 }
 
 export interface CurrentsSource {
-  mock: boolean;
+  /** unix s span of the real fields; sample() returns null outside it (plus a half-step tolerance) */
+  t0: number;
+  t1: number;
+  /** human-readable data source */
+  source: string;
   bbox: BBox;
   /** current (m/s) at unix time t; null for land / outside */
   sample(lon: number, lat: number, t: number): [number, number] | null;
-  /** prefetch grids around t (no-op for mock) */
+  /** prefetch grids around t */
   prefetch(t: number): void;
 }
-
-const MOCK_SOURCE: CurrentsSource = { mock: true, bbox: MOCK_BBOX, sample: mockCurrent, prefetch() {} };
 
 function sampleGrid(g: CurrentGrid, lon: number, lat: number): [number, number] | null {
   const x = (lon - g.lon0) / g.dlon, y = (lat - g.lat0) / g.dlat;
@@ -242,26 +189,28 @@ function sampleGrid(g: CurrentGrid, lon: number, lat: number): [number, number] 
   ];
 }
 
-/** Loads the list of timesteps for a window and lazily fetches grids; falls back to the analytic mock field. */
-export async function getCurrents(startUnix: number, endUnix: number, bbox: BBox = MOCK_BBOX): Promise<CurrentsSource> {
-  try {
+export const GULF_BBOX: BBox = { minLon: -98, minLat: 18, maxLon: -80, maxLat: 31 };
+
+/** Real cached Gulf HYCOM currents for [start, end]: lists timesteps, lazily fetches grids.
+ *  Returns null when the backend has no cached currents for that window. */
+export async function getCurrents(startUnix: number, endUnix: number, bbox: BBox = GULF_BBOX): Promise<CurrentsSource | null> {
+  {
     const iso = (t: number) => new Date(t * 1000).toISOString().slice(0, 19) + 'Z';
     const b = `${bbox.minLon},${bbox.minLat},${bbox.maxLon},${bbox.maxLat}`;
-    const r = await getJSON<any>(`/api/currents?start=${iso(startUnix)}&end=${iso(endUnix)}&bbox=${b}`);
+    const r = await getJSON<any>(`/api/currents?layer=gulf&start=${iso(startUnix)}&end=${iso(endUnix)}&bbox=${b}`);
     const raw: any[] = Array.isArray(r) ? r : r.times ?? r.timesteps ?? [];
     const steps = raw.map((x) => {
       const key = typeof x === 'object' ? x.t ?? x.time ?? x.id : x;
       return { key: String(key), t: toUnix(key) };
     }).filter((s) => Number.isFinite(s.t)).sort((a, b) => a.t - b.t);
-    if (!steps.length) throw new BackendDown('no current timesteps');
+    if (!steps.length) return null;
     if (Array.isArray(r.bbox) && r.bbox.length === 4) bbox = { minLon: r.bbox[0], minLat: r.bbox[1], maxLon: r.bbox[2], maxLat: r.bbox[3] };
-    markReal('currents');
     const grids = new Map<string, CurrentGrid | 'loading' | 'error'>();
     const load = (k: number) => {
       const s = steps[k];
       if (!s || grids.has(s.key)) return;
       grids.set(s.key, 'loading');
-      getJSON<any>(`/api/currents/${encodeURIComponent(s.key)}`)
+      getJSON<any>(`/api/currents/${encodeURIComponent(s.key)}?layer=gulf`)
         .then((g) => grids.set(s.key, parseGrid(g, s.t)))
         .catch((e) => { console.warn('current grid', s.key, e); grids.set(s.key, 'error'); });
     };
@@ -273,11 +222,15 @@ export async function getCurrents(startUnix: number, endUnix: number, bbox: BBox
       return lo;
     };
     let lastGood: CurrentGrid | null = null;
+    const tol = steps.length > 1 ? Math.min(6 * 3600, (steps[steps.length - 1].t - steps[0].t) / (steps.length - 1)) : 3 * 3600;
     const src: CurrentsSource = {
-      mock: false,
       bbox,
+      t0: steps[0].t,
+      t1: steps[steps.length - 1].t,
+      source: 'HYCOM Gulf of Mexico (1/25°)',
       prefetch(t) { const k = idxAt(t); load(k); load(k + 1); load(k + 2); },
       sample(lon, lat, t) {
+        if (t < steps[0].t - tol || t > steps[steps.length - 1].t + tol) return null; // no real data for this time
         const k = idxAt(t);
         const a = grids.get(steps[k].key), b = steps[k + 1] && grids.get(steps[k + 1].key);
         const ga = typeof a === 'object' ? a : null, gb = typeof b === 'object' ? b : null;
@@ -295,9 +248,5 @@ export async function getCurrents(startUnix: number, endUnix: number, bbox: BBox
     // grid bbox from first grid once loaded
     load(0);
     return src;
-  } catch (e) {
-    if (!(e instanceof BackendDown)) console.warn(e);
-    markMock('currents');
-    return MOCK_SOURCE;
   }
 }
