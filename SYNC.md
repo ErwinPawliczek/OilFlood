@@ -14,7 +14,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 |----|------|-------|--------|
 | T1 | Repo skeleton, README, SYNC.md | Erwin | done |
 | T2 | Data: currents/wind source + historical spill set (e.g. NOAA) | Erwin | in progress (agent A2, branch a2-data) |
-| T3 | Trajectory model (particle drift + AI correction) | Erwin | in progress (agent A1, branch a1-model) |
+| T3 | Trajectory model (particle drift + AI correction) | Erwin | physics backend done (agent A1, branch a1-model); ML correction todo |
 | T4 | Backtest on historical spills + metrics | Erwin | todo |
 | T5 | Bare globe UI: historical mode (past spills + currents over time) + prediction mode (click-to-spill); response layer later | Erwin | in progress (agent A3, branch a3-globe) |
 | T6 | Demo video (2–3 min) | Erwin | todo |
@@ -30,17 +30,20 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
 - 2026-11-21 Erwin: docs/ARCHITECTURE.md (deck.gl + MapLibre frontend, FastAPI + OpenDrift + ML correction backend).
 - 2026-11-21 Erwin: roles set (Erwin builds, brother tests + fixes bugs), claimed T2.
 - 2026-11-21 Erwin: docs/RESEARCH.md oil spill modeling research
+- 2026-11-21 A1 (branch a1-model): `backend/` FastAPI on :5200 with OpenDrift 1.14.11 OpenOil (conda env `oilflood`, see backend/README.md). Works: POST/GET `/api/spill`, `/api/spill/{id}/tracks` per contract (budget in kg; extra `meta` key), request-hash cache in backend/runs/, 4-process worker pool with progress, `/api/spills`, `/api/spills/{id}/footprints`, `/api/spills/{id}/tracks` (hindcast from catalog), `/api/currents` + `/api/currents/{t}` (u/v grid from cached NetCDF), `/api/forcing` debug, serves web/dist. `smoke_test.py` (Texas City Y, 2000 particles, 72 h) passes in ~5–10 s on constant fallback forcing. NetCDF reader path verified with synthetic HYCOM-shaped (0–360 lon, depth dim) and ERA5-shaped (`valid_time`, u10/v10 without standard_name, descending lat) files; datasets are normalized before OpenDrift sees them. Not yet tested with A2's real files. `meta.env_mean` in tracks shows the mean current/wind the particles actually saw (equals fallback values if no reader covered them).
+- 2026-11-21 A2-data: started (claim T2 data work on branch a2-data)
 
 ## Roles
 - Erwin builds everything (T2–T7).
 - Brother does testing and bug fixes (T8–T9).
 
 ## Data outline (brother)
-_Waiting on brother's data outline; paste it here or in docs/DATA.md._
+See docs/DATA.md (received 2026-11-21 11:23 PT). Agent A2: prefer these sources; until ERA5/CMEMS accounts exist, use no-signup fallbacks.
 
 ## Bugs
 Format: `- [open|fixed] short title — steps to reproduce — who found / who fixed`
 _None yet._
 
 ## Blockers
-_None._
+- A1: no real forcing yet (A2's data/cache empty when tested). Backend runs on constant fallback (SW current 0.09 m/s, SE wind 5 m/s) until then. To use A2's cache: `OILFLOOD_DATA_DIR=/home/shmiggy/OilFlood-a2-data/data` (or after merge, just `data/`). Check `GET /api/forcing` to confirm files are detected; any CF NetCDF with x/eastward_sea_water_velocity or x/eastward_wind standard names works.
+- A1 note: Texas City Y seed is inside Galveston Bay; with ~4 km HYCOM nearly all oil strands in the bay within hours (expected, see RESEARCH.md risks). Offshore clicks drift normally.
