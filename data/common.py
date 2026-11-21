@@ -88,6 +88,13 @@ def to_opendrift(ds: xr.Dataset, rename: dict, kind: str, source: str) -> xr.Dat
     ds = ds.sortby("lon").sortby("lat").sortby("time")
     _, idx = np.unique(ds.time.values, return_index=True)
     ds = ds.isel(time=np.sort(idx))
+    # OpenDrift's generic reader needs constant grid spacing; HYCOM GOM latitudes are
+    # Mercator-spaced, so resample onto a uniform axis with the mean spacing.
+    for c in ("lat", "lon"):
+        d = np.diff(ds[c].values)
+        if len(d) > 1 and (d.max() - d.min()) > 1e-4 * abs(d.mean()):
+            n = len(ds[c])
+            ds = ds.interp({c: np.linspace(float(ds[c][0]), float(ds[c][-1]), n)})
     ds["lon"].attrs = {"standard_name": "longitude", "units": "degrees_east", "axis": "X"}
     ds["lat"].attrs = {"standard_name": "latitude", "units": "degrees_north", "axis": "Y"}
     ds["time"].attrs = {"standard_name": "time", "axis": "T"}
@@ -107,7 +114,9 @@ def to_opendrift(ds: xr.Dataset, rename: dict, kind: str, source: str) -> xr.Dat
 
 def write_nc(ds: xr.Dataset, dest: Path) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    enc = {v: {"zlib": True, "complevel": 4, "_FillValue": np.float32(np.nan)} for v in ds.data_vars}
+    # keep 3 decimals (mm/s for currents, cm/s-ish for winds): much better compression
+    enc = {v: {"zlib": True, "complevel": 4, "_FillValue": np.float32(np.nan), "least_significant_digit": 3}
+           for v in ds.data_vars}
     enc["time"] = {"units": "seconds since 1970-01-01 00:00:00", "calendar": "standard", "dtype": "float64"}
     tmp = dest.with_name(dest.name + ".tmp")
     ds.load().to_netcdf(tmp, encoding=enc)
