@@ -61,6 +61,40 @@ def resolve_oil_type(name: str | None, oiltypes: list[str]) -> str:
     raise ValueError(f"Unknown oil type {name!r}")
 
 
+OPENOIL_LABEL = "OpenDrift OpenOil (baseline: NOAA-style physics)"
+
+
+def _run_ours(run_dir: Path, p: dict) -> None:
+    """Our own model (app/ourmodel, docs/OURMODEL.md): same forcing files, same tracks format."""
+    import warnings
+    warnings.filterwarnings("ignore")
+    from opendrift.models.openoil.adios import dirjs
+
+    from .ourmodel import sim
+
+    t_wall = time.time()
+    _status(run_dir, status="running", progress=0.0, started_at=time.time())
+    oil = resolve_oil_type(p.get("oil_type"), dirjs.get_oil_names())
+    out = sim.run(run_dir, {**p, "_oil_resolved": oil}, lambda **kw: _status(run_dir, **kw))
+    extra = out.pop("model_extra")
+    out["meta"] = {
+        "model": sim.MODEL_ID, "model_label": sim.MODEL_LABEL, "model_version": sim.VERSION,
+        "lat": p["lat"], "lon": p["lon"], "start_time": p["start_time"],
+        "duration_h": p["duration_h"], "volume_m3": p["volume_m3"],
+        "oil_type": oil, "n_particles": int(p["n_particles"]), "volume_bbl": p.get("volume_bbl"),
+        "forecast": p.get("forecast"), "note": p.get("note"),
+        "forcing": [f["path"] for f in p.get("forcing_files", [])],
+        "seed_moved_km": p.get("seed_moved_km", 0.0),
+        "requested_lonlat": p.get("requested_lonlat"),
+        "requested_duration_h": p.get("requested_duration_h"),
+        "runtime_s": round(time.time() - t_wall, 1),
+        "mass_units": "kg",
+        **extra,
+    }
+    _write_json(run_dir / "tracks.json", out)
+    _status(run_dir, status="done", progress=1.0, finished_at=time.time())
+
+
 def _write_json(path: Path, obj) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     with open(tmp, "w") as f:
@@ -84,7 +118,10 @@ def run_spill(run_dir: str, params: dict) -> None:
     """Entry point for the worker process. params: see jobs.SpillRequest."""
     run_dir = Path(run_dir)
     try:
-        _run(run_dir, params)
+        if params.get("model") == "ours":
+            _run_ours(run_dir, params)
+        else:
+            _run(run_dir, params)
     except Exception as e:
         msg = f"{type(e).__name__}: {e}"
         if "first timestep" in str(e):
@@ -165,6 +202,7 @@ def _run(run_dir: Path, p: dict) -> None:
     _status(run_dir, progress=0.99)
     tracks = build_tracks(o, start, duration, config.OUTPUT_STEP_MIN)
     tracks["meta"] = {
+        "model": "openoil", "model_label": OPENOIL_LABEL,
         "lat": p["lat"], "lon": p["lon"], "start_time": p["start_time"],
         "duration_h": p["duration_h"], "volume_m3": p["volume_m3"],
         "oil_type": oil, "n_particles": n, "volume_bbl": p.get("volume_bbl"),

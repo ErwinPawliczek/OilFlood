@@ -152,7 +152,8 @@ def get_footprints(spill_id: str):
 
 
 @app.get("/api/spills/{spill_id}/tracks")
-def get_spill_hindcast(spill_id: str, n_particles: int = 2000, duration_h: float = 72):
+def get_spill_hindcast(spill_id: str, n_particles: int = 2000, duration_h: float = 72,
+                       model: str = Query("openoil", pattern="^(openoil|ours)$"), ml: bool = True):
     """Hindcast for a catalog spill. Starts the run on first call; returns 202 +
     status until done, then the same JSON shape as /api/spill/{id}/tracks."""
     s = _spill(spill_id)
@@ -163,7 +164,7 @@ def get_spill_hindcast(spill_id: str, n_particles: int = 2000, duration_h: float
     start = s.get("date_start") or s.get("start_time")
     req = SpillRequest(lat=s["lat"], lon=s["lon"], start_time=start, duration_h=duration_h,
                        volume_m3=vol_m3, oil_type=s.get("oil_type") or "IFO 380",
-                       n_particles=n_particles)
+                       n_particles=n_particles, model=model, ml=ml)
     try:
         sub = jobs.submit(req, extra_key=f"hist:{spill_id}", snap_km=config.SNAP_KM_HINDCAST)
     except ValueError as e:

@@ -10,12 +10,16 @@ from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from . import config, forcing, oils, runner
 
 MODEL_VERSION = "openoil-v4-live"  # v3: real forcing only; v4: predictions on the live forecast only
+OURS_VERSION = "ours-v1"  # bump when app/ourmodel changes (sim or drift_model.joblib)
 BBL_M3 = 0.158987
+MODEL_LABELS = {"openoil": "OpenDrift OpenOil (baseline)", "ours": "OilFlood model (ours, + ML drift correction)"}
 
 
 class SpillRequest(BaseModel):
@@ -28,6 +32,9 @@ class SpillRequest(BaseModel):
     oil_type: str = "IFO 380"  # an id from GET /api/oils, an ADIOS name, or free text
     n_particles: int = Field(2000, ge=10, le=20000)
     wind_drift_factor: float = Field(0.02, ge=0, le=0.1)
+    model: Literal["openoil", "ours"] = Field("openoil", description="openoil = OpenDrift OpenOil baseline, "
+                                              "ours = OilFlood model (docs/OURMODEL.md)")
+    ml: bool = Field(True, description="ours only: apply the ML drift correction")
 
 
 _pool: ProcessPoolExecutor | None = None
@@ -66,6 +73,8 @@ def _normalize(req: SpillRequest, live: bool = False) -> dict:
         "oil_type": oils.resolve(req.oil_type),
         "n_particles": int(req.n_particles),
         "wind_drift_factor": float(req.wind_drift_factor),
+        # Only our model adds keys, so OpenOil run hashes (and cached runs) are unchanged.
+        **({"model": "ours", "ml": bool(req.ml)} if req.model == "ours" else {}),
     }
 
 
@@ -161,6 +170,10 @@ def plan(params: dict, snap_km: float, live: bool = False) -> dict:
 def _summary(params: dict) -> dict:
     out = {k: params[k] for k in ("duration_h", "requested_duration_h", "start_time", "volume_bbl", "volume_m3",
                                   "oil_type", "seed_moved_km", "forecast", "note") if k in params}
+    out["model"] = params.get("model", "openoil")
+    out["model_label"] = MODEL_LABELS.get(out["model"], out["model"])
+    if out["model"] == "ours":
+        out["ml"] = params.get("ml", True)
     out["truncated"] = "note" in params
     out["seed"] = [params["lon"], params["lat"]]
     return out
@@ -168,7 +181,8 @@ def _summary(params: dict) -> dict:
 
 def submit(req: SpillRequest, extra_key: str = "", snap_km: float | None = None, live: bool = False) -> dict:
     params = plan(_normalize(req, live), config.SNAP_KM_PREDICTION if snap_km is None else snap_km, live)
-    key = json.dumps({**params, "v": MODEL_VERSION, "x": extra_key}, sort_keys=True)
+    key = json.dumps({**params, "v": MODEL_VERSION if params.get("model", "openoil") == "openoil" else OURS_VERSION,
+                      "x": extra_key}, sort_keys=True)
     run_id = hashlib.sha1(key.encode()).hexdigest()[:16]
     d = run_dir(run_id)
 
