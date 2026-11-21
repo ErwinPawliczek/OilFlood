@@ -121,6 +121,9 @@ def get_spill_hindcast(spill_id: str, n_particles: int = 2000, duration_h: float
     """Hindcast for a catalog spill. Starts the run on first call; returns 202 +
     status until done, then the same JSON shape as /api/spill/{id}/tracks."""
     s = _spill(spill_id)
+    if not s.get("forcing"):
+        raise HTTPException(400, f"No ocean reanalysis exists for {str(s.get('date_start', ''))[:4]} "
+                                 "(HYCOM starts in 2001), so there is no real hindcast for this spill.")
     vol_m3 = float(s.get("volume_bbl") or 3000) * 0.158987
     start = s.get("date_start") or s.get("start_time")
     req = SpillRequest(lat=s["lat"], lon=s["lon"], start_time=start, duration_h=duration_h,

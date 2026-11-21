@@ -97,6 +97,8 @@ def plan(params: dict, snap_km: float) -> dict:
     files = forcing.select(params["lon"], params["lat"], start, end)
     cur = next((f for f in files if "current" in f.kinds), None)
     wind = next((f for f in files if "wind" in f.kinds), None)
+    if cur is None and forcing._is_land_gshhg(params["lon"], params["lat"]):
+        raise forcing.SeedOnLand("That spot is on land. Click on open water in the Gulf of Mexico.")
     if cur is None or wind is None:
         have = sorted({(f.t0, f.t1) for f in forcing.scan() if "current" in f.kinds and f.t0
                        and f.lon_min <= params["lon"] <= f.lon_max and f.lat_min <= params["lat"] <= f.lat_max})

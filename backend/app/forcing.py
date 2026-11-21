@@ -182,7 +182,7 @@ def _is_land_gshhg(lon: float, lat: float) -> bool:
         global _landmask
         if _landmask is None:
             _landmask = RoaringLandmask.new()
-        return bool(_landmask.contains(np.array([lon], float), np.array([lat], float))[0])
+        return bool(_landmask.contains(float(lon), float(lat)))
     except Exception:  # landmask unavailable: trust the forcing grid only
         return False
 
@@ -234,5 +234,8 @@ def snap_to_water(f: ForcingFile, lon: float, lat: float, t: datetime, max_km: f
             return lon, lat, 0.0  # requested point is already water
         if not _is_land_gshhg(x, y):
             return round(x, 4), round(y, 4), round(d, 1)
+    if _is_land_gshhg(lon, lat):
+        raise SeedOnLand("That spot is on land. Click on open water.")
     raise SeedOnLand(
-        f"That spot is on land (no ocean model water within {max_km:g} km). Click on open water.")
+        f"That spot is in a bay or inshore water the ocean model treats as land (no model water within "
+        f"{max_km:g} km). Click a bit further offshore.")
