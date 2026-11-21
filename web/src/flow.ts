@@ -7,7 +7,11 @@ import type { CurrentsSource, BBox } from './api';
 import { ON_SURFACE } from './types';
 
 const TRAIL = 14;
+const CAP_DEG = 80; // spawn / keep radius around the view centre on a whole-globe view
+const CAP_COS = Math.cos(((CAP_DEG + 2) * Math.PI) / 180);
 const SEG = TRAIL - 1;
+const TAIL = Float32Array.from({ length: TRAIL }, (_, s) => (s / SEG) ** 1.4); // alpha along a streak
+const RGB_TMP = new Uint8Array(3);
 
 // speed colour ramp (m/s): deep blue -> cyan -> green -> yellow -> magenta
 const RAMP: [number, number, number, number][] = [
@@ -81,7 +85,7 @@ export class FlowField {
     const cap = this.capCenter;
     for (let tries = 0; tries < 6; tries++) {
       let lon: number, lat: number;
-      if (cap) [lon, lat] = randomOnCap(cap[0], cap[1], 80);
+      if (cap) [lon, lat] = randomOnCap(cap[0], cap[1], CAP_DEG);
       else {
         lon = box.minLon + Math.random() * (box.maxLon - box.minLon);
         lat = box.minLat + Math.random() * (box.maxLat - box.minLat);
@@ -107,6 +111,8 @@ export class FlowField {
     // whole-globe view: spawn uniformly over the visible hemisphere instead of a lon/lat box (avoids piling
     // particles at the poles and on the far side of the globe)
     this.capCenter = center && view.maxLon - view.minLon >= 300 ? center : null;
+    const cap = this.capCenter;
+    const capSin = cap ? Math.sin((cap[1] * Math.PI) / 180) : 0, capCos = cap ? Math.cos((cap[1] * Math.PI) / 180) : 0;
     const box: BBox = {
       minLon: Math.max(fb.minLon, view.minLon), maxLon: Math.min(fb.maxLon, view.maxLon),
       minLat: Math.max(fb.minLat, view.minLat), maxLat: Math.min(fb.maxLat, view.maxLat),
@@ -124,6 +130,10 @@ export class FlowField {
       const h = head[p];
       const lon = hist[base + 2 * h], lat = hist[base + 2 * h + 1];
       if (lon < box.minLon || lon > box.maxLon || lat < box.minLat || lat > box.maxLat) { this.alive[p] = 0; continue; }
+      if (cap) { // whole-globe view: drop particles that drifted (or were left by a rotation) onto the far side
+        const D = Math.PI / 180, la = lat * D;
+        if (Math.sin(la) * capSin + Math.cos(la) * capCos * Math.cos(lon * D - cap[0] * D) < CAP_COS) { this.alive[p] = 0; continue; }
+      }
       const v = this.source.sample(lon, lat, t);
       if (!v) { this.age[p] = this.life[p] + 1; continue; }
       const s = Math.hypot(v[0], v[1]);
@@ -141,24 +151,32 @@ export class FlowField {
     const N = this.n;
     this.cur ^= 1;
     const { pos, col } = this.bufs[this.cur];
-    const { hist, head } = this;
+    const { hist, head, alive } = this;
+    const rgb = RGB_TMP;
     for (let p = 0; p < N; p++) {
       const base = p * TRAIL * 2;
+      const cbase = p * TRAIL * 4;
+      if (!alive[p]) { // invisible: only clear alpha (stale positions are never seen)
+        for (let s = 0; s < TRAIL; s++) col[cbase + s * 4 + 3] = 0;
+        continue;
+      }
       const h = head[p];
       const life = this.life[p], age = this.age[p];
-      const fade = this.alive[p] ? Math.max(0, Math.min(1, age / 12, (life - age) / 20)) : 0;
+      const fade = this.alpha * Math.max(0, Math.min(1, age / 12, (life - age) / 20));
+      ramp(this.speed[p], rgb, 0); // one colour per streak
       for (let s = 0; s < TRAIL; s++) {
         // vertex s: oldest (s=0) .. newest (s=TRAIL-1)
         const a = (h + 1 + s) % TRAIL;
         const o = base + 2 * s;
         pos[o] = hist[base + 2 * a]; pos[o + 1] = hist[base + 2 * a + 1];
-        const c = (p * TRAIL + s) * 4;
-        ramp(this.speed[p], col, c);
-        col[c + 3] = this.alpha * fade * (s / SEG) ** 1.4;
+        const c = cbase + s * 4;
+        col[c] = rgb[0]; col[c + 1] = rgb[1]; col[c + 2] = rgb[2];
+        col[c + 3] = fade * TAIL[s];
       }
     }
     this.version++;
   }
+
 
   layer(visible: boolean) {
     const { pos, col } = this.bufs[this.cur];

@@ -2,7 +2,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 import maplibregl from 'maplibre-gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
-import { ScatterplotLayer } from '@deck.gl/layers';
+import { ScatterplotLayer, PathLayer } from '@deck.gl/layers';
 import type { Layer } from '@deck.gl/core';
 import {
   FORCE_MOCK, onMock, getCatalog, getHistoricalTracks, getFootprints, getCurrents,
@@ -122,7 +122,7 @@ function loadGlobal(sc: Scene, t0 = sc.t0, t1 = sc.t0 + sc.durationH * 3600) {
 }
 function useGlobal(g: GlobalCurrents | null) {
   if (!g) return;
-  if (!globalFlow) globalFlow = new FlowField(g, { id: 'currents-global', n: 10000, width: 1.5, alpha: 215 });
+  if (!globalFlow) globalFlow = new FlowField(g, { id: 'currents-global', n: 6500, width: 1.6, alpha: 220 });
   else if (globalFlow.source !== g) globalFlow.setSource(g);
 }
 
@@ -478,6 +478,8 @@ function markerLayer(): Layer[] {
 }
 
 let last = performance.now();
+let globalTick = 0, globalDt = 0;
+let globalLayer: ReturnType<FlowField['layer']> | null = null;
 let lastTH = -1;
 function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
@@ -494,8 +496,16 @@ function frame(now: number) {
   if (globalFlow && s.global && globalFlow.source === s.global) {
     const c = map.getCenter();
     s.global.prefetch(tUnix);
-    globalFlow.step(view, map.getZoom(), tUnix, dt * 60, [c.lng, c.lat]);
-    layers.push(globalFlow.layer(state.showCurrents) as any);
+    // advance/re-upload the big global layer at half rate (deck re-tessellates paths on every update)
+    globalDt += dt;
+    if (++globalTick % 2 === 0 || !globalLayer) {
+      globalFlow.step(view, map.getZoom(), tUnix, globalDt * 60, [c.lng, c.lat]);
+      globalDt = 0;
+      globalLayer = globalFlow.layer(state.showCurrents);
+    } else if (globalLayer.props.visible !== state.showCurrents) {
+      globalLayer = globalFlow.layer(state.showCurrents);
+    }
+    layers.push(globalLayer as any);
   }
   // a mock Gulf field is hidden when real global data exists (the global layer then covers the Gulf too)
   if (flow && !(s.currents?.mock && s.global)) {
@@ -512,6 +522,7 @@ function frame(now: number) {
     layers.push(...(s.oil.layers(s.footprints.length ? 0.45 : 1) as any[]));
   }
   layers.push(...markerLayer());
+  layers.push(...((window as any).__extraLayers ?? []));
   overlay.setProps({ layers });
   requestAnimationFrame(frame);
 }
@@ -528,4 +539,4 @@ map.on('load', async () => {
 });
 renderBar();
 // debugging handle for the console / tests
-(window as any).__oilflood = { map, state, overlay, get flow() { return flow; } };
+(window as any).__oilflood = { ScatterplotLayer, PathLayer, map, state, overlay, get flow() { return flow; }, get globalFlow() { return globalFlow; } };

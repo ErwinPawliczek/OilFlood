@@ -205,7 +205,9 @@ def fetch_hycom(window, start, end, step, every_h, vmax, force, workers=4):
         ds = hycom_dataset(t)
         if ds is None:
             continue
-        chunks.setdefault((ds, t.date()), []).append(t)
+        # expt_53.X serves a day per request; the other aggregations reject time ranges ("response too large",
+        # their time axis isn't monotonic) but answer single times fine
+        chunks.setdefault((ds, t.date() if "expt_53.X" in ds else t), []).append(t)
     if not chunks:
         log(f"[global/{window}] no HYCOM global data for {iso(start)}..{iso(end)}; skipped")
         return
@@ -216,9 +218,13 @@ def fetch_hycom(window, start, end, step, every_h, vmax, force, workers=4):
     def get(key):
         ds, day = key
         ts = chunks[key]
-        params = {"var": ["water_u", "water_v"], "horizStride": stride, "time_start": iso(ts[0]),
-                  "time_end": iso(ts[-1]), "timeStride": 1, "vertCoord": 0, "accept": "netcdf4"}
-        dest = raw / f"{day:%Y%m%d}_{every_h}h_s{stride}.nc"
+        params = {"var": ["water_u", "water_v"], "horizStride": stride, "vertCoord": 0, "accept": "netcdf4"}
+        if len(ts) == 1:
+            params["time"] = iso(ts[0])
+        else:
+            params.update(time_start=iso(ts[0]), time_end=iso(ts[-1]), timeStride=1)
+        tag = f"{day:%Y%m%d}" if len(ts) > 1 or not isinstance(day, datetime) else f"{day:%Y%m%d%H}"
+        dest = raw / f"{tag}_{every_h}h_s{stride}.nc"
         return download(NCSS + ds, dest, params=params, timeout=1200, min_bytes=100_000)
 
     times, binner, srcs = [], None, set()
@@ -227,7 +233,9 @@ def fetch_hycom(window, start, end, step, every_h, vmax, force, workers=4):
         for key, path in zip(keys, ex.map(get, keys)):
             wanted = {unix(np.datetime64(t)) for t in chunks[key]}
             with xr.open_dataset(path) as ds:
-                ds = ds.squeeze(drop=True) if "depth" in ds.dims else ds
+                ds = ds.isel(depth=0) if "depth" in ds.dims else ds
+                if "time" not in ds.dims:
+                    ds = ds.expand_dims("time")
                 if binner is None or binner.shape != (ds.lat.size, ds.lon.size):
                     LON, LAT = np.meshgrid(ds.lon.values, ds.lat.values)
                     binner = Binner(LON, LAT, step)
@@ -236,13 +244,13 @@ def fetch_hycom(window, start, end, step, every_h, vmax, force, workers=4):
                     tu = unix(tv)
                     if tu not in wanted or tu in times:
                         continue
-                    u = ds.water_u.isel(time=k).values.astype(np.float64) if "time" in ds.water_u.dims else ds.water_u.values
-                    v = ds.water_v.isel(time=k).values.astype(np.float64) if "time" in ds.water_v.dims else ds.water_v.values
+                    u = ds.water_u.isel(time=k).values.astype(np.float64)
+                    v = ds.water_v.isel(time=k).values.astype(np.float64)
                     U, V = binner(u, v)
                     write_step(out, tu, U, V, step, vmax, f"HYCOM {key[0]}")
                     times.append(tu)
             srcs.add(key[0])
-            log(f"  [{window}] {key[1]} ok ({len(times)} steps)")
+            log(f"  [{window}] {key[1]:%Y-%m-%d %H:%M} ok ({len(times)} steps)" if isinstance(key[1], datetime) else f"  [{window}] {key[1]} ok ({len(times)} steps)")
     if not times:
         log(f"[global/{window}] nothing decoded")
         return
