@@ -4,7 +4,7 @@ import { ScatterplotLayer, GeoJsonLayer, PathLayer } from '@deck.gl/layers';
 import { ON_SURFACE, type Tracks, type Footprint, type BudgetRow, type Particle } from './types';
 
 const FRESH = [255, 190, 70];
-const AGED = [120, 60, 20];
+const AGED = [205, 105, 35];
 const STRANDED = [255, 70, 90];
 
 const K = 8; // trail vertices per particle
