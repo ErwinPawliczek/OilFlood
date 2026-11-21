@@ -84,7 +84,7 @@ def export(window: str, step: float = 0.1, every_h: int = 1, force: bool = False
     idx_path.write_text(json.dumps(index, indent=1))
     keep_names = {f"{t}.json" for t in written} | {f"{t}.png" for t in written} | {"index.json"}
     for p in out.iterdir():  # drop fields from older exports
-        if p.name not in keep_names:
+        if p.is_file() and p.suffix in (".json", ".png") and p.name not in keep_names:
             p.unlink()
     size = sum(p.stat().st_size for p in out.iterdir())
     log(f"[{window}] {len(written)} fields {len(lons)}x{len(lats)} -> {out} ({size / 1e6:.1f} MB)")
@@ -98,7 +98,7 @@ def main():
     ap.add_argument("--every-h", type=int, default=0, help="keep one field every N hours (default: 1 h, 3 h live, 6 h if > 30 days)")
     ap.add_argument("--force", action="store_true")
     a = ap.parse_args()
-    wins = sorted(p.name for p in FORCING.iterdir() if (p / "currents.nc").exists()) if a.all else a.windows
+    wins = sorted(p.name for p in FORCING.iterdir() if (p / "currents.nc").exists() and p.name != "global") if a.all else a.windows
     if not wins:
         ap.error("give window names or --all")
     for w in wins:
