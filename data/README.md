@@ -92,7 +92,7 @@ Measured on the tower (2026-11-21):
 | `mc209_2017` | expt_92.9 | 61 | 720×360 | 20 MB | 333 MB |
 | `dbl_152` | expt_53.X 2005 | 66 | 720×360 | 21 MB | 154 MB |
 | `eugene_island_2009` | expt_53.X 2009 | 51 | 720×360 | 17 MB | 121 MB |
-| `main_pass_2023` | GLBy0.08 expt_93.0 | MAINPASS_N | 720×360 | MAINPASS_MB | 228 MB |
+| `main_pass_2023` | GLBy0.08 expt_93.0 | 61 | 720×360 | 20 MB | 228 MB |
 
 `data/raw/global/` can be deleted after export. To refresh live on demo morning: `fetch_global.py live --force` (it skips the run if it was already exported). Use `--every-h 6` to halve the download, and `--keep-raw` to keep the RTOFS NetCDFs.
 
