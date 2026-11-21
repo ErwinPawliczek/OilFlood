@@ -20,7 +20,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T6 | Demo video (2–3 min) | Erwin | todo |
 | T7 | Devpost write-up + README setup steps | Erwin | todo |
 | T8 | Testing: follow README setup on a clean machine, test every feature, log bugs below | Brother | todo |
-| T10 | Global ocean currents layer (RTOFS live + HYCOM global historical), Gulf HYCOM on top | Erwin | in progress (agent A4, branch a4-global) |
+| T10 | Global ocean currents layer (RTOFS live + HYCOM global historical), Gulf HYCOM on top | Erwin | done (agent A4, branch a4-global; ready to merge) |
 | T11 | Real data only (remove mocks/fallbacks) + single draggable UI panel with date/time + days/sec row | Erwin | in progress (agent A5, branch a5-ui) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
@@ -28,6 +28,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-21 A4 (branch a4-global): **T10 global currents done.** `data/fetch_global.py`: `live` = NOAA RTOFS global latest 00z run (NOMADS, 0–72 h every 3 h, 0.25°, 25 PNGs, 27 MB), `--catalog` = HYCOM GOFS 3.1 global for each spill window (0.5°: dwh 168 fields/53 MB, texas_city_y 40/13 MB, mc209_2017 61/20 MB, dbl_152 66/21 MB, eugene_island_2009 51/17 MB, main_pass_2023). No global data exists before 1994 (Ixtoc, Burmah Agate, Mega Borg). Output `data/cache/fields/global/<window>/` (index.json + `<t>.png` + `<t>.json` meta, same PNG encoding as the Gulf fields). Backend: `/api/currents` + `/api/currents/{t}` take `layer=gulf|global|auto` (default unchanged), plus `GET /api/currents/global/{t}.png`; if a Gulf window has no NetCDF, the old calls fall back to the global field. Web: `src/globalCurrents.ts` + a second `FlowField` under the Gulf one (masked inside 18–31N 98–80W when the Gulf has real data), time-synced with the timeline. Verified end to end on a test instance (:5204, this branch + a2 cache): live RTOFS over the whole globe (Americas, Indian Ocean/Asia, Pacific) and Texas City Y 2014 with HYCOM global + Gulf on top. 52 fps with the global layer vs 60 without (headless Chrome, RTX 3080 Ti). Commands/sizes in data/README.md.
 - 2026-11-21 Erwin: merged a1/a2/a3 into main; claimed T11 (real data + one draggable panel), agent A5 on branch a5-ui.
 - 2026-11-21 Erwin: claimed T10 (global currents, requested by brother), agent A4 on branch a4-global.
 - 2026-11-21 Erwin: skeleton pushed.
@@ -52,5 +53,8 @@ Format: `- [open|fixed] short title — steps to reproduce — who found / who f
 - [open] Prediction click on land (e.g. inland Mexico, outside the frontend's coarse mask) returns `Simulation stopped within first timestep`; the UI shows the error, but the backend could return a friendlier "seed point on land" — found by A3
 
 ## Blockers
+- A4: to show global currents on oilflood.xyz after merging, run `cd data && python fetch_global.py live --catalog` in the main checkout (or point `OILFLOOD_DATA_DIR` at a cache that has `cache/fields/global/`), rebuild web, restart the backend. I did not touch the production :5200 instance. Refresh live daily: `fetch_global.py live --force`.
+- A4 → A5: `web/src/main.ts` is changed in both a4-global and a5-ui. A4's main.ts edits are small and marked: `loadGlobal`/`useGlobal`, the `globalFlow` block in `frame()`, the legend source line, and the mock-badge filter (that one goes away once mocks are removed). `flow.ts` now takes options (`n`, `id`, `width`, `alpha`) and an optional cap centre / active fraction in `step()`.
+- A4 note: deck.gl layers can look missing right after `map.jumpTo` in headless SwiftShader Chrome. That is a repaint artifact; with a real GPU (`--use-angle=vulkan`) they render fine at all longitudes.
 - A1: no real forcing yet (A2's data/cache empty when tested). Backend runs on constant fallback (SW current 0.09 m/s, SE wind 5 m/s) until then. To use A2's cache: `OILFLOOD_DATA_DIR=/home/shmiggy/OilFlood-a2-data/data` (or after merge, just `data/`). Check `GET /api/forcing` to confirm files are detected; any CF NetCDF with x/eastward_sea_water_velocity or x/eastward_wind standard names works.
 - A1 note: Texas City Y seed is inside Galveston Bay; with ~4 km HYCOM nearly all oil strands in the bay within hours (expected, see RESEARCH.md risks). Offshore clicks drift normally.
