@@ -18,7 +18,8 @@ Modeling (ML correction, skill scores, response guidance) comes **after** visual
 - `GET /api/spills/{id}/tracks` -> hindcast particle tracks (same shape as prediction tracks)
 - `GET /api/currents?start=&end=&bbox=` -> list of timesteps; `GET /api/currents/{t}` -> downsampled u/v grid for the flow layer
 
-- `POST /api/spill` body `{lat, lon, start_time (ISO, optional, default now-ish/cached window), duration_h (default 72), volume_m3 (default 500), oil_type (default "IFO 380"), n_particles (default 2000)}` -> `{id, status}`
+- `POST /api/spill` body `{lat, lon, volume_bbl (or volume_m3), oil_type (id from GET /api/oils), duration_h (default 72), n_particles (default 2000)}` -> `{id, status, forecast, duration_h, truncated, note?}`. Always runs on the latest LIVE forecast (RTOFS/ESPC currents + GFS winds) starting now; clipped to the forecast end (see backend/README.md).
+- `GET /api/live` -> live forecast models, issued-at, valid-until, hours available; `GET /api/oils` -> oil types for the prediction panel
 - `GET /api/spill/{id}` -> `{id, status: queued|running|done|error, progress, error?}`
 - `GET /api/spill/{id}/tracks` -> JSON `{times: [unix_s...], particles: [{path: [[lon,lat],...], timestamps:[...], status_end: "active"|"stranded"|"evaporated"}...], budget: [{t, surface, evaporated, dispersed, stranded}...]}` (Arrow later if size is a problem)
 - `GET /api/fields/currents?t=` -> u/v grid (JSON or PNG texture) for the flow layer (stretch goal)

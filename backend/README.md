@@ -43,10 +43,18 @@ tabularised from wind), horizontal diffusivity 10 m²/s, vertical mixing, evapor
 coastline stranding on the built-in GSHHG landmask. Time step 15 min, output every 30 min.
 
 ## API
-- `POST /api/spill` `{lat, lon, start_time?, duration_h=72, volume_m3=500, oil_type="IFO 380", n_particles=2000, wind_drift_factor=0.02}` -> `{id, status}`.
-  `id` is a hash of the normalized request; identical requests return the cached run instantly.
-  Default `start_time`: now (UTC, hour) if cached currents cover it, else start of the latest cached current window.
-- `GET /api/spill/{id}` -> `{id, status: queued|running|done|error, progress, error?}`
+- `POST /api/spill` `{lat, lon, volume_bbl?, volume_m3=500, oil_type, duration_h=72, start_time?, n_particles=2000, wind_drift_factor=0.02}`
+  -> `{id, status, duration_h, requested_duration_h, start_time, volume_bbl, volume_m3, oil_type, seed, seed_moved_km, forecast, truncated, note?}`.
+  **Prediction mode = live forecast only (T12):** the run uses `data/cache/forcing/live/{currents,winds}.nc` (written by
+  `data/fetch_live.py`) and nothing else, starting now (UTC, floored to the hour). A `start_time` outside the live window
+  is rejected (400) — use historical mode for past dates. If the forecast ends before now + `duration_h`, the run stops at
+  the last forecast time: `truncated: true` and `note` say so. `volume_bbl` overrides `volume_m3` (1 bbl = 0.158987 m³).
+  `oil_type` is an id from `GET /api/oils` (or an ADIOS name / free text). `forecast` = models, issued-at (run), valid window.
+  `id` is a hash of the normalized request + forcing files; identical requests on the same forecast return the cached run.
+- `GET /api/live` -> `{available, currents:{model, issued_at, valid_from, valid_until, source}, winds:{...}, valid_from, valid_until,
+  hours_available, short_by_h, stale, note?}` (503 if no live forecast is cached).
+- `GET /api/oils` -> `{default, oils:[{id, label, adios}]}` (oil types offered in the prediction panel).
+- `GET /api/spill/{id}` -> `{id, status: queued|running|done|error, progress, error?}` + the same run summary as the POST.
 - `GET /api/spill/{id}/tracks` -> 200 with `{times, particles:[{path:[[lon,lat]..], timestamps, status_end}], budget:[{t, surface, evaporated, dispersed, stranded}], meta}`; 202 + status while running; 409 on error.
   Budget is **kg of oil**. `dispersed` = naturally dispersed + submerged + biodegraded. Particle paths end when the particle strands/evaporates. ~9 MB raw / ~1.8 MB gzipped for 2000 particles x 72 h.
 - `GET /api/spills` -> `data/spills/catalog.json` (A2).

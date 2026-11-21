@@ -21,14 +21,14 @@ python3 -m venv .venv
 | DWH outlines | `.venv/bin/python fetch_dwh_footprints.py` | 1 min | `spills/dwh/footprints/dwh_YYYYMMDD.geojson` (94 days, 3.7 MB, committed) |
 | Texas City Y hindcast | `.venv/bin/python fetch_hycom.py --window texas_city_y` | ~5 min | `cache/forcing/texas_city_y/{currents,winds}.nc` |
 | All catalog hindcasts | `.venv/bin/python fetch_hycom.py --catalog` (or `--only dwh,mc209_2017`) | DWH ~30–60 min, others ~5 min each | `cache/forcing/<spill_id>/{currents,winds}.nc` |
-| Live forecast | `.venv/bin/python fetch_live.py` | 10 s | `cache/forcing/live/{currents,winds}.nc` |
+| Live forecast | `.venv/bin/python fetch_live.py` | ~2 min (RTOFS, 28 × 148 MB streamed) | `cache/forcing/live/{currents,winds}.nc` + `live.json` |
 | Frontend fields | `.venv/bin/python export_fields.py --all` | ~10 s per window | `cache/fields/<window>/` |
 | Global live (RTOFS) | `.venv/bin/python fetch_global.py live` | ~1.5 min | `cache/fields/global/live/` |
 | Global hindcasts (HYCOM) | `.venv/bin/python fetch_global.py --catalog` (or `--only dwh,texas_city_y`) | ~1–3 min per spill, DWH ~3 min | `cache/fields/global/<spill_id>/` |
 
 Custom hindcast window: `fetch_hycom.py --window my_case --start 2012-06-01 --end 2012-06-04 --stride-h 3`.
 
-Refresh the live window (e.g. on demo morning): `fetch_live.py --force && export_fields.py live --force`.
+Refresh the live window by hand: `./refresh_live.sh` (what the timer runs; see "Live forecast refresh" below).
 
 ## Sources
 
@@ -36,7 +36,7 @@ Refresh the live window (e.g. on demo morning): `fetch_live.py --force && export
 |---|---|---|---|
 | Hindcast currents | HYCOM-TSIS **GOMb0.04** reanalysis (1/25°, ~4 km, hourly), `u`/`v` at 0 m via NCSS `https://tds.hycom.org/thredds/ncss/GOMb0.04/reanalysis/<year>/3z` | 2001-01-01 – 2024-08-31 | |
 | Hindcast winds | Same reanalysis, `wnd_ewd`/`wnd_nwd` (10 m wind the model was forced with) from `.../<year>/2d` | same | Saves an ERA5/CDS account |
-| Live currents | HYCOM **ESPC-D-V02** global 1/12°, FMRC best time series, 3-hourly, `https://tds.hycom.org/thredds/ncss/FMRC_ESPC-D-V02_uv3z/FMRC_ESPC-D-V02_uv3z_best.ncd` | ~10 days back to the end of the latest forecast | The forecast can end a few hours short of now+72 h (the script logs it). |
+| Live currents | NOAA **RTOFS** global 1/12° (HYCOM), newest complete daily 00z run on NOMADS, 3-hourly, Gulf box cut from `rtofs_glo_2ds_fNNN_prog.nc` | run 00z + 0–192 h; we take now−6 h .. now+72 h | Default since T12. Fallback (`--currents espc`, or automatic if RTOFS fails): HYCOM **ESPC-D-V02** FMRC best, `https://tds.hycom.org/thredds/ncss/FMRC_ESPC-D-V02_uv3z/FMRC_ESPC-D-V02_uv3z_best.ncd`. On 2026-11-21 the newest ESPC run there was 2026-11-16 12z (5 days old) and it ended ~8 h short of now+72 h, so RTOFS is preferred. |
 | Live winds | NCEP **GFS 0.25°** 10 m u/v, UCAR THREDDS `Global_0p25deg/Best`, 3-hourly | ~3 weeks back, +7 days | |
 | Spill catalog | NOAA **IncidentNews** `https://incidentnews.noaa.gov/raw/incidents.csv` + curated volumes | | |
 | DWH outlines | NOAA/NESDIS SAB `https://satepsanone.nesdis.noaa.gov/pub/OMS/disasters/DeepwaterHorizon/`: daily composites (2010-05-17+), unioned MPSR shapefiles before that | 2010-05-02 – 2010-08-25 (94 days) | |
@@ -98,3 +98,28 @@ Measured on the tower (2026-11-21):
 
 ## Sizes (cached on the tower)
 See the "Cached" table in SYNC.md for exact sizes. Typical sizes: hindcast window, hourly, 5 days ≈ 100 MB currents + 30 MB winds. Live ≈ 9 MB. Fields ≈ 0.3 MB per timestep.
+
+## Live forecast refresh (T12, systemd user timer)
+
+Prediction mode (POST /api/spill) runs only on `cache/forcing/live/{currents,winds}.nc`. `cache/forcing/live/live.json`
+records what is cached (model, run = issued-at, valid window); the backend serves it at `GET /api/live`.
+
+`data/refresh_live.sh` (idempotent, `flock`-guarded, each step skips if nothing newer):
+1. `fetch_live.py --keep-raw`: RTOFS Gulf currents (newest run reaching now+72 h, else ESPC) + GFS winds (re-fetched when GFS has a newer run).
+2. `export_fields.py live --step 0.1 --every-h 3`: Gulf flow-layer fields.
+3. `fetch_global.py live --max-h 96`: global RTOFS flow layer, reusing the RTOFS files from step 1; skipped if that run is already exported.
+4. Deletes leftover `raw/global_live/*/`.
+It uses `$OILFLOOD_PY` or `~/miniforge3/envs/oilflood/bin/python`.
+
+Installed on the tower as a **systemd user timer** (user lingering is on, so it runs without a login):
+```
+data/install_live_timer.sh            # writes ~/.config/systemd/user/oilflood-live.{service,timer}, enables it
+systemctl --user list-timers oilflood-live.timer
+systemctl --user start oilflood-live.service      # run now
+journalctl --user -u oilflood-live.service -n 50  # logs
+systemctl --user disable --now oilflood-live.timer  # remove
+```
+Schedule: `OnCalendar=*-*-* 02,08,14,20:30:00 UTC` (+≤5 min random delay, `Persistent=true`), ~2.5 h after each GFS cycle;
+the RTOFS 00z run is usually complete on NOMADS by mid-morning UTC. The unit runs the script from the checkout that ran
+`install_live_timer.sh` (currently `~/OilFlood-a6-live`); after merging, re-run `~/OilFlood/data/install_live_timer.sh` to point
+it at the main checkout. Both checkouts write the same cache when `data/cache` is the shared symlink. Existing timers are untouched.

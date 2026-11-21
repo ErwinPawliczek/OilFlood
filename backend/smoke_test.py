@@ -1,4 +1,4 @@
-"""Smoke test: Texas City Y (2014-03-22, seeded at Bolivar Roads 29.33N 94.72W, the nearest HYCOM water) through the HTTP API.
+"""Smoke test: a live-forecast prediction off Galveston (28.8N 94.5W, 4000 bbl IFO 380) through the HTTP API.
 
 Usage (server running on :5200):  python smoke_test.py [--base http://127.0.0.1:5200] [--hours 72]
 """
@@ -30,12 +30,14 @@ def main():
     code, h = call(a.base, "/api/health")
     assert code == 200 and h.get("ok"), f"health failed: {code} {h}"
 
-    body = {"lat": 29.33, "lon": -94.72, "start_time": "2014-03-22T12:00:00",
-            "duration_h": a.hours, "volume_m3": 636, "oil_type": "IFO 380", "n_particles": a.n}
+    # Prediction runs start now on the live forecast (data/fetch_live.py); off Galveston.
+    body = {"lat": 28.8, "lon": -94.5, "duration_h": a.hours, "volume_bbl": 4000, "oil_type": "ifo380",
+            "n_particles": a.n}
     code, r = call(a.base, "/api/spill", body)
     assert code == 200 and "id" in r, f"POST failed: {code} {r}"
     sid = r["id"]
-    print("spill id", sid, r["status"])
+    print("spill id", sid, r["status"], f"{r['duration_h']} h", r.get("note") or "")
+    assert r.get("forecast"), "no live forecast metadata"
 
     t0 = time.time()
     while True:
@@ -50,7 +52,7 @@ def main():
 
     code, tr = call(a.base, f"/api/spill/{sid}/tracks")
     assert code == 200, f"tracks: {code}"
-    assert tr["times"] and len(tr["times"]) == int(a.hours * 2) + 1, len(tr["times"])
+    assert tr["times"] and len(tr["times"]) == int(r["duration_h"] * 2) + 1, len(tr["times"])
     ps = tr["particles"]
     assert len(ps) > 0.9 * a.n, f"only {len(ps)} particles"
     for p in ps[:50]:
