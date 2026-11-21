@@ -1,0 +1,135 @@
+{
+ "name": "OilFlood drift correction (HistGradientBoosting, u and v)",
+ "trained_at": "2026-11-21T23:20:43Z",
+ "target": "6 h mean drifter velocity minus forcing current at the drifter (m/s)",
+ "features": [
+  "uc",
+  "vc",
+  "uw",
+  "vw",
+  "cs",
+  "ws",
+  "vort",
+  "div",
+  "drogued"
+ ],
+ "training_data": {
+  "source": "NOAA AOML Global Drifter Program hourly QC (ERDDAP drifter_hourly_qc)",
+  "forcing": "HYCOM-TSIS GOMb0.04 reanalysis currents + its 10 m winds (data/cache/forcing/<window>)",
+  "box": [
+   -98.0,
+   18.0,
+   -80.0,
+   31.0
+  ],
+  "rows": 14086,
+  "drifters": 42,
+  "per_window": {
+   "dwh": {
+    "rows": 12412,
+    "drifters": 33
+   },
+   "eugene_island_2009": {
+    "rows": 376,
+    "drifters": 3
+   },
+   "mc209_2017": {
+    "rows": 1298,
+    "drifters": 6
+   }
+  }
+ },
+ "validation": "5-fold cross-validation grouped by drifter ID (held-out drifters)",
+ "scores": {
+  "velocity_all": {
+   "rows": 14086,
+   "drifters": 42,
+   "rmse_current_only": 0.4096,
+   "rmse_current_plus_windage": 0.4142,
+   "rmse_ml": 0.3581
+  },
+  "velocity_drogued": {
+   "rows": 9034,
+   "drifters": 32,
+   "rmse_current_only": 0.4235,
+   "rmse_current_plus_windage": 0.4316,
+   "rmse_ml": 0.3606
+  },
+  "velocity_undrogued": {
+   "rows": 5052,
+   "drifters": 13,
+   "rmse_current_only": 0.3833,
+   "rmse_current_plus_windage": 0.381,
+   "rmse_ml": 0.3535
+  },
+  "traj_24h_all": {
+   "n": 1120,
+   "median_km_current": 21.2,
+   "mean_km_current": 25.4,
+   "median_km_current+wind": 21.8,
+   "mean_km_current+wind": 26.0,
+   "median_km_ml": 18.2,
+   "mean_km_ml": 22.1,
+   "ml_closer_fraction": 0.613
+  },
+  "traj_48h_all": {
+   "n": 1038,
+   "median_km_current": 38.0,
+   "mean_km_current": 48.1,
+   "median_km_current+wind": 40.5,
+   "mean_km_current+wind": 49.3,
+   "median_km_ml": 34.4,
+   "mean_km_ml": 43.8,
+   "ml_closer_fraction": 0.581
+  },
+  "traj_24h_undrogued": {
+   "n": 405,
+   "median_km_current": 21.1,
+   "mean_km_current": 24.9,
+   "median_km_current+wind": 20.6,
+   "mean_km_current+wind": 24.4,
+   "median_km_ml": 19.0,
+   "mean_km_ml": 22.8,
+   "ml_closer_fraction": 0.593
+  },
+  "traj_48h_undrogued": {
+   "n": 381,
+   "median_km_current": 40.1,
+   "mean_km_current": 49.0,
+   "median_km_current+wind": 41.0,
+   "mean_km_current+wind": 47.6,
+   "median_km_ml": 38.6,
+   "mean_km_ml": 45.0,
+   "ml_closer_fraction": 0.591
+  },
+  "traj_24h_drogued": {
+   "n": 715,
+   "median_km_current": 21.3,
+   "mean_km_current": 25.8,
+   "median_km_current+wind": 22.8,
+   "mean_km_current+wind": 26.9,
+   "median_km_ml": 17.5,
+   "mean_km_ml": 21.6,
+   "ml_closer_fraction": 0.625
+  },
+  "traj_48h_drogued": {
+   "n": 657,
+   "median_km_current": 36.2,
+   "mean_km_current": 47.5,
+   "median_km_current+wind": 40.2,
+   "mean_km_current+wind": 50.3,
+   "median_km_ml": 32.8,
+   "mean_km_ml": 43.1,
+   "ml_closer_fraction": 0.575
+  },
+  "windage_alpha_per_fold": {
+   "0": 0.0092,
+   "1": 0.0091,
+   "2": 0.0072,
+   "3": 0.0078,
+   "4": 0.0131
+  },
+  "implied_extra_windage_undrogued": 0.0132
+ },
+ "train_seconds": 63.3
+}
