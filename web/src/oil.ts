@@ -1,98 +1,108 @@
-// Oil particle rendering: TripsLayer trails + per-frame interpolated particle heads, plus observed footprints.
+// Oil particle rendering: fading trails + per-frame interpolated particle heads, plus observed footprints.
 
-import { TripsLayer } from '@deck.gl/geo-layers';
-import { ScatterplotLayer, GeoJsonLayer } from '@deck.gl/layers';
-import type { Tracks, Footprint, BudgetRow } from './types';
+import { ScatterplotLayer, GeoJsonLayer, PathLayer } from '@deck.gl/layers';
+import { ON_SURFACE, type Tracks, type Footprint, type BudgetRow, type Particle } from './types';
 
 const FRESH = [255, 190, 70];
 const AGED = [120, 60, 20];
 const STRANDED = [255, 70, 90];
 
+const K = 8; // trail vertices per particle
+
+/** Interpolated position of particle p at hour t (t clamped to its path). */
+function at(p: Particle, t: number, out: Float32Array, o: number) {
+  const ts = p.ts, last = ts.length - 1;
+  if (t <= ts[0] || last === 0) { out[o] = p.path[0][0]; out[o + 1] = p.path[0][1]; return; }
+  if (t >= ts[last]) { out[o] = p.path[last][0]; out[o + 1] = p.path[last][1]; return; }
+  let lo = 0, hi = last;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ts[m] <= t) lo = m; else hi = m; }
+  const f = (t - ts[lo]) / (ts[hi] - ts[lo] || 1);
+  out[o] = p.path[lo][0] + (p.path[hi][0] - p.path[lo][0]) * f;
+  out[o + 1] = p.path[lo][1] + (p.path[hi][1] - p.path[lo][1]) * f;
+}
+
+// Trails are re-interpolated every frame and drawn with a binary PathLayer
+// (TripsLayer mis-assigns timestamps on the MapLibre globe).
 export class OilView {
-  private pos: Float32Array[];
-  private col: Uint8Array[];
+  private bufs: { pos: Float32Array; col: Uint8Array; head: Float32Array; hcol: Uint8Array }[];
+  private starts: Uint32Array;
   private cur = 0;
   private count = 0;
 
   constructor(public tracks: Tracks) {
     const n = tracks.particles.length;
-    this.pos = [new Float32Array(n * 2), new Float32Array(n * 2)];
-    this.col = [new Uint8Array(n * 4), new Uint8Array(n * 4)];
+    this.bufs = [0, 1].map(() => ({ pos: new Float32Array(n * K * 2), col: new Uint8Array(n * K * 4), head: new Float32Array(n * 2), hcol: new Uint8Array(n * 4) }));
+    this.starts = Uint32Array.from({ length: n }, (_, i) => i * K);
   }
 
-  /** Interpolate particle heads at hour tH into the next ping-pong buffer. */
+  /** Interpolate trails + heads at hour tH into the next ping-pong buffer. */
   update(tH: number) {
     this.cur ^= 1;
-    const pos = this.pos[this.cur], col = this.col[this.cur];
+    const { pos, col, head, hcol } = this.bufs[this.cur];
     const ageScale = Math.max(24, this.tracks.durationH / 2);
+    const trail = Math.max(2, this.tracks.durationH / 14);
     let n = 0;
     for (const p of this.tracks.particles) {
       const ts = p.ts;
       const last = ts.length - 1;
       if (tH < ts[0]) continue;
-      let x: number, y: number;
-      let stranded = false;
-      if (tH >= ts[last]) {
-        if (p.status === 'stranded') stranded = true;
-        else if (p.status !== 'active') continue; // evaporated / dispersed: gone from the surface
-        [x, y] = p.path[last];
-      } else {
-        let lo = 0, hi = last;
-        while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ts[m] <= tH) lo = m; else hi = m; }
-        const f = (tH - ts[lo]) / (ts[hi] - ts[lo] || 1);
-        x = p.path[lo][0] + (p.path[hi][0] - p.path[lo][0]) * f;
-        y = p.path[lo][1] + (p.path[hi][1] - p.path[lo][1]) * f;
-      }
-      pos[2 * n] = x; pos[2 * n + 1] = y;
-      const c = 4 * n;
-      if (stranded) {
-        col[c] = STRANDED[0]; col[c + 1] = STRANDED[1]; col[c + 2] = STRANDED[2]; col[c + 3] = 230;
-      } else {
+      if (tH >= ts[last] && p.status !== 'active' && p.status !== 'stranded') continue; // evaporated / dispersed
+      const stranded = p.status === 'stranded' && tH >= ts[last];
+      let r: number, g: number, b: number;
+      if (stranded) { r = STRANDED[0]; g = STRANDED[1]; b = STRANDED[2]; }
+      else {
         const a = Math.min(1, (tH - ts[0]) / ageScale);
-        col[c] = FRESH[0] + (AGED[0] - FRESH[0]) * a;
-        col[c + 1] = FRESH[1] + (AGED[1] - FRESH[1]) * a;
-        col[c + 2] = FRESH[2] + (AGED[2] - FRESH[2]) * a;
-        col[c + 3] = 210;
+        r = FRESH[0] + (AGED[0] - FRESH[0]) * a; g = FRESH[1] + (AGED[1] - FRESH[1]) * a; b = FRESH[2] + (AGED[2] - FRESH[2]) * a;
       }
+      for (let k = 0; k < K; k++) {
+        // vertex k: oldest (k=0) .. newest (k=K-1)
+        const t = Math.max(ts[0], tH - trail * (1 - k / (K - 1)));
+        const o = (n * K + k) * 2;
+        at(p, t, pos, o);
+        const c = (n * K + k) * 4;
+        col[c] = r; col[c + 1] = g; col[c + 2] = b; col[c + 3] = 150 * (k / (K - 1)) ** 1.5;
+      }
+      head[2 * n] = pos[(n * K + K - 1) * 2]; head[2 * n + 1] = pos[(n * K + K - 1) * 2 + 1];
+      hcol[4 * n] = r; hcol[4 * n + 1] = g; hcol[4 * n + 2] = b; hcol[4 * n + 3] = stranded ? 235 : 215;
       n++;
     }
     this.count = n;
   }
 
-  layers(tH: number, visible = true) {
-    const trail = Math.max(2, this.tracks.durationH / 14);
+  layers(opacity = 1) {
+    const { pos, col, head, hcol } = this.bufs[this.cur];
     return [
-      new TripsLayer({
+      new PathLayer({
         id: 'oil-trails',
-        visible,
-        data: this.tracks.particles,
-        getPath: (d: any) => d.path,
-        getTimestamps: (d: any) => d.ts,
-        getColor: (d: any) => (d.status === 'stranded' ? [255, 90, 100] : [235, 150, 50]),
-        opacity: 0.35,
-        widthMinPixels: 1.2,
-        capRounded: true,
-        jointRounded: true,
-        fadeTrail: true,
-        trailLength: trail,
-        currentTime: tH,
-        parameters: { depthTest: false } as any,
+        opacity,
+        data: {
+          length: this.count,
+          startIndices: this.starts.subarray(0, this.count),
+          attributes: {
+            getPath: { value: pos.subarray(0, this.count * K * 2), size: 2 },
+            getColor: { value: col.subarray(0, this.count * K * 4), size: 4, normalized: true },
+          },
+        } as any,
+        _pathType: 'open',
+        getWidth: 1.4,
+        widthUnits: 'pixels',
+        parameters: ON_SURFACE,
       }),
       new ScatterplotLayer({
         id: 'oil-heads',
-        visible,
+        opacity,
         data: {
           length: this.count,
           attributes: {
-            getPosition: { value: this.pos[this.cur], size: 2 },
-            getFillColor: { value: this.col[this.cur], size: 4, normalized: true },
+            getPosition: { value: head.subarray(0, this.count * 2), size: 2 },
+            getFillColor: { value: hcol.subarray(0, this.count * 4), size: 4, normalized: true },
           },
         } as any,
         radiusUnits: 'pixels',
         getRadius: 2.2,
         radiusMinPixels: 1.5,
         stroked: false,
-        parameters: { depthTest: false } as any,
+        parameters: ON_SURFACE,
       }),
     ];
   }
@@ -107,11 +117,11 @@ export function footprintLayer(fps: Footprint[], tUnix: number) {
     data: cur ? cur.geojson : { type: 'FeatureCollection', features: [] },
     filled: true,
     stroked: true,
-    getFillColor: [20, 12, 6, 150],
-    getLineColor: [255, 170, 60, 230],
+    getFillColor: [255, 150, 50, 60],
+    getLineColor: [255, 200, 110, 240],
     lineWidthUnits: 'pixels',
-    getLineWidth: 1.5,
-    parameters: { depthTest: false } as any,
+    getLineWidth: 2,
+    parameters: ON_SURFACE,
     updateTriggers: { getFillColor: cur?.t },
   });
 }

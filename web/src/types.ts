@@ -66,3 +66,7 @@ export interface CurrentGrid {
 }
 
 export type Sampler = (lon: number, lat: number) => [number, number] | null;
+
+/** deck.gl draw parameters for layers lying on the globe surface: always pass the depth test
+ *  (avoids z-fighting with the MapLibre globe in interleaved mode). */
+export const ON_SURFACE: any = { depthCompare: 'always', depthWriteEnabled: false };

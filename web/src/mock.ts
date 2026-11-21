@@ -77,6 +77,10 @@ export function mockCurrent(lon: number, lat: number, t: number): [number, numbe
   vortex(lon, lat, -95.4, 23.6, 0.9, 0.35, -1, out);
   vortex(lon, lat, -84.6, 27.7, 0.7, 0.3, 1, out);
   vortex(lon, lat, -91.5, 22.6, 0.8, 0.25, 1, out);
+  // mesoscale "noise" so the mock field looks organic
+  const tt = t / (3 * DAY);
+  out[0] += 0.14 * Math.sin(lat * 1.9 + lon * 0.6 + tt) + 0.07 * Math.sin(lat * 4.3 - lon * 2.1 - 0.7 * tt);
+  out[1] += 0.14 * Math.cos(lon * 1.5 - lat * 0.8 + 0.8 * tt) + 0.07 * Math.cos(lon * 3.7 + lat * 2.6 + tt);
   const ph = (2 * Math.PI * t) / (24 * 3600);
   out[0] += 0.05 * Math.cos(ph); out[1] -= 0.05 * Math.sin(ph); // inertial wiggle
   return [out[0], out[1]];

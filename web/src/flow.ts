@@ -1,17 +1,19 @@
-// Windy-style animated current streaks: CPU-advected particles with fading trails, drawn as one LineLayer
+// Windy-style animated current streaks: CPU-advected particles with fading trails, drawn as one binary PathLayer
+// (LineLayer does not render on the MapLibre globe in interleaved mode)
 // from preallocated binary buffers (no per-frame allocations).
 
-import { LineLayer } from '@deck.gl/layers';
+import { PathLayer } from '@deck.gl/layers';
 import type { CurrentsSource, BBox } from './api';
+import { ON_SURFACE } from './types';
 
 const N = 3500;
-const TRAIL = 10;
+const TRAIL = 14;
 const SEG = TRAIL - 1;
 
 // speed colour ramp (m/s): deep blue -> cyan -> green -> yellow -> magenta
 const RAMP: [number, number, number, number][] = [
-  [0.0, 40, 90, 200],
-  [0.15, 40, 170, 230],
+  [0.0, 70, 120, 230],
+  [0.15, 60, 175, 240],
   [0.35, 60, 220, 190],
   [0.6, 170, 240, 110],
   [0.9, 250, 220, 80],
@@ -38,7 +40,8 @@ export class FlowField {
   private alive = new Uint8Array(N);
   private speed = new Float32Array(N);
   // ping-pong buffers: deck.gl only re-uploads external buffers when the reference changes
-  private bufs = [0, 1].map(() => ({ src: new Float32Array(N * SEG * 2), dst: new Float32Array(N * SEG * 2), col: new Uint8Array(N * SEG * 4) }));
+  private bufs = [0, 1].map(() => ({ pos: new Float32Array(N * TRAIL * 2), col: new Uint8Array(N * TRAIL * 4) }));
+  private starts = Uint32Array.from({ length: N }, (_, i) => i * TRAIL);
   private cur = 0;
   private version = 0;
 
@@ -101,44 +104,45 @@ export class FlowField {
 
   private build() {
     this.cur ^= 1;
-    const { src, dst, col } = this.bufs[this.cur];
+    const { pos, col } = this.bufs[this.cur];
     const { hist, head } = this;
     for (let p = 0; p < N; p++) {
       const base = p * TRAIL * 2;
       const h = head[p];
       const life = this.life[p], age = this.age[p];
-      const fade = this.alive[p] ? Math.min(1, age / 12, (life - age) / 20) : 0;
-      for (let s = 0; s < SEG; s++) {
-        // segment s goes from (h - SEG + s) to (h - SEG + s + 1), oldest first
-        const a = (h - SEG + s + TRAIL * 2) % TRAIL, b = (a + 1) % TRAIL;
-        const o = (p * SEG + s) * 2;
-        src[o] = hist[base + 2 * a]; src[o + 1] = hist[base + 2 * a + 1];
-        dst[o] = hist[base + 2 * b]; dst[o + 1] = hist[base + 2 * b + 1];
-        const c = (p * SEG + s) * 4;
+      const fade = this.alive[p] ? Math.max(0, Math.min(1, age / 12, (life - age) / 20)) : 0;
+      for (let s = 0; s < TRAIL; s++) {
+        // vertex s: oldest (s=0) .. newest (s=TRAIL-1)
+        const a = (h + 1 + s) % TRAIL;
+        const o = base + 2 * s;
+        pos[o] = hist[base + 2 * a]; pos[o + 1] = hist[base + 2 * a + 1];
+        const c = (p * TRAIL + s) * 4;
         ramp(this.speed[p], col, c);
-        col[c + 3] = fade > 0 ? 235 * fade * ((s + 1) / SEG) ** 1.4 : 0;
+        col[c + 3] = 235 * fade * (s / SEG) ** 1.4;
       }
     }
     this.version++;
   }
 
   layer(visible: boolean) {
-    const { src, dst, col } = this.bufs[this.cur];
-    return new LineLayer({
+    const { pos, col } = this.bufs[this.cur];
+    return new PathLayer({
       id: 'currents',
       visible,
       data: {
-        length: N * SEG,
+        length: N,
+        startIndices: this.starts,
         attributes: {
-          getSourcePosition: { value: src, size: 2 },
-          getTargetPosition: { value: dst, size: 2 },
+          getPath: { value: pos, size: 2 },
           getColor: { value: col, size: 4, normalized: true },
         },
       } as any,
+      _pathType: 'open',
       getWidth: 1.6,
       widthUnits: 'pixels',
-      updateTriggers: { getSourcePosition: this.version, getTargetPosition: this.version, getColor: this.version },
-      parameters: { depthTest: false } as any,
+      capRounded: false,
+      jointRounded: false,
+      parameters: ON_SURFACE,
     });
   }
 }

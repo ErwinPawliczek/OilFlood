@@ -2,7 +2,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 import maplibregl from 'maplibre-gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
-import { ScatterplotLayer, TextLayer } from '@deck.gl/layers';
+import { ScatterplotLayer, PathLayer, SolidPolygonLayer, PolygonLayer, GeoJsonLayer } from '@deck.gl/layers';
 import type { Layer } from '@deck.gl/core';
 import {
   FORCE_MOCK, onMock, getCatalog, getHistoricalTracks, getFootprints, getCurrents,
@@ -11,7 +11,7 @@ import {
 import { FlowField, SPEED_RAMP } from './flow';
 import { OilView, footprintLayer, budgetAt } from './oil';
 import { MOCK_BBOX, isWater } from './geo';
-import type { CatalogSpill, Tracks, Footprint } from './types';
+import { ON_SURFACE, type CatalogSpill, type Tracks, type Footprint } from './types';
 
 // ---------------------------------------------------------------- starfield
 (() => {
@@ -33,7 +33,7 @@ import type { CatalogSpill, Tracks, Footprint } from './types';
 const map = new maplibregl.Map({
   container: 'map',
   center: [-90, 24.5],
-  zoom: 1.4,
+  zoom: 0.9,
   maxPitch: 70,
   attributionControl: { compact: true },
   canvasContextAttributes: { antialias: true },
@@ -60,7 +60,7 @@ const map = new maplibregl.Map({
     },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': '#071222' } },
-      { id: 'ocean', type: 'raster', source: 'ocean', paint: { 'raster-brightness-max': 0.5, 'raster-saturation': -0.35, 'raster-contrast': 0.15, 'raster-fade-duration': 200 } },
+      { id: 'ocean', type: 'raster', source: 'ocean', paint: { 'raster-brightness-max': 0.42, 'raster-saturation': -0.4, 'raster-contrast': 0.2, 'raster-fade-duration': 200 } },
     ],
   } as any,
 });
@@ -68,13 +68,6 @@ const map = new maplibregl.Map({
 const overlay = new MapboxOverlay({
   interleaved: true,
   layers: [],
-  onClick: (info: any) => {
-    if (state.mode === 'historical' && info.layer?.id === 'pins' && info.object) selectSpill(info.object);
-  },
-  onHover: (info: any) => {
-    const pin = state.mode === 'historical' && info.layer?.id === 'pins' && info.object;
-    map.getCanvas().style.cursor = pin ? 'pointer' : state.mode === 'prediction' ? 'crosshair' : '';
-  },
 });
 map.addControl(overlay as any);
 
@@ -195,7 +188,7 @@ function budgetHTML() {
     ['Dispersed', b.dispersed, '#62d5c0'], ['Stranded', b.stranded, '#ff5a64'],
   ];
   return `<div class="sec"><div class="label">Oil budget</div><div class="budget">${rows
-    .map(([k, v, c]) => `<span>${k}</span><div class="bar"><div style="width:${pct(v)};background:${c}"></div></div><span class="pct">${pct(v)}</span>`)
+    .map(([k, v, c]) => `<span>${k}</span><div class="bbar"><div style="width:${pct(v)};background:${c}"></div></div><span class="pct">${pct(v)}</span>`)
     .join('')}</div></div>`;
 }
 
@@ -248,6 +241,7 @@ function renderCard() {
   html += legendHTML();
   html += mockBadgeHTML();
   card.innerHTML = html;
+  syncPins();
   card.querySelectorAll<HTMLButtonElement>('.spills button').forEach((b) =>
     b.addEventListener('click', () => { const c = state.catalog.find((x) => x.id === b.dataset.id); if (c) selectSpill(c); }),
   );
@@ -365,48 +359,28 @@ function updateView() {
     : { minLon: b.getWest(), minLat: b.getSouth(), maxLon: b.getEast(), maxLat: b.getNorth() };
 }
 map.on('moveend', updateView);
+map.on('zoom', () => document.body.classList.toggle('lowzoom', map.getZoom() < 5.5));
 map.on('move', () => { if (map.getZoom() < 3.2) updateView(); });
 
-function pinLayers(): Layer[] {
-  if (state.mode !== 'historical') return [];
-  const sel = state.selected?.id;
-  return [
-    new ScatterplotLayer({
-      id: 'pins',
-      data: state.catalog,
-      getPosition: (d: CatalogSpill) => [d.lon, d.lat],
-      getRadius: (d: CatalogSpill) => (d.id === sel ? 8 : 6),
-      radiusUnits: 'pixels',
-      getFillColor: (d: CatalogSpill) => (d.id === sel ? [255, 181, 71, 255] : [255, 181, 71, 170]),
-      getLineColor: [255, 255, 255, 220],
-      lineWidthUnits: 'pixels',
-      getLineWidth: 1.5,
-      stroked: true,
-      pickable: true,
-      autoHighlight: true,
-      highlightColor: [255, 230, 160, 255],
-      updateTriggers: { getRadius: sel, getFillColor: sel },
-      parameters: { depthTest: false } as any,
-    }),
-    new TextLayer({
-      id: 'pin-labels',
-      data: state.catalog,
-      getPosition: (d: CatalogSpill) => [d.lon, d.lat],
-      getText: (d: CatalogSpill) => d.name,
-      getSize: 12,
-      getColor: (d: CatalogSpill) => (d.id === sel ? [255, 210, 140, 255] : [220, 230, 245, 200]),
-      getPixelOffset: [10, 0],
-      getTextAnchor: 'start',
-      getAlignmentBaseline: 'center',
-      fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-      fontWeight: 500,
-      outlineWidth: 3,
-      outlineColor: [5, 10, 20, 220],
-      fontSettings: { sdf: true },
-      updateTriggers: { getColor: sel },
-      parameters: { depthTest: false } as any,
-    }),
-  ];
+// Pins are HTML markers: crisp labels, native click handling, and MapLibre hides them behind the globe.
+const pinMarkers = new Map<string, { m: maplibregl.Marker; el: HTMLElement }>();
+function syncPins() {
+  const show = state.mode === 'historical';
+  for (const c of state.catalog) {
+    let pm = pinMarkers.get(c.id);
+    if (!pm) {
+      const el = document.createElement('div');
+      el.className = 'pin';
+      el.innerHTML = `<i></i><span>${esc(c.name)}</span>`;
+      el.title = `${c.name} (${c.date_start.slice(0, 4)})`;
+      el.addEventListener('click', (e) => { e.stopPropagation(); selectSpill(c); });
+      const m = new maplibregl.Marker({ element: el, anchor: 'left', offset: [-7, 0] }).setLngLat([c.lon, c.lat]).addTo(map);
+      pm = { m, el };
+      pinMarkers.set(c.id, pm);
+    }
+    pm.el.style.display = show ? '' : 'none';
+    pm.el.classList.toggle('on', state.selected?.id === c.id);
+  }
 }
 
 function markerLayer(): Layer[] {
@@ -426,12 +400,13 @@ function markerLayer(): Layer[] {
       lineWidthUnits: 'pixels',
       getLineWidth: 2,
       updateTriggers: { getRadius: pulse, getLineColor: pulse },
-      parameters: { depthTest: false } as any,
+      parameters: ON_SURFACE,
     }),
   ];
 }
 
 let last = performance.now();
+let lastTH = -1;
 function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
@@ -439,9 +414,8 @@ function frame(now: number) {
   if (state.playing) {
     state.tH += dt * (s.durationH / 30) * SPEEDS[state.speedIdx];
     if (state.tH >= s.durationH) { state.tH = s.durationH; state.playing = false; renderCard(); }
-    renderBar();
-    maybeRenderCard(now);
   }
+  if (state.tH !== lastTH) { lastTH = state.tH; renderBar(); maybeRenderCard(now); }
   const tUnix = s.t0 + state.tH * 3600;
   const layers: Layer[] = [];
   if (flow) {
@@ -453,20 +427,23 @@ function frame(now: number) {
   if (s.oil && s.tracks) {
     const oilH = state.tH - (s.tracks.t0 - s.t0) / 3600;
     s.oil.update(oilH);
-    layers.push(...(s.oil.layers(oilH) as any[]));
+    layers.push(...(s.oil.layers(s.footprints.length ? 0.45 : 1) as any[]));
   }
-  layers.push(...pinLayers(), ...markerLayer());
+  layers.push(...markerLayer());
+  const dbg = (window as any).__dbgLayers; if (dbg) layers.push(...dbg());
   overlay.setProps({ layers });
   requestAnimationFrame(frame);
 }
 
 map.on('load', async () => {
   updateView();
-  map.easeTo({ zoom: 3.4, duration: 2600, easing: (t) => 1 - Math.pow(1 - t, 3) });
+  // zoom so the whole globe floats in view (globe radius ~= 512 * 2^z / 2pi px)
+  const fitZoom = Math.log2((0.47 * Math.min(innerWidth, innerHeight) * 2 * Math.PI) / 512);
+  map.easeTo({ zoom: Math.max(1.6, fitZoom), duration: 2600, easing: (t) => 1 - Math.pow(1 - t, 3) });
   state.catalog = await getCatalog();
   const initial = new URLSearchParams(location.search).get('mode') === 'prediction' ? 'prediction' : 'historical';
   await setMode(initial);
   requestAnimationFrame(frame);
 });
 renderBar();
-(window as any).__oilflood = { map, state };
+(window as any).__oilflood = { PathLayer, ScatterplotLayer, SolidPolygonLayer, PolygonLayer, GeoJsonLayer, map, state, overlay, get flow() { return flow; } };
