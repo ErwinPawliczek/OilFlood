@@ -85,6 +85,8 @@ def to_opendrift(ds: xr.Dataset, rename: dict, kind: str, source: str) -> xr.Dat
     ds = ds.drop_vars(drop, errors="ignore")
     if float(ds.lon.max()) > 180:
         ds = ds.assign_coords(lon=((ds.lon + 180) % 360) - 180)
+    # HYCOM NCSS times carry float32 jitter (e.g. 01:01:52 for 01:00); snap to 15 min
+    ds = ds.assign_coords(time=ds.time.dt.round("15min"))
     ds = ds.sortby("lon").sortby("lat").sortby("time")
     _, idx = np.unique(ds.time.values, return_index=True)
     ds = ds.isel(time=np.sort(idx))

@@ -82,6 +82,10 @@ def export(window: str, step: float = 0.1, every_h: int = 1, force: bool = False
              "json": "<t>.json", "png": "<t>.png", "source": src_attr,
              "png_encoding": "R=(u/vmax+1)*127.5, G=(v/vmax+1)*127.5, B=speed/vmax*255, A=255 water/0 land; rows north->south"}
     idx_path.write_text(json.dumps(index, indent=1))
+    keep_names = {f"{t}.json" for t in written} | {f"{t}.png" for t in written} | {"index.json"}
+    for p in out.iterdir():  # drop fields from older exports
+        if p.name not in keep_names:
+            p.unlink()
     size = sum(p.stat().st_size for p in out.iterdir())
     log(f"[{window}] {len(written)} fields {len(lons)}x{len(lats)} -> {out} ({size / 1e6:.1f} MB)")
 
