@@ -57,7 +57,7 @@ Not used: ERA5/CMEMS/GLORYS (need accounts).
 Notes on processing:
 - Latitudes in HYCOM GOMb0.04 are Mercator-spaced. They're resampled onto a uniform axis because OpenDrift's generic reader needs constant spacing.
 - HYCOM's 1.27e30 fill isn't always decoded, so anything over 100 m/s is masked to NaN.
-- Timestamps are snapped to 15 min because NCSS output carries float jitter.
+- Timestamps are snapped to 15 min because NCSS output carries float jitter. HYCOM 3z (currents) and 2d (winds) can sit on different hourly offsets and have occasional missing hours, so currents.nc and winds.nc may have slightly different step counts. OpenDrift interpolates in time.
 - Values are quantized to 3 decimals.
 - **Galveston Bay is land in HYCOM.** The Texas City Y point (29.363, −94.798) is NaN. The nearest water is Bolivar Roads, about 29.33, −94.72. Seed hindcasts there, or let OpenDrift fall back for in-bay particles.
 

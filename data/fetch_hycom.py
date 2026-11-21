@@ -78,7 +78,7 @@ def fetch_window(name: str, start: datetime, end: datetime, stride_h: int = 1, w
     def run(j):
         url, dest, params = j
         existed = dest.exists()
-        download(url, dest, params=params, timeout=900)
+        download(url, dest, params=params, timeout=300, tries=6)
         if not existed:
             log(f"  got {dest.name} ({dest.stat().st_size / 1e6:.1f} MB)")
         return dest
@@ -89,8 +89,10 @@ def fetch_window(name: str, start: datetime, end: datetime, stride_h: int = 1, w
     for kind, spec in KINDS.items():
         files = sorted((RAW / "hycom" / name).glob(f"{kind}_*.nc"))
         ds = xr.open_mfdataset(files, combine="nested", concat_dim="MT", decode_times=True)
-        ds = ds.sel(MT=slice(start, end))
+        pad = timedelta(minutes=10)  # raw times jitter by a few minutes; snap first, then slice
+        ds = ds.sel(MT=slice(start - pad, end + pad))
         ds = to_opendrift(ds, spec["rename"], spec["kind"], f"HYCOM-TSIS GOMb0.04 reanalysis ({BASE.format(year='YYYY', kind=kind)})")
+        ds = ds.sel(time=slice(start, end))
         dest = write_nc(ds, outdir / spec["out"])
         ds.close()
         log("  " + verify(dest, spec["kind"]))
