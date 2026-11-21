@@ -67,8 +67,8 @@ export async function getCatalog(): Promise<CatalogSpill[]> {
 
 /** Hindcast tracks. The backend answers 202 {id, status, progress} while the run computes; we poll until done.
  *  Returns null if superseded; throws ApiError (with the backend's message) on failure. */
-export async function getHistoricalTracks(s: CatalogSpill, onProgress: (p: number) => void = () => {}, isStale = () => false): Promise<Tracks | null> {
-  const url = `/api/spills/${encodeURIComponent(s.id)}/tracks`;
+export async function getHistoricalTracks(s: CatalogSpill, model: ModelId, onProgress: (p: number) => void = () => {}, isStale = () => false): Promise<Tracks | null> {
+  const url = `/api/spills/${encodeURIComponent(s.id)}/tracks?model=${model}`;
   let r = await getJSON<any>(url);
   while (!r.particles && r.id && r.status) {
     if (r.status === 'error') throw new ApiError(r.error || 'Hindcast failed');
@@ -101,6 +101,16 @@ export function normalizeFootprints(r: any): Footprint[] {
 export async function getFootprints(s: CatalogSpill): Promise<Footprint[]> {
   if (!s.has_observed_outlines) return [];
   return normalizeFootprints(await getJSON<any>(`/api/spills/${encodeURIComponent(s.id)}/footprints`));
+}
+
+// ---------- models ----------
+/** openoil = OpenDrift OpenOil baseline; ours = OilFlood's own model (+ ML drift correction). */
+export type ModelId = 'openoil' | 'ours';
+export const MODELS: ModelId[] = ['openoil', 'ours'];
+export interface ModelInfo { id: ModelId; label: string; short: string; summary: string; skill?: any }
+export async function getModels(): Promise<ModelInfo[]> {
+  const r = await getJSON<any>('/api/models');
+  return r.models ?? [];
 }
 
 // ---------- prediction ----------
@@ -154,11 +164,11 @@ export interface RunSummary {
   forecast?: { currents: ForecastPart; winds: ForecastPart; valid_from: string; valid_until: string };
 }
 
-export async function postSpill(lat: number, lon: number): Promise<SpillJob & RunSummary> {
+export async function postSpill(lat: number, lon: number, model: ModelId = 'openoil'): Promise<SpillJob & RunSummary> {
   const r = await getJSON<any>('/api/spill', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ lat, lon, duration_h: PRED.durationH, volume_bbl: PRED.volumeBbl, oil_type: PRED.oilId, n_particles: PRED.nParticles }),
+    body: JSON.stringify({ lat, lon, duration_h: PRED.durationH, volume_bbl: PRED.volumeBbl, oil_type: PRED.oilId, n_particles: PRED.nParticles, model }),
   });
   return { ...r, id: String(r.id), lat, lon };
 }

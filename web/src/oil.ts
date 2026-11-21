@@ -3,9 +3,12 @@
 import { ScatterplotLayer, GeoJsonLayer, PathLayer } from '@deck.gl/layers';
 import { ON_SURFACE, type Tracks, type Footprint, type BudgetRow, type Particle } from './types';
 
-const FRESH = [255, 190, 70];
-const AGED = [205, 105, 35];
-const STRANDED = [255, 70, 90];
+/** Particle colours per model: OpenOil amber, ours cyan (so both can be drawn at once). */
+export const PALETTES = {
+  openoil: { fresh: [255, 190, 70], aged: [205, 105, 35], stranded: [255, 70, 90], css: '#ffb547', cssStranded: '#ff5a64' },
+  ours: { fresh: [90, 225, 255], aged: [40, 130, 230], stranded: [235, 90, 255], css: '#5ae1ff', cssStranded: '#eb5aff' },
+} as const;
+export type PaletteId = keyof typeof PALETTES;
 
 const K = 8; // trail vertices per particle
 
@@ -29,7 +32,10 @@ export class OilView {
   private cur = 0;
   private count = 0;
 
-  constructor(public tracks: Tracks) {
+  private pal: (typeof PALETTES)[PaletteId];
+
+  constructor(public tracks: Tracks, public paletteId: PaletteId = 'openoil') {
+    this.pal = PALETTES[paletteId];
     const n = tracks.particles.length;
     this.bufs = [0, 1].map(() => ({ pos: new Float32Array(n * K * 2), col: new Uint8Array(n * K * 4), head: new Float32Array(n * 2), hcol: new Uint8Array(n * 4) }));
     this.starts = Uint32Array.from({ length: n }, (_, i) => i * K);
@@ -39,6 +45,7 @@ export class OilView {
   update(tH: number) {
     this.cur ^= 1;
     const { pos, col, head, hcol } = this.bufs[this.cur];
+    const { fresh: FRESH, aged: AGED, stranded: STRANDED } = this.pal;
     const ageScale = Math.max(24, this.tracks.durationH / 2);
     const trail = Math.max(2, this.tracks.durationH / 14);
     let n = 0;
@@ -73,7 +80,7 @@ export class OilView {
     const { pos, col, head, hcol } = this.bufs[this.cur];
     return [
       new PathLayer({
-        id: 'oil-trails',
+        id: `oil-trails-${this.paletteId}`,
         opacity,
         data: {
           length: this.count,
@@ -89,7 +96,7 @@ export class OilView {
         parameters: ON_SURFACE,
       }),
       new ScatterplotLayer({
-        id: 'oil-heads',
+        id: `oil-heads-${this.paletteId}`,
         opacity,
         data: {
           length: this.count,

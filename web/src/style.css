@@ -136,3 +136,10 @@ body.lowzoom .pin:not(.on):not(:hover) span { opacity: 0; pointer-events: none; 
 .resp .ev i { font-style: normal; font-size: 10px; padding: 0 5px; border-radius: 6px; color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); white-space: nowrap; }
 .resp .ev a { color: #8fb8ff; font-size: 10px; opacity: 0.8; }
 .resp .gaps { margin-top: 6px; color: var(--muted); line-height: 1.35; }
+/* model selector (OpenOil / ours / compare) */
+.model-sel { margin-top: 6px; }
+.model-sel button { padding: 4px 10px; font-size: 12px; }
+.model-sel button[data-model="ours"].on { background: rgba(90, 225, 255, 0.14); color: #5ae1ff; }
+.model-sel button[data-model="compare"].on { background: linear-gradient(90deg, rgba(255, 181, 71, 0.28), rgba(90, 225, 255, 0.28)); color: #fff; }
+.budget .bhead { font-size: 11px; font-weight: 600; }
+.mnote { margin-top: 6px; line-height: 1.4; }

@@ -6,11 +6,12 @@ import { ScatterplotLayer } from '@deck.gl/layers';
 import type { Layer } from '@deck.gl/core';
 import {
   getCatalog, getHistoricalTracks, getFootprints, getCurrents, postSpill, pollSpill, getSpillTracks, getLive, getOils,
-  toUnix, PRED, GULF_BBOX, type CurrentsSource, type SpillJob, type LiveForecast, type OilOption, type RunSummary,
+  getModels, toUnix, PRED, GULF_BBOX, MODELS, type CurrentsSource, type SpillJob, type LiveForecast, type OilOption,
+  type RunSummary, type ModelId, type ModelInfo,
 } from './api';
 import { FlowField } from './flow';
 import { getGlobalCurrents, type GlobalCurrents } from './globalCurrents';
-import { OilView, footprintLayer, footprintAt, budgetAt } from './oil';
+import { OilView, footprintLayer, footprintAt, budgetAt, PALETTES } from './oil';
 import { initPanel, legendHTML, RATES_H, autoRateIdx, rateLabel, responseHTML } from './panel';
 import { ON_SURFACE, type CatalogSpill, type Tracks, type Footprint } from './types';
 
@@ -77,8 +78,16 @@ type Mode = 'historical' | 'prediction';
 interface Scene {
   t0: number; // unix s
   durationH: number;
+  /** first model run that arrived (drives the timeline); all runs are in `runs` */
   tracks: Tracks | null;
   oil: OilView | null;
+  runs: Partial<Record<ModelId, { tracks: Tracks; oil: OilView }>>;
+  /** model runs requested for this scene (historical hindcasts) */
+  runReq: Set<ModelId>;
+  /** per-model progress / status text while a hindcast computes */
+  runMsg: Partial<Record<ModelId, string>>;
+  /** historical: start (once) the hindcast of model m for this scene's spill */
+  loadRun?: (m: ModelId) => Promise<void>;
   footprints: Footprint[];
   /** real Gulf HYCOM currents for this window; null = none cached */
   currents: CurrentsSource | null;
@@ -94,12 +103,21 @@ interface Scene {
 }
 const nowHour = () => Math.floor(Date.now() / 3600000) * 3600;
 const emptyScene = (t0: number, durationH: number): Scene => ({
-  t0, durationH, tracks: null, oil: null, footprints: [], currents: null, currentsReq: false,
+  t0, durationH, tracks: null, oil: null, runs: {}, runReq: new Set(), runMsg: {}, footprints: [], currents: null, currentsReq: false,
   global: null, globalReq: false, pending: 0, loading: null, errors: [],
 });
 
+type ModelChoice = ModelId | 'compare';
+const MODEL_KEY = 'oilflood.model.v1';
+const savedModel = (() => { try { return localStorage.getItem(MODEL_KEY); } catch { return null; } })();
+
 const state = {
   mode: 'prediction' as Mode,
+  /** which trajectory model(s) to show: OpenOil baseline, ours, or both side by side */
+  model: (['openoil', 'ours', 'compare'].includes(savedModel ?? '') ? savedModel : 'openoil') as ModelChoice,
+  models: [] as ModelInfo[],
+  /** prediction: per-model run status for the current click */
+  jobRuns: {} as Partial<Record<ModelId, { id: string; status: string; progress: number; error?: string }>>,
   catalog: [] as CatalogSpill[],
   catalogError: null as string | null,
   selected: null as CatalogSpill | null,
@@ -117,6 +135,15 @@ const state = {
   showCurrents: true,
 };
 const scene = () => (state.mode === 'historical' ? state.hist : state.pred);
+const wanted = (): ModelId[] => (state.model === 'compare' ? [...MODELS] : [state.model]);
+const modelShort = (m: ModelId) => (m === 'ours' ? 'Ours' : 'OpenOil');
+/** Model runs of scene s that are currently shown, in a fixed order. */
+const shownRuns = (s: Scene) => wanted().filter((m) => s.runs[m]).map((m) => ({ m, ...s.runs[m]! }));
+/** Store a finished run in scene s; the first one also drives the timeline. */
+function addRun(s: Scene, m: ModelId, tr: Tracks) {
+  s.runs[m] = { tracks: tr, oil: new OilView(tr, m) };
+  if (!s.tracks) { s.tracks = tr; s.oil = s.runs[m]!.oil; }
+}
 const simT = () => scene().t0 + state.tH * 3600;
 const covers = (c: CurrentsSource | null, t: number) => !!c && t >= c.t0 - 6 * 3600 && t <= c.t1 + 6 * 3600;
 
@@ -199,6 +226,11 @@ ui.innerHTML = `
         <button data-mode="historical">Historical</button>
         <button data-mode="prediction">Prediction</button>
       </div>
+      <div class="mode model-sel" id="modelsel" title="Trajectory model">
+        <button data-model="openoil" title="OpenDrift OpenOil: the established baseline">OpenOil</button>
+        <button data-model="ours" title="Our model: Lagrangian + Fay + weathering + ML drift correction">Ours</button>
+        <button data-model="compare" title="Both at once: OpenOil amber, ours cyan">Compare</button>
+      </div>
       <div id="predform"></div>
       <div id="content"></div>
       <div class="sec time">
@@ -225,7 +257,8 @@ initPanel(panel);
 const ICON_PLAY = '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 1.2v9.6L10.5 6z" fill="currentColor"/></svg>';
 const ICON_PAUSE = '<svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"/><rect x="7" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"/></svg>';
 
-panel.querySelectorAll<HTMLButtonElement>('.mode button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode as Mode)));
+panel.querySelectorAll<HTMLButtonElement>('.mode button[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode as Mode)));
+panel.querySelectorAll<HTMLButtonElement>('#modelsel button').forEach((b) => b.addEventListener('click', () => setModel(b.dataset.model as ModelChoice)));
 $('play').addEventListener('click', togglePlay);
 $('slower').addEventListener('click', () => { state.rateIdx = Math.max(0, state.rateIdx - 1); renderTime(true); });
 $('faster').addEventListener('click', () => { state.rateIdx = Math.min(RATES_H.length - 1, state.rateIdx + 1); renderTime(true); });
@@ -310,17 +343,24 @@ function renderTime(force = false) {
 
 function budgetHTML() {
   const s = scene();
-  if (!s.tracks || !s.tracks.budget.length) return '';
-  const b = budgetAt(s.tracks.budget, state.tH - (s.tracks.t0 - s.t0) / 3600);
-  if (!b) return '';
-  const rows: [string, number, string][] = [
-    ['Surface', b.surface, '#ffb547'], ['Evaporated', b.evaporated, '#8fb8ff'],
-    ['Dispersed', b.dispersed, '#62d5c0'], ['Stranded', b.stranded, '#ff5a64'],
+  const runs = shownRuns(s).filter((r) => r.tracks.budget.length);
+  if (!runs.length) return '';
+  const bs = runs.map((r) => budgetAt(r.tracks.budget, state.tH - (r.tracks.t0 - s.t0) / 3600));
+  if (bs.some((b) => !b)) return '';
+  const keys: [keyof BudgetKeys, string, string][] = [
+    ['surface', 'Surface', '#ffb547'], ['evaporated', 'Evaporated', '#8fb8ff'],
+    ['dispersed', 'Dispersed', '#62d5c0'], ['stranded', 'Stranded', '#ff5a64'],
   ];
-  return `<div class="sec"><div class="label">Oil budget (model)</div><div class="budget">${rows
-    .map(([k, v, c]) => `<span>${k}</span><div class="bbar"><div style="width:${pct(v)};background:${c}"></div></div><span class="pct">${pct(v)}</span>`)
+  const cols = `78px repeat(${runs.length}, 1fr 34px)`;
+  const head = runs.length > 1
+    ? `<span></span>${runs.map((r) => `<span class="bhead" style="color:${PALETTES[r.m].css}">${modelShort(r.m)}</span><span></span>`).join('')}`
+    : '';
+  const title = runs.length > 1 ? 'Oil budget (OpenOil vs ours)' : `Oil budget (${modelShort(runs[0].m) === 'Ours' ? 'our model' : 'OpenOil'})`;
+  return `<div class="sec"><div class="label">${title}</div><div class="budget" style="grid-template-columns:${cols}">${head}${keys
+    .map(([k, lab, c]) => `<span>${lab}</span>${bs.map((b) => `<div class="bbar"><div style="width:${pct(b![k])};background:${c}"></div></div><span class="pct">${pct(b![k])}</span>`).join('')}`)
     .join('')}</div></div>`;
 }
+type BudgetKeys = { surface: number; evaporated: number; dispersed: number; stranded: number };
 
 /** Small honest notes about what real data exists at the current sim time. */
 function notesHTML() {
@@ -371,7 +411,8 @@ function sourceLine() {
 }
 let lastLegend = '';
 function renderLegend() {
-  const html = legendHTML(state.showCurrents, sourceLine());
+  const ms = shownRuns(scene()).map((r) => r.m);
+  const html = legendHTML(state.showCurrents, sourceLine(), ms.length ? ms : wanted());
   if (html !== lastLegend) { lastLegend = html; $('legend').innerHTML = html; }
 }
 
@@ -389,16 +430,18 @@ function renderContent() {
       .map((c) => `<button data-id="${esc(c.id)}" class="${sel?.id === c.id ? 'on' : ''}"><span>${esc(c.name)}</span><small>${esc(c.date_start.slice(0, 4))}</small></button>`)
       .join('')}</div></div>`;
     if (sel) {
-      const srcs = [s.footprints.length ? `${s.footprints.length} observed outlines (NOAA/NESDIS)` : '', s.tracks ? 'model hindcast' : ''].filter(Boolean).join(' + ');
+      const hc = shownRuns(s).map((r) => modelShort(r.m));
+      const srcs = [s.footprints.length ? `${s.footprints.length} observed outlines (NOAA/NESDIS)` : '', hc.length ? `hindcast: ${hc.join(' + ')}` : ''].filter(Boolean).join(' + ');
+      const prog = wanted().filter((m) => !s.runs[m] && s.runMsg[m]).map((m) => `${modelShort(m)}: ${s.runMsg[m]}`).join(' · ');
       html += `<div class="sec"><h2>${esc(sel.name)}</h2>
-      <div class="sub">${srcs ? esc(srcs) : ''}${s.loading ? esc(s.loading) : ''}</div>
+      <div class="sub">${srcs ? esc(srcs) : ''}${s.loading ? esc(s.loading) : ''}${prog ? `<br>${esc(prog)}` : ''}</div>
       <div class="kv" style="margin-top:6px">
         <span>Start</span><span>${esc(sel.date_start.slice(0, 10))}</span>
         ${sel.date_end ? `<span>End</span><span>${esc(sel.date_end.slice(0, 10))}</span>` : ''}
         ${sel.volume_bbl ? `<span>Volume</span><span>${Number(sel.volume_bbl).toLocaleString()} bbl</span>` : ''}
         ${sel.oil_type ? `<span>Oil</span><span>${esc(sel.oil_type)}${s.tracks?.meta?.oil_type && s.tracks.meta.oil_type !== sel.oil_type ? ` <small class="hint">(model: ${esc(s.tracks.meta.oil_type)})</small>` : ''}</span>` : ''}
         <span>Position</span><span>${sel.lat.toFixed(3)}°, ${sel.lon.toFixed(3)}°</span>
-      </div>${errorsHTML(s.errors)}`;
+      </div>${modelNoteHTML(s)}${errorsHTML(s.errors)}`;
       html += responseHTML(sel, respOpen);
       if (sel.source_urls?.length) html += `<details class="links"><summary>Sources</summary>${sel.source_urls.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\//, ''))}</a>`).join('<br>')}</details>`;
       html += `</div>`;
@@ -412,19 +455,28 @@ function renderContent() {
     } else {
       html += `<div class="sec"><h2>Spill prediction</h2><div class="sub">${j.lat.toFixed(3)}°, ${j.lon.toFixed(3)}°${j.volume_bbl ? ` · ${fmtBbl(j.volume_bbl)}` : ''}${j.oil_type ? ` · ${esc(j.oil_type)}` : ''}</div>`;
       if (j.note) html += `<div class="warn">${esc(j.note)}</div>`;
-      if (j.status !== 'done') {
-        html += j.status === 'error'
-          ? `<div class="err">${esc(j.error || 'Run failed')}</div>`
-          : `<div class="row" style="margin-top:6px"><span class="hint">${j.status === 'queued' ? 'Queued…' : 'Simulating drift…'}</span><span class="hint">${pct(j.progress)}</span></div>
-          <div class="progress"><div style="width:${pct(j.progress)}"></div></div>`;
-      } else if (s.tracks) {
+      const multi = wanted().length > 1;
+      if (!Object.keys(state.jobRuns).length && j.status === 'error') html += `<div class="err">${esc(j.error || 'Run failed')}</div>`;
+      for (const mid of wanted()) {
+        const r = state.jobRuns[mid];
+        if (!r || r.status === 'done') continue;
+        const who = multi || mid === 'ours' ? `${modelShort(mid)}: ` : '';
+        html += r.status === 'error'
+          ? `<div class="err">${esc(who + (r.error || 'Run failed'))}</div>`
+          : `<div class="row" style="margin-top:6px"><span class="hint">${esc(who)}${r.status === 'queued' ? 'Queued…' : 'Simulating drift…'}</span><span class="hint">${pct(r.progress)}</span></div>
+          <div class="progress"><div style="width:${pct(r.progress)}"></div></div>`;
+      }
+      const runs = shownRuns(s);
+      if (s.tracks && runs.length) {
         const m = s.tracks.meta ?? {};
         html += `<div class="kv" style="margin-top:6px"><span>Start</span><span>${fmtUTC(s.tracks.t0)}</span>
           <span>Horizon</span><span>${Math.round(s.tracks.durationH)} h${m.requested_duration_h && m.requested_duration_h > s.tracks.durationH + 0.5 ? ` of ${Math.round(m.requested_duration_h)} h (forecast ends)` : ''}</span>
           ${m.forecast ? `<span>Forcing</span><span>${esc(shortModel(m.forecast.currents?.model).split(' ')[0])} ${fmtRun(m.forecast.currents?.issued_at)} · ${esc(shortModel(m.forecast.winds?.model).split(' ')[0])} ${fmtRun(m.forecast.winds?.issued_at)}</span>` : ''}
-          <span>Particles</span><span>${s.tracks.particles.length}</span></div>`;
+          <span>Model</span><span>${runs.map((r) => `<b style="color:${PALETTES[r.m].css}">${modelShort(r.m)}</b> <small class="hint">${r.tracks.meta?.runtime_s ?? '?'} s</small>`).join(' · ')}</span>
+          <span>Particles</span><span>${runs.map((r) => r.tracks.particles.length).join(' · ')}</span></div>`;
         if (m.seed_moved_km > 0) html += `<div class="hint" style="margin-top:4px">Seeded ${m.seed_moved_km} km away, at the nearest model water cell.</div>`;
       }
+      html += modelNoteHTML(s);
       html += `<div class="hint" style="margin-top:8px">Click elsewhere on the ocean for a new spill.</div></div>`;
     }
     html += errorsHTML(s.errors);
@@ -545,7 +597,7 @@ async function selectSpill(s: CatalogSpill) {
   // Timeline = union of observed outlines and hindcast; keep the absolute clock when it changes.
   const applyTimeline = () => {
     let a = Infinity, b = -Infinity;
-    if (sc.tracks) { a = sc.tracks.t0; b = sc.tracks.t0 + sc.tracks.durationH * 3600; }
+    for (const r of Object.values(sc.runs)) { a = Math.min(a, r!.tracks.t0); b = Math.max(b, r!.tracks.t0 + r!.tracks.durationH * 3600); }
     for (const f of sc.footprints) { a = Math.min(a, f.t); b = Math.max(b, f.t + 86400); }
     if (!Number.isFinite(a)) return;
     const abs = sc.t0 + state.tH * 3600;
@@ -565,18 +617,30 @@ async function selectSpill(s: CatalogSpill) {
     applyTimeline();
     if (fp.length) startPlayback();
   }).catch((e) => { if (!stale()) sc.errors.push(`Observed outlines: ${e.message}`); });
-  const onProgress = (p: number) => {
-    if (stale()) return;
-    sc.loading = `Computing hindcast on real forcing… ${Math.round((p > 1 ? p / 100 : p) * 100)}%`;
-    renderContent();
+  sc.loadRun = (m: ModelId) => {
+    if (sc.runReq.has(m)) return Promise.resolve();
+    sc.runReq.add(m);
+    sc.runMsg[m] = 'computing hindcast on real forcing…';
+    const onProgress = (p: number) => {
+      if (stale()) return;
+      sc.runMsg[m] = `computing hindcast on real forcing… ${Math.round((p > 1 ? p / 100 : p) * 100)}%`;
+      renderContent();
+    };
+    return getHistoricalTracks(s, m, onProgress, stale).then((tr) => {
+      if (stale() || !tr) return;
+      addRun(sc, m, tr);
+      delete sc.runMsg[m];
+      applyTimeline();
+      startPlayback();
+      renderContent(); renderTime(true);
+    }).catch((e) => {
+      if (stale()) return;
+      delete sc.runMsg[m];
+      sc.errors.push(`Hindcast (${modelShort(m)}): ${e.message}`);
+      renderContent();
+    });
   };
-  const pTracks = getHistoricalTracks(s, onProgress, stale).then((tr) => {
-    if (stale() || !tr) return;
-    sc.tracks = tr;
-    sc.oil = new OilView(tr);
-    applyTimeline();
-    startPlayback();
-  }).catch((e) => { if (!stale()) sc.errors.push(`Hindcast: ${e.message}`); });
+  const pTracks = Promise.all(wanted().map((m) => sc.loadRun!(m)));
   renderContent();
   await Promise.all([pFootprints.then(() => !stale() && (renderContent(), renderTime(true))), pTracks]);
   if (stale()) return;
@@ -584,32 +648,21 @@ async function selectSpill(s: CatalogSpill) {
   renderContent(); renderTime(true);
 }
 
+/** Prediction scene of the current click: created when its first model run arrives. */
+let jobScene: ((tr: Tracks) => Scene) | null = null;
+
 async function startSpill(lon: number, lat: number) {
   const token = ++state.jobToken;
   if (map.getZoom() < 5) map.flyTo({ center: [lon, lat], zoom: 6.5, duration: 2500, essential: true });
   const prev = state.pred;
   state.playing = false;
   state.job = { id: '', lat, lon, status: 'queued', progress: 0 };
+  state.jobRuns = {};
   prev.errors = [];
-  renderContent(); renderTime(true);
-  try {
-    const job = await postSpill(lat, lon);
-    if (token !== state.jobToken) return;
-    state.job = { ...job, status: 'queued', progress: 0 };
-    if (job.forecast && state.live && job.forecast.valid_until !== state.live.valid_until) refreshLive();
-    for (;;) {
-      const st = await pollSpill(job);
-      if (token !== state.jobToken) return;
-      Object.assign(state.job, st);
-      renderContent();
-      if (st.status === 'done') break;
-      if (st.status === 'error') return;
-      await new Promise((r) => setTimeout(r, 700));
-    }
-    const tracks = await getSpillTracks(job);
-    if (token !== state.jobToken) return;
-    const sc = emptyScene(tracks.t0, tracks.durationH);
-    sc.tracks = tracks; sc.oil = new OilView(tracks);
+  let sc: Scene | null = null;
+  jobScene = (tracks: Tracks) => {
+    if (sc) return sc;
+    sc = emptyScene(tracks.t0, tracks.durationH);
     // same live window as before the click: reuse its fields when the run sits inside them
     if (prev.currents && covers(prev.currents, tracks.t0) && covers(prev.currents, tracks.t0 + tracks.durationH * 3600)) {
       sc.currents = prev.currents; sc.currentsReq = true;
@@ -621,13 +674,87 @@ async function startSpill(lon: number, lat: number) {
       useCurrents(sc.currents); useGlobal(sc.global);
       state.tH = 0; state.playing = true; state.rateIdx = autoRateIdx(sc.durationH);
     }
+    return sc;
+  };
+  renderContent(); renderTime(true);
+  await Promise.all(wanted().map((m) => runPrediction(m, token)));
+}
+
+function updateJobStatus() {
+  const j = state.job;
+  if (!j) return;
+  const rs = Object.values(state.jobRuns);
+  if (!rs.length) return;
+  const fin = rs.every((r) => r!.status === 'done' || r!.status === 'error');
+  j.status = fin ? (rs.some((r) => r!.status === 'done') ? 'done' : 'error') : 'running';
+  j.progress = rs.reduce((a, r) => a + r!.progress, 0) / rs.length;
+  j.error = rs.find((r) => r!.error)?.error;
+}
+
+/** One model's run for the current prediction click: POST, poll, fetch tracks, add to the scene. */
+async function runPrediction(m: ModelId, token: number) {
+  const j0 = state.job;
+  if (!j0 || state.jobRuns[m]) return;
+  const run = { id: '', status: 'queued', progress: 0 } as { id: string; status: string; progress: number; error?: string };
+  state.jobRuns[m] = run;
+  updateJobStatus();
+  try {
+    const job = await postSpill(j0.lat, j0.lon, m);
+    if (token !== state.jobToken) return;
+    run.id = job.id;
+    const { status: _s, progress: _p, id: _id, model: _m, ...summary } = job as any;
+    Object.assign(state.job!, summary, { lat: j0.lat, lon: j0.lon });
+    if (job.forecast && state.live && job.forecast.valid_until !== state.live.valid_until) refreshLive();
+    for (;;) {
+      const st = await pollSpill(job);
+      if (token !== state.jobToken) return;
+      Object.assign(run, st);
+      updateJobStatus();
+      renderContent();
+      if (st.status === 'done') break;
+      if (st.status === 'error') return;
+      await new Promise((r) => setTimeout(r, 700));
+    }
+    const tracks = await getSpillTracks(job);
+    if (token !== state.jobToken || !jobScene) return;
+    addRun(jobScene(tracks), m, tracks);
+    updateJobStatus();
     renderContent(); renderTime(true);
   } catch (e) {
     if (token !== state.jobToken || !state.job) return;
-    state.job.status = 'error';
-    state.job.error = String((e as Error).message ?? e);
+    run.status = 'error';
+    run.error = String((e as Error).message ?? e);
+    updateJobStatus();
     renderContent();
   }
+}
+
+/** Model toggle: show OpenOil, ours, or both; runs whatever the current spill is missing. */
+function setModel(m: ModelChoice) {
+  state.model = m;
+  try { localStorage.setItem(MODEL_KEY, m); } catch { /* private mode */ }
+  panel.querySelectorAll<HTMLButtonElement>('#modelsel button').forEach((b) => b.classList.toggle('on', b.dataset.model === m));
+  if (state.hist.loadRun && state.selected) for (const id of wanted()) state.hist.loadRun(id);
+  if (state.job && state.job.lat != null) for (const id of wanted()) if (!state.jobRuns[id]) runPrediction(id, state.jobToken);
+  renderContent();
+}
+
+/** What our model is + its held-out ML skill (from GET /api/models), shown when ours is on screen. */
+function modelNoteHTML(s: Scene) {
+  if (!wanted().includes('ours')) return '';
+  const info = state.models.find((x) => x.id === 'ours');
+  const sk = info?.skill;
+  let html = '<div class="hint mnote">';
+  if (sk?.traj_24h) {
+    html += `<b style="color:${PALETTES.ours.css}">Ours</b>: ML drift correction trained on ${sk.drifters} NOAA drifters `
+      + `(${Number(sk.rows).toLocaleString()} hourly fixes). On held-out drifters the median 24 h position error drops `
+      + `${sk.traj_24h.median_km_current} → ${sk.traj_24h.median_km_ml} km, 48 h ${sk.traj_48h.median_km_current} → ${sk.traj_48h.median_km_ml} km.`;
+  } else if (info) {
+    html += esc(info.summary);
+  }
+  const mo = s.runs.ours?.tracks.meta;
+  if (mo && mo.ml_correction === false) html += ' (ML correction off for this run)';
+  return html + '</div>';
 }
 
 map.on('click', (e) => {
@@ -711,10 +838,9 @@ function frame(now: number) {
   const tUnix = simT();
   const layers: Layer[] = currentLayers(s, tUnix, dt);
   if (s.footprints.length) layers.push(footprintLayer(s.footprints, tUnix) as any);
-  if (s.oil && s.tracks) {
-    const oilH = state.tH - (s.tracks.t0 - s.t0) / 3600;
-    s.oil.update(oilH);
-    layers.push(...(s.oil.layers(s.footprints.length ? 0.45 : 1) as any[]));
+  for (const r of shownRuns(s)) {
+    r.oil.update(state.tH - (r.tracks.t0 - s.t0) / 3600);
+    layers.push(...(r.oil.layers(s.footprints.length ? 0.45 : 1) as any[]));
   }
   layers.push(...markerLayer());
   overlay.setProps({ layers });
@@ -732,7 +858,10 @@ map.on('load', async () => {
     state.catalogError = (e as Error).message;
   }
   initPredForm();
+  getModels().then((ms) => { state.models = ms; renderContent(); }).catch(() => { /* note only */ });
   const q = new URLSearchParams(location.search);
+  const qm = q.get('model');
+  setModel(qm === 'ours' || qm === 'openoil' || qm === 'compare' ? qm : state.model);
   setMode(q.get('mode') === 'prediction' ? 'prediction' : 'historical');
   const pick = q.get('spill') && state.catalog.find((c) => c.id === q.get('spill'));
   if (pick) selectSpill(pick);

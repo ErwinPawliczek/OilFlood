@@ -1,6 +1,7 @@
 // The app's single floating window: drag by its header, position + collapsed state kept in localStorage.
 
 import { SPEED_RAMP } from './flow';
+import { PALETTES } from './oil';
 import type { CatalogSpill, ResponseCategory } from './types';
 
 const KEY = 'oilflood.panel.v1';
@@ -76,14 +77,16 @@ export function initPanel(panel: HTMLElement) {
 }
 
 /** Speed colour ramp legend for the current streaks. */
-export function legendHTML(show: boolean, sourceLine: string) {
+export function legendHTML(show: boolean, sourceLine: string, models: ('openoil' | 'ours')[] = ['openoil']) {
+  const oil = models.map((m) => `<span><i style="background:${PALETTES[m].css}"></i>oil (${m === 'ours' ? 'our model' : 'OpenOil'})</span>`).join('')
+    + `<span>${models.map((m) => `<i style="background:${PALETTES[m].cssStranded}"></i>`).join('')}stranded</span>`;
   const max = 1.8;
   const stops = SPEED_RAMP.map(([v, r, g, b]) => `rgb(${r},${g},${b}) ${(v / max) * 100}%`).join(',');
   return `<div class="row"><div class="label" style="margin:0">Surface current</div>
       <label class="toggle"><input type="checkbox" id="cur-toggle" ${show ? 'checked' : ''}/> show</label></div>
     <div class="ramp" style="margin-top:6px;background:linear-gradient(90deg,${stops})"></div>
     <div class="ticks"><span>0</span><span>0.5</span><span>1.0</span><span>1.5+ m/s</span></div>
-    <div class="lg-oil"><span><i style="background:#ffb547"></i>oil (model)</span><span><i class="ring"></i>observed outline</span><span><i style="background:#ff5a64"></i>stranded</span></div>
+    <div class="lg-oil">${oil}<span><i class="ring"></i>observed outline</span></div>
     ${sourceLine}`;
 }
 

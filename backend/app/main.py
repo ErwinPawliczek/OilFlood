@@ -93,6 +93,33 @@ def get_live():
     return out
 
 
+@app.get("/api/models")
+def get_models():
+    """The two trajectory models POST /api/spill (and hindcasts) can run, with our ML model card's
+    held-out skill (docs/OURMODEL.md)."""
+    from .ourmodel import ml
+    card = {}
+    if ml.CARD_PATH.exists():
+        card = json.loads(ml.CARD_PATH.read_text())
+    sc = card.get("scores", {})
+    td = card.get("training_data", {})
+    skill = None
+    if sc:
+        skill = {"drifters": td.get("drifters"), "rows": td.get("rows"),
+                 "validation": card.get("validation"), "trained_at": card.get("trained_at"),
+                 "traj_24h": sc.get("traj_24h_all"), "traj_48h": sc.get("traj_48h_all"),
+                 "velocity": sc.get("velocity_all")}
+    return {"default": "openoil", "models": [
+        {"id": "openoil", "label": jobs.MODEL_LABELS["openoil"], "short": "OpenOil",
+         "summary": "OpenDrift OpenOil 1.14: currents + 2 % wind + Stokes drift, random walk, "
+                    "NOAA ADIOS weathering, stranding on the GSHHG coastline."},
+        {"id": "ours", "label": jobs.MODEL_LABELS["ours"], "short": "Ours",
+         "summary": "Our Lagrangian model: currents + ML drift correction (trained on NOAA drifters) + 3 % wind, "
+                    "Fay spreading, Fingas evaporation, Mackay emulsification/dispersion, beaching.",
+         "skill": skill},
+    ]}
+
+
 @app.get("/api/oils")
 def get_oils():
     return {"default": oils.DEFAULT_OIL_ID, "oils": oils.OILS}
