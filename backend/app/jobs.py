@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from . import config, forcing, runner
 
-MODEL_VERSION = "openoil-v1"
+MODEL_VERSION = "openoil-v2"
 
 
 class SpillRequest(BaseModel):

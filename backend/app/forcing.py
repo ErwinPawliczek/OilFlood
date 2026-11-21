@@ -21,11 +21,20 @@ CURRENT_NAMES = {"x_sea_water_velocity", "eastward_sea_water_velocity", "surface
 WIND_NAMES = {"x_wind", "eastward_wind"}
 STOKES_NAMES = {"sea_surface_wave_stokes_drift_x_velocity"}
 
+# Common variable names that often lack a CF standard_name (ERA5 NetCDF, HYCOM, CMEMS waves).
+NAME_TO_STANDARD = {
+    "u10": "x_wind", "v10": "y_wind",
+    "water_u": "x_sea_water_velocity", "water_v": "y_sea_water_velocity",
+    "uo": "x_sea_water_velocity", "vo": "y_sea_water_velocity",
+    "VSDX": "sea_surface_wave_stokes_drift_x_velocity", "VSDY": "sea_surface_wave_stokes_drift_y_velocity",
+}
+
 
 @dataclass
 class ForcingFile:
     path: str
     kinds: set = field(default_factory=set)  # {"current","wind","stokes"}
+    mapping: dict = field(default_factory=dict)  # var name -> standard_name, for vars missing one
     t0: datetime | None = None
     t1: datetime | None = None
     lon_min: float = -180
@@ -44,6 +53,7 @@ class ForcingFile:
         return {
             "path": self.path,
             "kinds": sorted(self.kinds),
+            "mapping": self.mapping,
             "t0": self.t0.isoformat() if self.t0 else None,
             "t1": self.t1.isoformat() if self.t1 else None,
             "bbox": [self.lon_min, self.lat_min, self.lon_max, self.lat_max],
@@ -65,7 +75,9 @@ def _inspect(path: Path) -> ForcingFile | None:
     try:
         with xr.open_dataset(path, decode_times=True) as ds:
             names = {ds[v].attrs.get("standard_name") for v in ds.data_vars}
-            names |= set(ds.data_vars)
+            mapping = {v: NAME_TO_STANDARD[v] for v in ds.data_vars
+                       if v in NAME_TO_STANDARD and not ds[v].attrs.get("standard_name")}
+            names |= set(mapping.values())
             kinds = set()
             if names & CURRENT_NAMES:
                 kinds.add("current")
@@ -75,7 +87,7 @@ def _inspect(path: Path) -> ForcingFile | None:
                 kinds.add("stokes")
             if not kinds:
                 return None
-            ff = ForcingFile(path=str(path), kinds=kinds)
+            ff = ForcingFile(path=str(path), kinds=kinds, mapping=mapping)
             tname = next((c for c in ds.coords if c.lower() in ("time", "valid_time", "t")), None)
             if tname is None:
                 tname = next((c for c in ds.coords if np.issubdtype(ds[c].dtype, np.datetime64)), None)
@@ -142,3 +154,23 @@ def default_start_time() -> datetime:
     latest = max(currents, key=lambda f: f.t1)
     t0 = latest.t0.replace(minute=0, second=0, microsecond=0)
     return t0 if t0 >= latest.t0 else t0 + timedelta(hours=1)
+
+
+def open_normalized(f: dict):
+    """Open a forcing file as an xarray Dataset that OpenDrift's generic reader
+    understands: datetime axis named 'time' with standard_name, and CF
+    standard_names added for known variable names (ERA5 u10/v10, HYCOM, CMEMS)."""
+    import xarray as xr
+
+    ds = xr.open_dataset(f["path"])
+    tname = next((c for c in ds.coords if np.issubdtype(ds[c].dtype, np.datetime64)
+                  and ds[c].ndim == 1 and ds[c].size > 1), None)
+    if tname and tname != "time" and "time" not in ds.variables:
+        ds = ds.rename({tname: "time"})
+        tname = "time"
+    if tname:
+        ds[tname].attrs.setdefault("standard_name", "time")
+    for v, sn in (f.get("mapping") or {}).items():
+        if v in ds.data_vars:
+            ds[v].attrs["standard_name"] = sn
+    return ds

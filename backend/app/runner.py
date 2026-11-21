@@ -79,7 +79,7 @@ def _run(run_dir: Path, p: dict) -> None:
     from opendrift.models.openoil import OpenOil
     from opendrift.readers import reader_netCDF_CF_generic
 
-    from . import config
+    from . import config, forcing
 
     t_wall = time.time()
     start = datetime.fromisoformat(p["start_time"])
@@ -106,7 +106,8 @@ def _run(run_dir: Path, p: dict) -> None:
     has_stokes = False
     for f in p.get("forcing_files", []):
         try:
-            o.add_reader(reader_netCDF_CF_generic.Reader(f["path"]))
+            ds = forcing.open_normalized(f)
+            o.add_reader(reader_netCDF_CF_generic.Reader(ds, name=Path(f["path"]).name))
             forcing_used.append(f["path"])
             has_stokes |= "stokes" in f["kinds"]
         except Exception as e:  # bad file: keep going on fallback
@@ -154,6 +155,10 @@ def _run(run_dir: Path, p: dict) -> None:
                      "wind_uv": [config.CONST_WIND_U, config.CONST_WIND_V]},
         "wind_drift_factor": p.get("wind_drift_factor", 0.02),
         "runtime_s": round(time.time() - t_wall, 1),
+        # Mean forcing seen by particles; equals the fallback values if readers gave nothing.
+        "env_mean": {v: round(float(np.nanmean(o.result[v].values)), 3)
+                     for v in ("x_sea_water_velocity", "y_sea_water_velocity", "x_wind", "y_wind")
+                     if v in o.result},
         "mass_units": "kg",
     }
     _write_json(run_dir / "tracks.json", tracks)
