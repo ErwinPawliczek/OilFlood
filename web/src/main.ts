@@ -9,6 +9,7 @@ import {
   postSpill, pollSpill, getSpillTracks, toUnix, type CurrentsSource, type SpillJob,
 } from './api';
 import { FlowField, SPEED_RAMP } from './flow';
+import { getGlobalCurrents, type GlobalCurrents } from './globalCurrents';
 import { OilView, footprintLayer, budgetAt } from './oil';
 import { MOCK_BBOX, isWater } from './geo';
 import { ON_SURFACE, type CatalogSpill, type Tracks, type Footprint } from './types';
@@ -80,10 +81,13 @@ interface Scene {
   oil: OilView | null;
   footprints: Footprint[];
   currents: CurrentsSource | null;
+  /** global RTOFS/HYCOM layer drawn under the Gulf one; null = none for this window */
+  global: GlobalCurrents | null;
+  globalReq: boolean;
   loading: string | null;
 }
 const nowHour = () => Math.floor(Date.now() / 3600000) * 3600;
-const emptyScene = (t0: number, durationH: number): Scene => ({ t0, durationH, tracks: null, oil: null, footprints: [], currents: null, loading: null });
+const emptyScene = (t0: number, durationH: number): Scene => ({ t0, durationH, tracks: null, oil: null, footprints: [], currents: null, global: null, globalReq: false, loading: null });
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4];
 const state = {
@@ -103,6 +107,24 @@ const state = {
 const scene = () => (state.mode === 'historical' ? state.hist : state.pred);
 
 let flow: FlowField | null = null;
+let globalFlow: FlowField | null = null;
+// The Gulf layer owns 18-31N 98-80W whenever it has real (non-mock) data; the global layer fills everything else.
+const gulfReal = () => !!scene().currents && !scene().currents!.mock;
+
+/** Load the global layer for a scene once (t0..t0+duration); safe to call repeatedly. */
+function loadGlobal(sc: Scene, t0 = sc.t0, t1 = sc.t0 + sc.durationH * 3600) {
+  if (sc.globalReq) return;
+  sc.globalReq = true;
+  getGlobalCurrents(t0, t1, gulfReal).then((g) => {
+    sc.global = g;
+    if (scene() === sc) { useGlobal(g); renderCard(); }
+  });
+}
+function useGlobal(g: GlobalCurrents | null) {
+  if (!g) return;
+  if (!globalFlow) globalFlow = new FlowField(g, { id: 'currents-global', n: 10000, width: 1.5, alpha: 215 });
+  else if (globalFlow.source !== g) globalFlow.setSource(g);
+}
 
 // ---------------------------------------------------------------- UI
 const ui = document.getElementById('ui')!;
@@ -175,7 +197,16 @@ function legendHTML() {
       <label class="toggle"><input type="checkbox" id="cur-toggle" ${state.showCurrents ? 'checked' : ''}/> show</label></div>
     <div class="ramp" style="margin-top:6px;background:linear-gradient(90deg,${stops})"></div>
     <div class="ticks"><span>0</span><span>0.5</span><span>1.0</span><span>1.5+ m/s</span></div>
+    ${currentSourceHTML()}
   </div>`;
+}
+
+function currentSourceHTML() {
+  const s = scene();
+  const parts: string[] = [];
+  if (s.currents && !s.currents.mock) parts.push('Gulf: HYCOM');
+  if (s.global) parts.push(/RTOFS/.test(s.global.source) ? 'Global: NOAA RTOFS' : 'Global: HYCOM GOFS 3.1');
+  return parts.length ? `<div class="hint" style="margin-top:4px">${esc(parts.join(' · '))}</div>` : '';
 }
 
 function budgetHTML() {
@@ -193,8 +224,9 @@ function budgetHTML() {
 }
 
 function mockBadgeHTML() {
-  if (!state.mockParts.length && !FORCE_MOCK) return '';
-  const what = FORCE_MOCK ? 'forced by ?mock=1' : `not from backend: ${state.mockParts.join(', ')}`;
+  const parts = state.mockParts.filter((p) => !(p === 'currents' && scene().global));
+  if (!parts.length && !FORCE_MOCK) return '';
+  const what = FORCE_MOCK ? 'forced by ?mock=1' : `not from backend: ${parts.join(', ')}`;
   return `<div class="badge" title="Synthetic client-side data (backend unavailable or has no data for this window). Not a real forecast.">MOCK DATA <small>· ${esc(what)}</small></div>`;
 }
 
@@ -265,11 +297,13 @@ async function setMode(m: Mode) {
   state.tH = 0;
   map.getCanvas().style.cursor = m === 'prediction' ? 'crosshair' : '';
   const s = scene();
+  loadGlobal(s);
   if (!s.currents) {
     s.currents = await getCurrents(s.t0, s.t0 + s.durationH * 3600);
   }
   if (state.mode === m) {
     useCurrents(s.currents);
+    useGlobal(s.global);
     if (s.tracks) { state.tH = 0; state.playing = true; }
   }
   renderCard(); renderBar();
@@ -309,6 +343,7 @@ async function selectSpill(s: CatalogSpill) {
   };
   const startPlayback = () => { if (active() && !state.playing) { state.tH = 0; state.playing = true; } };
 
+  loadGlobal(sc, t0, t1);
   const pCurrents = getCurrents(t0, t1).then((c) => {
     if (stale()) return;
     sc.currents = c;
@@ -368,9 +403,10 @@ async function startSpill(lon: number, lat: number) {
     const sc = state.pred;
     sc.t0 = tracks.t0; sc.durationH = tracks.durationH;
     sc.tracks = tracks; sc.oil = new OilView(tracks);
+    loadGlobal(sc);
     sc.currents = await getCurrents(sc.t0, sc.t0 + sc.durationH * 3600);
     if (token !== state.jobToken) return;
-    if (state.mode === 'prediction') { useCurrents(sc.currents); state.tH = 0; state.playing = true; }
+    if (state.mode === 'prediction') { useCurrents(sc.currents); useGlobal(sc.global); state.tH = 0; state.playing = true; }
     renderCard(); renderBar();
   } catch (e) {
     if (token !== state.jobToken || !state.job) return;
@@ -454,9 +490,19 @@ function frame(now: number) {
   if (state.tH !== lastTH) { lastTH = state.tH; renderBar(); maybeRenderCard(now); }
   const tUnix = s.t0 + state.tH * 3600;
   const layers: Layer[] = [];
-  if (flow) {
+  // global layer first (underneath), Gulf on top; both stepped with the same clock
+  if (globalFlow && s.global && globalFlow.source === s.global) {
+    const c = map.getCenter();
+    s.global.prefetch(tUnix);
+    globalFlow.step(view, map.getZoom(), tUnix, dt * 60, [c.lng, c.lat]);
+    layers.push(globalFlow.layer(state.showCurrents) as any);
+  }
+  // a mock Gulf field is hidden when real global data exists (the global layer then covers the Gulf too)
+  if (flow && !(s.currents?.mock && s.global)) {
     s.currents?.prefetch(tUnix);
-    flow.step(view, map.getZoom(), tUnix, dt * 60);
+    // thin the dense Gulf streaks when zoomed out so they match the global layer's density
+    const z = map.getZoom();
+    flow.step(view, z, tUnix, dt * 60, undefined, s.global ? Math.min(1, Math.max(0.12, (z - 1.5) / 3.5)) : 1);
     layers.push(flow.layer(state.showCurrents) as any);
   }
   if (s.footprints.length) layers.push(footprintLayer(s.footprints, tUnix) as any);
