@@ -11,7 +11,7 @@ import {
 import { FlowField } from './flow';
 import { getGlobalCurrents, type GlobalCurrents } from './globalCurrents';
 import { OilView, footprintLayer, footprintAt, budgetAt } from './oil';
-import { initPanel, legendHTML, RATES_H, autoRateIdx, rateLabel } from './panel';
+import { initPanel, legendHTML, RATES_H, autoRateIdx, rateLabel, responseHTML } from './panel';
 import { ON_SURFACE, type CatalogSpill, type Tracks, type Footprint } from './types';
 
 // ---------------------------------------------------------------- starfield
@@ -228,7 +228,25 @@ slider.addEventListener('input', () => { state.tH = (Number(slider.value) / 1000
 addEventListener('keydown', (e) => {
   if (e.code === 'Space' && !(e.target instanceof HTMLInputElement && e.target.type === 'text')) { e.preventDefault(); togglePlay(); }
 });
+// Response timeline (historical): open state survives re-renders; a date click moves the clock there.
+const respOpen = { resp: true, evo: false };
+content.addEventListener('toggle', (e) => {
+  const d = e.target as HTMLDetailsElement;
+  if (d.dataset?.k === 'resp' || d.dataset?.k === 'evo') respOpen[d.dataset.k as 'resp' | 'evo'] = d.open;
+}, true);
 content.addEventListener('click', (e) => {
+  const d = (e.target as HTMLElement).closest<HTMLElement>('.resp .ev .d');
+  if (d) {
+    const t = Number(d.closest<HTMLElement>('.ev')!.dataset.t);
+    const s = scene();
+    const h = (t - s.t0) / 3600;
+    if (!Number.isFinite(h)) return;
+    if (h < 0 || h > s.durationH) message('That date is outside this replay window (no data loaded for it).', 3500);
+    state.tH = Math.min(s.durationH, Math.max(0, h));
+    state.playing = false;
+    renderTime(true);
+    return;
+  }
   const b = (e.target as HTMLElement).closest<HTMLButtonElement>('.spills button');
   if (!b) return;
   const c = state.catalog.find((x) => x.id === b.dataset.id);
@@ -319,8 +337,21 @@ function notesHTML() {
   return notes.length ? `<div class="notes">${notes.map((n) => `<div class="note">${esc(n)}</div>`).join('')}</div>` : '';
 }
 
+/** Dim response/evolution rows that lie after the current sim day. */
+let lastPastKey = '';
+function markPast() {
+  if (state.mode !== 'historical' || !state.selected) return;
+  const day = Math.floor(simT() / 86400);
+  const key = `${state.selected.id}:${day}`;
+  if (key === lastPastKey) return;
+  lastPastKey = key;
+  const end = (day + 1) * 86400;
+  content.querySelectorAll<HTMLElement>('.resp .ev').forEach((el) => el.classList.toggle('past', Number(el.dataset.t) < end));
+}
+
 let lastDyn = '';
 function renderDyn() {
+  markPast();
   const html = notesHTML() + budgetHTML();
   if (html !== lastDyn) { lastDyn = html; $('dyn').innerHTML = html; }
 }
@@ -363,6 +394,7 @@ function renderContent() {
         ${sel.oil_type ? `<span>Oil</span><span>${esc(sel.oil_type)}${s.tracks?.meta?.oil_type && s.tracks.meta.oil_type !== sel.oil_type ? ` <small class="hint">(model: ${esc(s.tracks.meta.oil_type)})</small>` : ''}</span>` : ''}
         <span>Position</span><span>${sel.lat.toFixed(3)}°, ${sel.lon.toFixed(3)}°</span>
       </div>${errorsHTML(s.errors)}`;
+      html += responseHTML(sel, respOpen);
       if (sel.source_urls?.length) html += `<details class="links"><summary>Sources</summary>${sel.source_urls.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\//, ''))}</a>`).join('<br>')}</details>`;
       html += `</div>`;
     } else {
@@ -390,7 +422,10 @@ function renderContent() {
     }
     html += errorsHTML(s.errors);
   }
+  const scrolls = [...content.querySelectorAll<HTMLElement>('.resp .tl')].map((el) => el.scrollTop);
   content.innerHTML = html;
+  content.querySelectorAll<HTMLElement>('.resp .tl').forEach((el, i) => { el.scrollTop = scrolls[i] ?? 0; });
+  lastPastKey = '';
   syncPins();
   renderLegend();
   renderDyn();
