@@ -239,3 +239,55 @@ def snap_to_water(f: ForcingFile, lon: float, lat: float, t: datetime, max_km: f
     raise SeedOnLand(
         f"That spot is in a bay or inshore water the ocean model treats as land (no model water within "
         f"{max_km:g} km). Click a bit further offshore.")
+
+
+# --- live forecast (prediction mode) ------------------------------------------------
+# data/fetch_live.py writes cache/forcing/live/{currents,winds}.nc + live.json (model, run, valid window).
+# Prediction runs use these two files only, never reanalysis/hindcast windows.
+
+def _live_dirs() -> list[Path]:
+    return [d / "cache" / "forcing" / "live" for d in config.DATA_DIRS]
+
+
+def _iso(t: datetime | None) -> str | None:
+    return t.strftime("%Y-%m-%dT%H:%M:%SZ") if t else None
+
+
+def live_forecast(now: datetime | None = None) -> dict | None:
+    """The cached live forecast: forcing files + metadata. None if nothing is cached."""
+    import json
+
+    for d in _live_dirs():
+        cp, wp = d / "currents.nc", d / "winds.nc"
+        if not (cp.exists() and wp.exists()):
+            continue
+        by_path = {f.path: f for f in scan()}
+        cur, wind = by_path.get(str(cp)), by_path.get(str(wp))
+        if cur is None or wind is None or cur.t1 is None or wind.t1 is None:
+            continue
+        try:
+            man = json.loads((d / "live.json").read_text())
+        except Exception:  # older cache without a manifest
+            man = {}
+        now = now or datetime.now(timezone.utc).replace(tzinfo=None)
+        start = now.replace(minute=0, second=0, microsecond=0)
+        valid_from, valid_until = max(cur.t0, wind.t0), min(cur.t1, wind.t1)
+        hours = max(0.0, (valid_until - start).total_seconds() / 3600)
+        mc, mw = man.get("currents") or {}, man.get("winds") or {}
+        return {
+            "currents": {"model": mc.get("model", "ocean forecast"), "issued_at": mc.get("run"),
+                         "valid_from": _iso(cur.t0), "valid_until": _iso(cur.t1), "source": mc.get("source")},
+            "winds": {"model": mw.get("model", "NCEP GFS 0.25°"), "issued_at": mw.get("run"),
+                      "valid_from": _iso(wind.t0), "valid_until": _iso(wind.t1), "source": mw.get("source")},
+            "valid_from": _iso(valid_from),
+            "valid_until": _iso(valid_until),
+            "updated_at": man.get("updated_at"),
+            "now": _iso(now),
+            "start": _iso(start),
+            "hours_available": round(hours, 1),
+            "stale": hours < config.MIN_RUN_H or start < valid_from,
+            "bbox": [max(cur.lon_min, wind.lon_min), max(cur.lat_min, wind.lat_min),
+                     min(cur.lon_max, wind.lon_max), min(cur.lat_max, wind.lat_max)],
+            "_files": (cur, wind),
+        }
+    return None

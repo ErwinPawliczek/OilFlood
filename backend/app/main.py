@@ -14,7 +14,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, fields, forcing, global_fields, jobs
+from . import config, fields, forcing, global_fields, jobs, oils
 from .jobs import SpillRequest
 
 logging.basicConfig(level=logging.INFO)
@@ -39,8 +39,11 @@ def _json_file(p: Path):
 
 @app.post("/api/spill")
 def post_spill(req: SpillRequest):
+    """Prediction: always on the latest cached LIVE forecast (currents + GFS winds), starting now.
+    `volume_bbl` and `oil_type` (id from /api/oils) set the release. If the forecast ends before
+    now + duration_h, the run stops there: `truncated: true` + `note`."""
     try:
-        return jobs.submit(req)
+        return jobs.submit(req, live=True)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -68,6 +71,31 @@ def get_spill_tracks(run_id: str):
             raise HTTPException(404, "unknown spill id")
         return JSONResponse(st, status_code=409 if st["status"] == "error" else 202)
     return _json_file(p)
+
+
+@app.get("/api/live")
+def get_live():
+    """The live forecast prediction mode runs on: models, issued-at (model run), valid window, hours from now."""
+    lf = forcing.live_forecast()
+    if lf is None:
+        return JSONResponse({"available": False, "note": "No live forecast is cached on the server."}, status_code=503)
+    out = {k: v for k, v in lf.items() if not k.startswith("_")}
+    out["available"] = not out["stale"]
+    want = 72.0
+    out["requested_hours"] = want
+    out["short_by_h"] = round(max(0.0, want - out["hours_available"]), 1)
+    if out["stale"]:
+        out["note"] = (f"The live forecast is out of date (valid {out['valid_from']} to {out['valid_until']}). "
+                       "Predictions are disabled until it is refreshed.")
+    elif out["short_by_h"] > 0.5:
+        out["note"] = (f"The live forecast reaches only {out['hours_available']:.0f} h from now "
+                       f"(until {out['valid_until']}); predictions stop there.")
+    return out
+
+
+@app.get("/api/oils")
+def get_oils():
+    return {"default": oils.DEFAULT_OIL_ID, "oils": oils.OILS}
 
 
 # --- historical mode -----------------------------------------------------------

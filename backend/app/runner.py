@@ -167,7 +167,8 @@ def _run(run_dir: Path, p: dict) -> None:
     tracks["meta"] = {
         "lat": p["lat"], "lon": p["lon"], "start_time": p["start_time"],
         "duration_h": p["duration_h"], "volume_m3": p["volume_m3"],
-        "oil_type": oil, "n_particles": n,
+        "oil_type": oil, "n_particles": n, "volume_bbl": p.get("volume_bbl"),
+        "forecast": p.get("forecast"), "note": p.get("note"),
         "forcing": forcing_used,
         "seed_moved_km": p.get("seed_moved_km", 0.0),
         "requested_lonlat": p.get("requested_lonlat"),
