@@ -24,6 +24,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 
 ## Done log
 - 2026-11-21 Erwin: skeleton pushed.
+- 2026-11-21 Erwin: docs/ARCHITECTURE.md (deck.gl + MapLibre frontend, FastAPI + OpenDrift + ML correction backend).
 - 2026-11-21 Erwin: roles set (Erwin builds, brother tests + fixes bugs), claimed T2.
 
 ## Roles
