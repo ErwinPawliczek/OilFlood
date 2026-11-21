@@ -18,6 +18,11 @@ URL flags: `?mock=1` forces client-side mock data everywhere. `?mode=prediction`
   backend answers 202 `{id,status,progress}`), and animated currents for those dates.
 - **Prediction mode**: click the ocean, `POST /api/spill`, poll `GET /api/spill/{id}` (progress bar), then animate `GET /api/spill/{id}/tracks` 0–72 h.
 - **Currents**: windy-style streaks colored by speed, in both modes, from `GET /api/currents?start&end&bbox` + `GET /api/currents/{t}`.
+- **Global currents** (`src/globalCurrents.ts`): a second streak layer *under* the Gulf one, from `GET /api/currents?layer=global` + PNG textures
+  `GET /api/currents/global/{t}.png`. Live = NOAA RTOFS, historical = HYCOM GOFS 3.1 for the spill's dates. Inside 18–31N 98–80W the global
+  layer is masked whenever the Gulf layer has real data. If the Gulf has only mock data and global is real, the mock Gulf streaks are hidden.
+  Same clock as the timeline (linear blend between steps). For performance: at most 8 decoded textures are kept (each capped at 1440×720),
+  6500 particles are spawned only on the visible hemisphere, the global layer updates at half frame rate, and the Gulf streaks thin out when zoomed out.
 - Time bar: play/pause (space), speed (0.25–4×), scrubber, UTC clock. Info card: spill details, oil budget (fractions; kg is normalised), current legend.
 
 ## Mock fallback

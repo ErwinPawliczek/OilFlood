@@ -51,4 +51,9 @@ coastline stranding on the built-in GSHHG landmask. Time step 15 min, output eve
 - `GET /api/spills/{id}/tracks` -> hindcast run from catalog lat/lon/date_start/volume_bbl/oil_type; 202 + status until done, then tracks JSON.
 - `GET /api/currents?start=&end=&bbox=` -> `{bbox, times:[unix_s]}` available in cached current NetCDF.
 - `GET /api/currents/{t}?bbox=&step=0.1` (alias `GET /api/fields/currents?t=`) -> `{t, lon0, lat0, dlon, dlat, nx, ny, u:[], v:[]}`, row-major south->north, west->east, `null` on land.
+- Global layer (T10, `data/fetch_global.py`; fields in `data/cache/fields/global/<window>/`). All additions are optional params, old calls behave as before:
+  - `GET /api/currents?layer=global&start=&end=` -> `{layer:"global", bbox:[-180,-90,180,90], times, windows:[{window, source, t_start, t_end, n, dlon}], png:"/api/currents/global/{t}.png", vmax, gulf_box}`.
+  - `GET /api/currents?layer=auto&...` -> the Gulf answer plus a `global` key. No `layer`: Gulf; if the Gulf NetCDF has no times for the window, the global times are returned instead (with the requested bbox).
+  - `GET /api/currents/global/{t}.png` -> nearest global u/v texture within 12 h (header `X-Field-Time`). Encoding as in data/README.md.
+  - `GET /api/currents/{t}?layer=global&bbox=&step=` -> JSON grid (same shape as the Gulf one) decoded from the PNG, capped at ~260k nodes. `layer=auto` -> global grid with the Gulf field pasted inside 18–31N 98–80W. No `layer` and no Gulf NetCDF for that time -> the global field over the requested bbox (default Gulf box).
 - `GET /api/forcing`, `GET /api/health`.
