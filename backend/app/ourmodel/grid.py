@@ -100,16 +100,23 @@ class Grid:
         ix = np.clip(np.floor(fx).astype(int), 0, len(self.lon) - 2)
         iy = np.clip(np.floor(fy).astype(int), 0, len(self.lat) - 2)
         ax, ay = fx - ix, fy - iy
+        # Corners that are land (NaN) are left out and the weights renormalised, so a point next to the
+        # model coastline still gets the nearby water velocity; NaN only if every corner is land.
+        corners = ((0, 0, (1 - ax) * (1 - ay)), (1, 0, ax * (1 - ay)), (0, 1, (1 - ax) * ay), (1, 1, ax * ay))
         res = []
         for F in (self.u, self.v):
-            acc = 0.0
+            acc = np.zeros(lon.shape)
+            wsum = np.zeros(lon.shape)
             for dt_, wt in ((0, 1 - ft), (1, ft)):
                 k = np.minimum(it + dt_, nt - 1)
-                c = (F[k, iy, ix] * (1 - ax) * (1 - ay) + F[k, iy, ix + 1] * ax * (1 - ay)
-                     + F[k, iy + 1, ix] * (1 - ax) * ay + F[k, iy + 1, ix + 1] * ax * ay)
-                acc = acc + c * wt
-            acc = np.where(out, np.nan, acc)
-            res.append(acc)
+                for ox, oy, w in corners:
+                    c = F[k, iy + oy, ix + ox]
+                    ok = np.isfinite(c)
+                    ww = np.where(ok, w * wt, 0.0)
+                    acc += np.where(ok, c, 0.0) * ww
+                    wsum += ww
+            val = np.where(wsum > 1e-9, acc / np.maximum(wsum, 1e-12), np.nan)
+            res.append(np.where(out, np.nan, val))
         return res[0], res[1]
 
     def gradients(self, t, lon, lat):

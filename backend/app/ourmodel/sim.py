@@ -4,8 +4,8 @@ Lagrangian surface particles on the same real forcing the OpenOil baseline uses:
   advection   dx/dt = U_current + dU_ML + a_w * U_wind10           (RK2 midpoint, dt = 15 min)
   diffusion   random walk, K = K_h + K_Fay(t),  K_Fay = (1/8) d(R_Fay^2)/dt
   spreading   Fay gravity-viscous radius R = 1.45 (D g V0^2 t^1.5 / nu_w^0.5)^(1/6) until terminal thickness
-  evaporation Fingas (2004): %Ev = (0.165 %D + 0.045 (T-15)) ln t   (crudes, fuel oils)
-                             %Ev = (0.0254 %D + 0.01 (T-15)) sqrt t  (light distillates), t in minutes
+  evaporation Fingas (2004): %Ev = (0.165 %D + 0.045 (T-15)) ln t   (crudes, fuel oils, gasoline, condensate)
+                             %Ev = (0.0254 %D + 0.01 (T-15)) sqrt t  (diesel, jet fuel), t in minutes
   emulsion    Mackay et al. (1980): dY/dt = 2e-6 (U+1)^2 (1 - Y/Ymax), after the ADIOS onset (bullwinkle)
   dispersion  Mackay et al. (1980): fraction/h = 0.11 (U+1)^2 / (1 + 50 mu^0.5 h S)
   beaching    particle that steps onto GSHHG land (or ocean-model land) is stranded at its last water position
@@ -26,7 +26,7 @@ from .grid import Grid
 
 MODEL_ID = "ours"
 MODEL_LABEL = "OilFlood model (Lagrangian + Fay + Fingas/Mackay + ML drift correction)"
-VERSION = "ours-v1"
+VERSION = "ours-v4"
 
 G = 9.81
 RHO_W = 1025.0
@@ -59,7 +59,9 @@ def oil_props(name: str) -> dict:
         st = float(o.oil_water_surface_tension()) * 1000.0  # N/m -> dyne/cm
     except Exception:  # noqa: BLE001
         st = 24.0
-    light = ymax == 0.0 and kvis < 20e-6  # light distillates follow the sqrt(t) law
+    # Fingas: diesel-like middle distillates (diesel, jet fuel) follow sqrt(t); crudes, fuel oils and the
+    # very volatile products (gasoline, condensate: mostly distilled by 180 C) follow ln(t).
+    light = ymax == 0.0 and kvis < 20e-6 and pct_d180 < 60
     return {"name": name, "density": rho, "kvis": kvis, "mu_cp": kvis * rho * 1000.0, "pct_d180": pct_d180,
             "f_evap_max": f_max, "ymax": ymax, "emul_onset": onset, "surface_tension": st,
             "evap_law": "sqrt" if light else "ln",
@@ -142,6 +144,7 @@ def run(run_dir: Path, p: dict, status) -> dict:
     stamps = [[] for _ in range(n)]
     budget = []
     ml_mag = []
+    ml_cov = []
 
     def record(k_out: int):
         tt = times[k_out]
@@ -175,9 +178,10 @@ def run(run_dir: Path, p: dict, status) -> dict:
             uw, vw = np.nan_to_num(uw), np.nan_to_num(vw)
             if use_ml:
                 vo, dv = cur.gradients(t, lo, la)
-                X = ml.features(np.nan_to_num(uc), np.nan_to_num(vc), uw, vw, vo, dv, 1.0)
-                corr = ml.correction(X)
-                ml_mag.append(float(np.nanmean(np.hypot(*corr))))
+                cu_, cv_, wcov = ml.oil_correction(np.nan_to_num(uc), np.nan_to_num(vc), uw, vw, vo, dv, lo, la)
+                corr = (cu_, cv_)
+                ml_mag.append(float(np.nanmean(np.hypot(cu_, cv_))))
+                ml_cov.append(float(np.mean(wcov > 0)))
             else:
                 corr = (np.zeros(len(idx)), np.zeros(len(idx)))
             # RK2 midpoint
@@ -274,6 +278,8 @@ def run(run_dir: Path, p: dict, status) -> dict:
             "oil_properties": {k: (round(v, 6) if isinstance(v, float) else v) for k, v in op.items()},
             "ml_correction": use_ml,
             "ml_mean_correction_ms": round(float(np.mean(ml_mag)), 4) if ml_mag else 0.0,
+            # share of particle-steps inside the drifter training coverage (where the correction applies)
+            "ml_coverage_fraction": round(float(np.mean(ml_cov)), 3) if ml_cov else 0.0,
             "windage": windage,
             "water_temp_c": T_WATER_C,
             "emulsion_water_fraction_end": round(float(np.mean(water)), 3),

@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from . import config, forcing, oils, runner
 
 MODEL_VERSION = "openoil-v4-live"  # v3: real forcing only; v4: predictions on the live forecast only
-OURS_VERSION = "ours-v1"  # bump when app/ourmodel changes (sim or drift_model.joblib)
+from .ourmodel.sim import VERSION as OURS_VERSION  # bump sim.VERSION when app/ourmodel changes
 BBL_M3 = 0.158987
 MODEL_LABELS = {"openoil": "OpenDrift OpenOil (baseline)", "ours": "OilFlood model (ours, + ML drift correction)"}
 

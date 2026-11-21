@@ -115,7 +115,7 @@ def make_models():
 
 
 def integrate(starts: pd.DataFrame, grids: dict, hours: int, method: str, models=None, alpha=0.0,
-              dt_s: float = 1800.0) -> dict[int, np.ndarray]:
+              dt_s: float = 1800.0, cov: dict | None = None) -> dict[int, np.ndarray]:
     """Advect virtual drifters from `starts` (rows with ts/lon/lat/window/drogued) for `hours`.
     method: 'current' | 'current+wind' (alpha) | 'ml'. Returns {hour: (lon, lat)} at 24 h multiples."""
     res = {}
@@ -142,7 +142,8 @@ def integrate(starts: pd.DataFrame, grids: dict, hours: int, method: str, models
                 vo, dv = cur.gradients(t[m], lon[m], lat[m])
                 X = ml.features(np.nan_to_num(uc), np.nan_to_num(vc), np.nan_to_num(uw), np.nan_to_num(vw),
                                 vo, dv, dro[m])
-                uu, vv = uc + models[0].predict(X), vc + models[1].predict(X)
+                wc = ml.coverage_weight(cov, lon[m], lat[m])  # same coverage rule as at run time
+                uu, vv = uc + wc * models[0].predict(X), vc + wc * models[1].predict(X)
             u[m], v[m] = uu, vv
         return u, v
 
@@ -236,7 +237,8 @@ def main():
         runs = {
             "current": integrate(te_pts, grids, 48, "current"),
             "current+wind": integrate(te_pts, grids, 48, "current+wind", alpha=alpha_fold[k]),
-            "ml": integrate(te_pts, grids, 48, "ml", models=(mu, mv)),
+            "ml": integrate(te_pts, grids, 48, "ml", models=(mu, mv),
+                            cov=ml.coverage_grid(train[tr].longitude.values, train[tr].latitude.values, BOX)),
         }
         for h in (24, 48):
             key = list(zip(te_pts.ID.values, te_pts.ts.values + h * 3600))
@@ -310,7 +312,22 @@ def main():
         dv = mv.predict(Xu0) - mv.predict(Xu1)
         W2 = (und.uw ** 2 + und.vw ** 2).sum()
         scores["implied_extra_windage_undrogued"] = round(float((du * und.uw + dv * und.vw).sum() / W2), 4)
+    # Windage implied by each drogue setting and by the mean the oil model uses (should be ~0).
+    W2a = (train.uw ** 2 + train.vw ** 2).sum()
+    imp = {}
+    pr = {}
+    for name, dro in (("drogued", 1.0), ("undrogued", 0.0)):
+        Xd = X_of(train, dro)
+        pr[name] = (mu.predict(Xd), mv.predict(Xd))
+        imp[name] = round(float((pr[name][0] * train.uw + pr[name][1] * train.vw).sum() / W2a), 4)
+    mu_, mv_ = (pr["drogued"][0] + pr["undrogued"][0]) / 2, (pr["drogued"][1] + pr["undrogued"][1]) / 2
+    imp["oil_mean"] = round(float((mu_ * train.uw + mv_ * train.vw).sum() / W2a), 4)
+    scores["implied_windage"] = imp
     joblib.dump({"u": mu, "v": mv}, ml.MODEL_PATH, compress=3)
+    cov = ml.coverage_grid(train.longitude.values, train.latitude.values, BOX)
+    np.savez_compressed(ml.COVERAGE_PATH, x0=cov["x0"], y0=cov["y0"], counts=cov["counts"].astype(np.int32))
+    scores["coverage_cells_applied"] = int((cov["counts"] >= ml.COVER_MIN).sum())
+    scores["coverage_cells_total"] = int(cov["counts"].size)
     per_window = train.groupby("window").agg(rows=("ID", "size"), drifters=("ID", "nunique")).to_dict("index")
     card = {
         "name": "OilFlood drift correction (HistGradientBoosting, u and v)",
