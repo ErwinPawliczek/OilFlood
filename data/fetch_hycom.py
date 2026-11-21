@@ -122,8 +122,12 @@ def main():
             if only and s["id"] not in only:
                 continue
             fw = s.get("forcing_window") or {}
-            start = parse_time(fw.get("start") or s["date_start"]) - timedelta(days=1)
-            end = parse_time(fw.get("end") or s.get("date_end") or s["date_start"]) + timedelta(days=1)
+            pad = timedelta(0) if fw else timedelta(days=1)
+            start = parse_time(fw.get("start") or s["date_start"]) - pad
+            end = parse_time(fw.get("end") or s.get("date_end") or s["date_start"]) + pad
+            if not s.get("forcing"):
+                log(f"[{s['id']}] {s['date_start'][:10]} not covered by HYCOM GOMb0.04; skipped")
+                continue
             stride = a.stride_h or fw.get("stride_h") or stride_for((end - start).total_seconds() / 3600)
             try:
                 fetch_window(s["id"], start, end, stride, a.workers, a.force)
