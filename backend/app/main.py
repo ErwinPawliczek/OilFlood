@@ -14,7 +14,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, fields, forcing, jobs
+from . import config, fields, forcing, global_fields, jobs
 from .jobs import SpillRequest
 
 logging.basicConfig(level=logging.INFO)
@@ -148,21 +148,70 @@ def get_forcing():
 
 @app.get("/api/currents")
 def get_currents(start: str | None = None, end: str | None = None,
-                 bbox: str | None = Query(None, description="lon_min,lat_min,lon_max,lat_max")):
-    return fields.list_times(start, end, bbox)
+                 bbox: str | None = Query(None, description="lon_min,lat_min,lon_max,lat_max"),
+                 layer: str | None = Query(None, description="gulf | global | auto (default: gulf, global if no gulf data)")):
+    """Timesteps. layer=gulf: Gulf HYCOM NetCDF (original behaviour). layer=global: RTOFS/HYCOM global PNG fields
+    (+ `png` URL template, `vmax`, `windows`). No layer: Gulf, falling back to global when the Gulf has nothing."""
+    if layer not in (None, "gulf", "global", "auto"):
+        raise HTTPException(400, "layer must be gulf, global or auto")
+    if layer == "global":
+        return global_fields.list_times(fields._parse(start), fields._parse(end))
+    out = fields.list_times(start, end, bbox)
+    out["layer"] = "gulf"
+    if out["times"]:
+        if layer == "auto":
+            out["global"] = global_fields.list_times(fields._parse(start), fields._parse(end))
+        return out
+    g = global_fields.list_times(fields._parse(start), fields._parse(end))
+    if not g["times"]:
+        return out
+    g["bbox"] = out["bbox"]  # same region the caller asked for; /api/currents/{t} without layer serves it
+    return g
+
+
+@app.get("/api/currents/global/{t}.png")
+def get_global_png(t: int):
+    """Nearest global u/v texture (within 12 h). Header X-Field-Time = the field's unix time."""
+    hit = global_fields.find(t)
+    if hit is None:
+        raise HTTPException(404, "no global current field near that time")
+    path, _, tt = hit
+    return FileResponse(path, media_type="image/png",
+                        headers={"X-Field-Time": str(tt), "Cache-Control": "public, max-age=3600"})
 
 
 @app.get("/api/currents/{t}")
-def get_current_field(t: int, bbox: str | None = None, step: float = 0.1):
-    out = fields.field_at(t, bbox, step)
+def get_current_field(t: int, bbox: str | None = None, step: float | None = None,
+                      layer: str | None = Query(None, description="gulf | global | auto")):
+    """u/v grid. gulf: Gulf NetCDF (0.1 deg default). global: decoded global field (native step default, capped
+    at ~260k nodes). auto: global grid with the Gulf field pasted inside 18-31N 98-80W. No layer: gulf, else global."""
+    bb = fields._bbox(bbox) if bbox else None
+    if layer == "global":
+        out = global_fields.field_at(t, bb, step)
+    elif layer == "auto":
+        gb = list(bb or global_fields.GLOBAL_BBOX)
+        if global_fields.bbox_inside_gulf(gb):
+            out = fields.field_at(t, bbox, step or 0.1) or global_fields.field_at(t, gb, step)
+        else:
+            out = global_fields.field_at(t, gb, step)
+            if out:
+                ib = (max(gb[0], global_fields.GULF_BOX[0]), max(gb[1], global_fields.GULF_BOX[1]),
+                      min(gb[2], global_fields.GULF_BOX[2]), min(gb[3], global_fields.GULF_BOX[3]))
+                if ib[0] < ib[2] and ib[1] < ib[3]:
+                    gulf = fields.field_at(t, ",".join(map(str, ib)), out["dlon"])
+                    out = global_fields.merge_gulf(out, gulf)
+    else:
+        out = fields.field_at(t, bbox, step or 0.1)
+        if out is None:  # no Gulf NetCDF for that time: same bbox (default Gulf) from the global field
+            out = global_fields.field_at(t, bb or fields.DEFAULT_BBOX, step or 0.1)
     if out is None:
         raise HTTPException(404, "no cached current field covers that time")
     return out
 
 
 @app.get("/api/fields/currents")
-def get_fields_currents(t: int, bbox: str | None = None, step: float = 0.1):
-    return get_current_field(t, bbox, step)
+def get_fields_currents(t: int, bbox: str | None = None, step: float | None = None, layer: str | None = None):
+    return get_current_field(t, bbox, step, layer)
 
 
 @app.get("/api/health")
