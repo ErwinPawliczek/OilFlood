@@ -22,15 +22,18 @@ If `web/dist` exists it is served at `/` (production). In dev, Vite (port 5273) 
 | Var | Default | Meaning |
 |---|---|---|
 | `OILFLOOD_DATA_DIR` | `<repo>/data` | Where `cache/**/*.nc` forcing and `spills/catalog.json` live. Colon-separated list allowed, e.g. `/home/shmiggy/OilFlood-a2-data/data` to use A2's worktree. |
-| `OILFLOOD_FORCING` | `auto` | `auto`: cached NetCDF covering the spill + constant fallback elsewhere. `cache`: NetCDF only (400 if none). `constant`: constant forcing only. |
-| `OILFLOOD_CONST_CURRENT_U/V` | `-0.08 / -0.05` m/s | Fallback current (weak SW down-coast). |
-| `OILFLOOD_CONST_WIND_U/V` | `-3 / 4` m/s | Fallback 10 m wind (SE onshore breeze). |
+| `OILFLOOD_SNAP_KM` | `8` | Prediction seeds on a forcing-grid land cell move to the nearest model water within this distance, else 400 "on land". |
+| `OILFLOOD_SNAP_KM_HINDCAST` | `30` | Same for catalog hindcasts (Texas City Y sits in Galveston Bay, which is land in HYCOM). |
 | `OILFLOOD_WORKERS` | `4` | Parallel OpenOil runs (separate processes). |
 | `OILFLOOD_RUNS_DIR` | `backend/runs` | Run cache (gitignored). |
 
 Forcing discovery: every `*.nc` under `<data dir>/cache/` is inspected for CF standard names
 (`x_sea_water_velocity`/`eastward_sea_water_velocity`, `x_wind`/`eastward_wind`, Stokes) plus time range and bbox
 (0–360 longitudes OK). Files covering the spill start time are added as `reader_netCDF_CF_generic` readers.
+**Real forcing only**: there is no constant/synthetic fallback. A run needs cached currents *and* winds covering its start
+(else 400 with the cached windows listed); its duration is clipped to the forcing's end; particles leaving the forcing domain
+are deactivated (`status_end: "no_data"`). Catalog oil names map to ADIOS oils (DWH -> `LIGHT LOUISIANNA SWEET, BP`).
+Clicks on land / in bays the model treats as land get a 400 with a friendly message; pre-2001 catalog spills get a 400 (no reanalysis).
 `GET /api/forcing` shows what the backend sees.
 
 ## Model settings
