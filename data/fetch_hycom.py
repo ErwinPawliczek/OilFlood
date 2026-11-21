@@ -78,7 +78,7 @@ def fetch_window(name: str, start: datetime, end: datetime, stride_h: int = 1, w
     def run(j):
         url, dest, params = j
         existed = dest.exists()
-        download(url, dest, params=params, timeout=900)
+        download(url, dest, params=params, timeout=300, tries=6)
         if not existed:
             log(f"  got {dest.name} ({dest.stat().st_size / 1e6:.1f} MB)")
         return dest
