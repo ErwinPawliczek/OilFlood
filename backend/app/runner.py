@@ -19,7 +19,21 @@ OIL_ALIASES = {
     "IFO 380": "IFO-380LS 2014",
     "RMG380": "IFO-380LS 2014",
     "BUNKERC": "IFO-380LS 2014",
+    # Catalog names (data/spills/catalog.json) -> ADIOS oils in OpenOil's database.
+    "Louisiana light sweet crude (MC252)": "LIGHT LOUISIANNA SWEET, BP",  # DWH Macondo oil
+    "Louisiana sweet crude": "SOUTH LOUISIANA",
+    "Fuel Oil No. 6 / slurry oil": "FUEL OIL NO.6",
+    "Crude oil (API 33.7)": "Generic Medium Crude",
+    "Crude oil": "Generic Medium Crude",
 }
+# Last-resort keyword mapping for free-text oil names (first match wins).
+OIL_KEYWORDS = [
+    ("LOUISIANA", "SOUTH LOUISIANA"),
+    ("FUELOILNO6", "FUEL OIL NO.6"), ("NO6", "FUEL OIL NO.6"), ("BUNKER", "IFO-380LS 2014"),
+    ("IFO", "IFO-380LS 2014"), ("DIESEL", "Generic Diesel"), ("GASOLINE", "Generic Gasoline"),
+    ("JET", "Generic Jet Fuel"), ("CONDENSATE", "Generic Condensate"),
+    ("HEAVY", "Generic Heavy Crude"), ("LIGHT", "Generic Light Crude"), ("CRUDE", "Generic Medium Crude"),
+]
 
 
 def _norm(s: str) -> str:
@@ -41,6 +55,9 @@ def resolve_oil_type(name: str | None, oiltypes: list[str]) -> str:
     partial = sorted((o for o in oiltypes if n in _norm(o)), key=len)
     if partial:
         return partial[0]
+    for kw, oil in OIL_KEYWORDS:
+        if kw in n and oil in oiltypes:
+            return oil
     raise ValueError(f"Unknown oil type {name!r}")
 
 
@@ -69,7 +86,11 @@ def run_spill(run_dir: str, params: dict) -> None:
     try:
         _run(run_dir, params)
     except Exception as e:
-        _status(run_dir, status="error", error=f"{type(e).__name__}: {e}",
+        msg = f"{type(e).__name__}: {e}"
+        if "first timestep" in str(e):
+            msg = ("The spill could not start here: every particle hit land or left the "
+                   "ocean data in the first time step. Try a point further offshore.")
+        _status(run_dir, status="error", error=msg,
                 traceback=traceback.format_exc()[-4000:])
 
 
@@ -101,23 +122,20 @@ def _run(run_dir: Path, p: dict) -> None:
 
     o = ProgressOpenOil(loglevel=30, weathering_model="noaa")
 
-    # --- forcing -------------------------------------------------------------
+    # --- forcing: real cached NetCDF only (jobs.plan picked current + wind files) ---
     forcing_used = []
     has_stokes = False
     for f in p.get("forcing_files", []):
-        try:
-            ds = forcing.open_normalized(f)
-            o.add_reader(reader_netCDF_CF_generic.Reader(ds, name=Path(f["path"]).name))
-            forcing_used.append(f["path"])
-            has_stokes |= "stokes" in f["kinds"]
-        except Exception as e:  # bad file: keep going on fallback
-            logging.warning("reader failed for %s: %s", f["path"], e)
+        ds = forcing.open_normalized(f)
+        o.add_reader(reader_netCDF_CF_generic.Reader(ds, name=Path(f["path"]).name))
+        forcing_used.append(f["path"])
+        has_stokes |= "stokes" in f["kinds"]
+    if not forcing_used:
+        raise RuntimeError("no real forcing files for this run")
 
-    # Constant fallback wherever readers don't cover (or no readers at all).
-    o.set_config("environment:fallback:x_sea_water_velocity", config.CONST_CURRENT_U)
-    o.set_config("environment:fallback:y_sea_water_velocity", config.CONST_CURRENT_V)
-    o.set_config("environment:fallback:x_wind", config.CONST_WIND_U)
-    o.set_config("environment:fallback:y_wind", config.CONST_WIND_V)
+    # No synthetic fallback: elements outside the forcing are deactivated (missing_data).
+    for v in ("x_sea_water_velocity", "y_sea_water_velocity", "x_wind", "y_wind"):
+        o.set_config(f"environment:fallback:{v}", None)
 
     # --- physics (docs/RESEARCH.md §2, §6) -----------------------------------
     o.set_config("drift:stokes_drift", True)
@@ -150,12 +168,13 @@ def _run(run_dir: Path, p: dict) -> None:
         "lat": p["lat"], "lon": p["lon"], "start_time": p["start_time"],
         "duration_h": p["duration_h"], "volume_m3": p["volume_m3"],
         "oil_type": oil, "n_particles": n,
-        "forcing": forcing_used or ["constant"],
-        "fallback": {"current_uv": [config.CONST_CURRENT_U, config.CONST_CURRENT_V],
-                     "wind_uv": [config.CONST_WIND_U, config.CONST_WIND_V]},
+        "forcing": forcing_used,
+        "seed_moved_km": p.get("seed_moved_km", 0.0),
+        "requested_lonlat": p.get("requested_lonlat"),
+        "requested_duration_h": p.get("requested_duration_h"),
         "wind_drift_factor": p.get("wind_drift_factor", 0.02),
         "runtime_s": round(time.time() - t_wall, 1),
-        # Mean forcing seen by particles; equals the fallback values if readers gave nothing.
+        # Mean forcing seen by particles (from the real readers).
         "env_mean": {v: round(float(np.nanmean(o.result[v].values)), 3)
                      for v in ("x_sea_water_velocity", "y_sea_water_velocity", "x_wind", "y_wind")
                      if v in o.result},
@@ -187,7 +206,9 @@ def build_tracks(o, start: datetime, duration: timedelta, step_min: int) -> dict
         last = idx[-1]
         st = status[i, last]
         name = cats[int(st)] if np.isfinite(st) and int(st) < len(cats) else "active"
-        if name not in ("active", "stranded", "evaporated"):
+        if name == "missing_data":
+            name = "no_data"  # drifted out of the cached forcing domain
+        elif name not in ("active", "stranded", "evaporated"):
             name = "evaporated" if "evapor" in name else "active"
         particles.append({
             "path": [[round(float(lon[i, j]), 4), round(float(lat[i, j]), 4)] for j in idx],

@@ -1,4 +1,4 @@
-"""Smoke test: Texas City Y (2014-03-22, 29.36N 94.80W) through the HTTP API.
+"""Smoke test: Texas City Y (2014-03-22, seeded at Bolivar Roads 29.33N 94.72W, the nearest HYCOM water) through the HTTP API.
 
 Usage (server running on :5200):  python smoke_test.py [--base http://127.0.0.1:5200] [--hours 72]
 """
@@ -30,7 +30,7 @@ def main():
     code, h = call(a.base, "/api/health")
     assert code == 200 and h.get("ok"), f"health failed: {code} {h}"
 
-    body = {"lat": 29.36, "lon": -94.80, "start_time": "2014-03-22T12:00:00",
+    body = {"lat": 29.33, "lon": -94.72, "start_time": "2014-03-22T12:00:00",
             "duration_h": a.hours, "volume_m3": 636, "oil_type": "IFO 380", "n_particles": a.n}
     code, r = call(a.base, "/api/spill", body)
     assert code == 200 and "id" in r, f"POST failed: {code} {r}"

@@ -127,7 +127,7 @@ def get_spill_hindcast(spill_id: str, n_particles: int = 2000, duration_h: float
                        volume_m3=vol_m3, oil_type=s.get("oil_type") or "IFO 380",
                        n_particles=n_particles)
     try:
-        sub = jobs.submit(req, extra_key=f"hist:{spill_id}")
+        sub = jobs.submit(req, extra_key=f"hist:{spill_id}", snap_km=config.SNAP_KM_HINDCAST)
     except ValueError as e:
         raise HTTPException(400, str(e))
     p = jobs.tracks_path(sub["id"])
@@ -142,7 +142,7 @@ def get_spill_hindcast(spill_id: str, n_particles: int = 2000, duration_h: float
 @app.get("/api/forcing")
 def get_forcing():
     """Debug: which forcing files the backend sees."""
-    return {"mode": config.FORCING_MODE, "data_dirs": [str(d) for d in config.DATA_DIRS],
+    return {"mode": "cache-only", "data_dirs": [str(d) for d in config.DATA_DIRS],
             "files": [f.to_json() for f in forcing.scan()]}
 
 

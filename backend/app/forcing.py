@@ -46,7 +46,7 @@ class ForcingFile:
         if self.t0 is None or self.t1 is None:
             return False
         lon_ok = self.lon_min <= lon <= self.lon_max or self.lon_min <= lon % 360 <= self.lon_max
-        # Accept partial time overlap (fallback fills the rest), but require the start.
+        # Require the start; the run is clipped to the end of the forcing (jobs.submit).
         return lon_ok and self.lat_min <= lat <= self.lat_max and self.t0 <= start <= self.t1
 
     def to_json(self):
@@ -134,8 +134,6 @@ def scan() -> list[ForcingFile]:
 
 
 def select(lon: float, lat: float, start: datetime, end: datetime) -> list[ForcingFile]:
-    if config.FORCING_MODE == "constant":
-        return []
     files = [f for f in scan() if f.covers(lon, lat, start, end)]
     # Prefer files with longer coverage of the run window.
     files.sort(key=lambda f: -(min(f.t1, end) - start).total_seconds())
@@ -146,8 +144,6 @@ def default_start_time() -> datetime:
     """Now (UTC, floored to the hour) if live forcing covers it, else the start
     of the most recent cached current window, else now."""
     now = datetime.now(timezone.utc).replace(tzinfo=None, minute=0, second=0, microsecond=0)
-    if config.FORCING_MODE == "constant":
-        return now
     currents = [f for f in scan() if "current" in f.kinds and f.t0]
     if not currents or any(f.t0 <= now <= f.t1 for f in currents):
         return now
@@ -174,3 +170,69 @@ def open_normalized(f: dict):
         if v in ds.data_vars:
             ds[v].attrs["standard_name"] = sn
     return ds
+
+
+class SeedOnLand(ValueError):
+    """The requested spill point is land (or too far from model water)."""
+
+
+def _is_land_gshhg(lon: float, lat: float) -> bool:
+    try:
+        from roaring_landmask import RoaringLandmask
+        global _landmask
+        if _landmask is None:
+            _landmask = RoaringLandmask.new()
+        return bool(_landmask.contains(np.array([lon], float), np.array([lat], float))[0])
+    except Exception:  # landmask unavailable: trust the forcing grid only
+        return False
+
+
+_landmask = None
+
+
+def snap_to_water(f: ForcingFile, lon: float, lat: float, t: datetime, max_km: float):
+    """Nearest point to (lon, lat) that has a finite current in forcing file `f` at time
+    `t` and is water in OpenDrift's GSHHG landmask. Returns (lon, lat, moved_km).
+    Raises SeedOnLand if nothing within max_km."""
+    import xarray as xr
+
+    with xr.open_dataset(f.path) as ds:
+        uvar = next(v for v in ds.data_vars
+                    if ds[v].attrs.get("standard_name") in CURRENT_NAMES or v in ("water_u", "uo", "u"))
+        u = ds[uvar]
+        tname = next(c for c in u.dims if np.issubdtype(ds[c].dtype, np.datetime64))
+        u = u.sel({tname: np.datetime64(t)}, method="nearest")
+        for dim in list(u.dims):
+            if dim not in ("lat", "lon", "latitude", "longitude", "y", "x"):
+                u = u.isel({dim: 0})
+        lonn = next(c for c in ("lon", "longitude", "x") if c in u.coords)
+        latn = next(c for c in ("lat", "latitude", "y") if c in u.coords)
+        lons, lats = u[lonn].values.astype(float), u[latn].values.astype(float)
+        lon_q = lon % 360 if lons.max() > 180 else lon
+        # Only look at a window around the point.
+        dlat = max_km / 111.0 + 0.1
+        dlon = dlat / max(0.2, np.cos(np.radians(lat)))
+        ii = np.nonzero(np.abs(lons - lon_q) <= dlon)[0]
+        jj = np.nonzero(np.abs(lats - lat) <= dlat)[0]
+        if len(ii) == 0 or len(jj) == 0:
+            raise SeedOnLand("That point is outside the cached ocean forcing.")
+        sub = u.isel({lonn: ii, latn: jj}).transpose(latn, lonn).values
+    LO, LA = np.meshgrid(lons[ii], lats[jj])
+    LO = np.where(LO > 180, LO - 360, LO)
+    km = np.hypot((LO - lon) * 111.32 * np.cos(np.radians(lat)), (LA - lat) * 110.57)
+    km = np.where(np.isfinite(sub), km, np.inf)
+    # Half a grid diagonal: the requested point sits in this water cell already.
+    cell_km = 0.75 * np.hypot(np.median(np.diff(lons)) * 111.32 * np.cos(np.radians(lat)),
+                              np.median(np.diff(lats)) * 110.57)
+    order = np.argsort(km, axis=None)
+    for k in order[:400]:
+        d = float(km.flat[k])
+        if not np.isfinite(d) or d > max_km:
+            break
+        x, y = float(LO.flat[k]), float(LA.flat[k])
+        if d <= cell_km and not _is_land_gshhg(lon, lat):
+            return lon, lat, 0.0  # requested point is already water
+        if not _is_land_gshhg(x, y):
+            return round(x, 4), round(y, 4), round(d, 1)
+    raise SeedOnLand(
+        f"That spot is on land (no ocean model water within {max_km:g} km). Click on open water.")

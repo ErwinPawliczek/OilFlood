@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from . import config, forcing, runner
 
-MODEL_VERSION = "openoil-v2"
+MODEL_VERSION = "openoil-v3-real"  # v3: real forcing only, no constant fallback
 
 
 class SpillRequest(BaseModel):
@@ -80,18 +80,45 @@ def read_status(run_id: str) -> dict | None:
         return json.loads(p.read_text())
 
 
-def submit(req: SpillRequest, extra_key: str = "") -> dict:
-    params = _normalize(req)
+class NoForcing(ValueError):
+    """No cached real forcing for the requested place/time."""
+
+
+def _fmt(t: datetime) -> str:
+    return t.strftime("%Y-%m-%d %H:%M UTC")
+
+
+def plan(params: dict, snap_km: float) -> dict:
+    """Attach real forcing files to a normalized request, clip the duration to the
+    forcing's time coverage and move the seed off model land. Raises NoForcing /
+    forcing.SeedOnLand (both ValueError) with a user-facing message."""
     start = datetime.fromisoformat(params["start_time"])
     end = start + timedelta(hours=params["duration_h"])
     files = forcing.select(params["lon"], params["lat"], start, end)
-    if config.FORCING_MODE == "cache" and not files:
-        raise ValueError("No cached forcing covers this location/time (OILFLOOD_FORCING=cache)")
-    params["forcing_files"] = [f.to_json() for f in files]
+    cur = next((f for f in files if "current" in f.kinds), None)
+    wind = next((f for f in files if "wind" in f.kinds), None)
+    if cur is None or wind is None:
+        have = sorted({(f.t0, f.t1) for f in forcing.scan() if "current" in f.kinds and f.t0
+                       and f.lon_min <= params["lon"] <= f.lon_max and f.lat_min <= params["lat"] <= f.lat_max})
+        what = "ocean currents" if cur is None else "winds"
+        hint = (" Cached windows here: " + "; ".join(f"{_fmt(a)} to {_fmt(b)}" for a, b in have[-4:])) if have \
+            else " This location is outside the cached forcing (Gulf of Mexico, 18-31N, 98-80W)."
+        raise NoForcing(f"No real {what} data cached for {_fmt(start)} at this location.{hint}")
+    cover_end = min(cur.t1, wind.t1)
+    hours = min(params["duration_h"], (cover_end - start).total_seconds() / 3600)
+    if hours < config.MIN_RUN_H:
+        raise NoForcing(f"Real forcing ends at {_fmt(cover_end)}, too soon after {_fmt(start)} to run.")
+    lon, lat, moved = forcing.snap_to_water(cur, params["lon"], params["lat"], start, snap_km)
+    params.update(lon=lon, lat=lat, duration_h=round(hours, 2), seed_moved_km=moved,
+                  requested_lonlat=[params["lon"], params["lat"]],
+                  requested_duration_h=params["duration_h"],
+                  forcing_files=[cur.to_json(), wind.to_json()])
+    return params
 
-    key = json.dumps({**params, "v": MODEL_VERSION, "x": extra_key,
-                      "fb": [config.CONST_CURRENT_U, config.CONST_CURRENT_V,
-                             config.CONST_WIND_U, config.CONST_WIND_V]}, sort_keys=True)
+
+def submit(req: SpillRequest, extra_key: str = "", snap_km: float | None = None) -> dict:
+    params = plan(_normalize(req), config.SNAP_KM_PREDICTION if snap_km is None else snap_km)
+    key = json.dumps({**params, "v": MODEL_VERSION, "x": extra_key}, sort_keys=True)
     run_id = hashlib.sha1(key.encode()).hexdigest()[:16]
     d = run_dir(run_id)
 
