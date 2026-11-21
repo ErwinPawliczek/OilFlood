@@ -49,6 +49,13 @@ Not used: NOAA RTOFS (NOMADS retired OPeNDAP, SCN 25-81; full RTOFS files are gl
 - Coordinates `time` (CF, seconds since 1970), `lat`, `lon` (−180..180, ascending), with `standard_name`s. Land = NaN.
 - Opens directly with `opendrift.readers.reader_netCDF_CF_generic.Reader(path)` (checked with OpenDrift 1.14.11 in the `oilflood` env). The backend (`backend/app/forcing.py`) finds them by scanning `data/cache/**/*.nc`. Raw chunks are kept in `data/raw/` so they don't show up twice.
 
+Notes on processing:
+- Latitudes in HYCOM GOMb0.04 are Mercator-spaced. They're resampled onto a uniform axis because OpenDrift's generic reader needs constant spacing.
+- HYCOM's 1.27e30 fill isn't always decoded, so anything over 100 m/s is masked to NaN.
+- Timestamps are snapped to 15 min because NCSS output carries float jitter.
+- Values are quantized to 3 decimals.
+- **Galveston Bay is land in HYCOM.** The Texas City Y point (29.363, −94.798) is NaN. The nearest water is Bolivar Roads, about 29.33, −94.72. Seed hindcasts there, or let OpenDrift fall back for in-bay particles.
+
 ### Spill catalog (`spills/catalog.json`)
 A list of `{id, name, location, date_start, date_end (ISO UTC), lat, lon, volume_bbl, volume_note, oil_type, commodity, incidentnews_id, source_urls, has_observed_outlines, forcing ("hycom_gomb0.04" | null), summary, release, [forcing_window]}`.
 `volume_bbl` is the best spilled estimate from the narrative/official reports, not IncidentNews' "max potential" (see `volume_note`). Spills before 2001 (Ixtoc I, Burmah Agate, Mega Borg) have `forcing: null`: no HYCOM reanalysis exists for them.
