@@ -13,15 +13,26 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | ID | Task | Owner | Status |
 |----|------|-------|--------|
 | T1 | Repo skeleton, README, SYNC.md | Erwin | done |
-| T2 | Data: currents/wind source + historical spill set (e.g. NOAA) | unclaimed | todo |
-| T3 | Trajectory model (particle drift + AI correction) | unclaimed | todo |
-| T4 | Backtest on historical spills + metrics | unclaimed | todo |
-| T5 | Responder UI: map + response brief | unclaimed | todo |
-| T6 | Demo video (2–3 min) | unclaimed | todo |
-| T7 | Devpost write-up + README setup steps | unclaimed | todo |
+| T2 | Data: currents/wind source + historical spill set (e.g. NOAA) | Erwin | in progress |
+| T3 | Trajectory model (particle drift + AI correction) | Erwin | todo |
+| T4 | Backtest on historical spills + metrics | Erwin | todo |
+| T5 | Responder UI: map + response brief | Erwin | todo |
+| T6 | Demo video (2–3 min) | Erwin | todo |
+| T7 | Devpost write-up + README setup steps | Erwin | todo |
+| T8 | Testing: follow README setup on a clean machine, test every feature, log bugs below | Brother | todo |
+| T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Done log
 - 2026-11-21 Erwin: skeleton pushed.
+- 2026-11-21 Erwin: roles set (Erwin builds, brother tests + fixes bugs), claimed T2.
+
+## Roles
+- Erwin builds everything (T2–T7).
+- Brother does testing and bug fixes (T8–T9).
+
+## Bugs
+Format: `- [open|fixed] short title — steps to reproduce — who found / who fixed`
+_None yet._
 
 ## Blockers
-- Task split between Erwin and brother not decided yet.
+_None._
