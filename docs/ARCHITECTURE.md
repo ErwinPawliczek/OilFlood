@@ -35,10 +35,11 @@ Rules:
 - `GET /api/spills/{id}/tracks` -> hindcast particle tracks (same shape as prediction tracks)
 - `GET /api/currents?start=&end=&bbox=` -> list of timesteps; `GET /api/currents/{t}` -> downsampled u/v grid for the flow layer
 
-- `POST /api/spill` body `{lat, lon, volume_bbl (or volume_m3), oil_type (id from GET /api/oils), duration_h (default 72), n_particles (default 2000)}` -> `{id, status, forecast, duration_h, truncated, note?}`. Always runs on the latest LIVE forecast (RTOFS/ESPC currents + GFS winds) starting now; clipped to the forecast end (see backend/README.md).
+- `POST /api/spill` body `{lat, lon, volume_bbl (or volume_m3), oil_type (id from GET /api/oils), duration_h (default 72), n_particles (default 2000), model ("openoil" default | "ours"), ml (ours only, default true)}` -> `{id, status, model, model_label, forecast, duration_h, truncated, note?}`. Always runs on the latest LIVE forecast (RTOFS/ESPC currents + GFS winds) starting now; clipped to the forecast end (see backend/README.md).
+- `GET /api/models` -> the two trajectory models (OpenOil baseline, ours) + our ML hold-out skill (docs/OURMODEL.md); hindcasts take `?model=openoil|ours` too
 - `GET /api/live` -> live forecast models, issued-at, valid-until, hours available; `GET /api/oils` -> oil types for the prediction panel
 - `GET /api/spill/{id}` -> `{id, status: queued|running|done|error, progress, error?}`
-- `GET /api/spill/{id}/tracks` -> JSON `{times: [unix_s...], particles: [{path: [[lon,lat],...], timestamps:[...], status_end: "active"|"stranded"|"evaporated"}...], budget: [{t, surface, evaporated, dispersed, stranded}...]}` (Arrow later if size is a problem)
+- `GET /api/spill/{id}/tracks` -> JSON `{times: [unix_s...], particles: [{path: [[lon,lat],...], timestamps:[...], status_end: "active"|"stranded"|"evaporated"|"dispersed"|"no_data"}...], budget: [{t, surface, evaporated, dispersed, stranded}...]}` (Arrow later if size is a problem)
 - `GET /api/fields/currents?t=` -> u/v grid (JSON or PNG texture) for the flow layer (stretch goal)
 - Frontend dev server proxies `/api` to the backend on port 5200. Production: FastAPI serves the built frontend from `web/dist` on port 5200; Cloudflare tunnel oilflood.xyz -> http://127.0.0.1:5200.
 
@@ -74,7 +75,7 @@ Responder sets spill (location, time, volume, oil type)
 - **FastAPI** (Python), single port, exposed via Cloudflare tunnel at oilflood.xyz.
 - Endpoints (draft): `POST /api/scenario`, `GET /api/scenario/{id}/tracks` (Arrow), `GET /api/fields/{t}.png` (u/v textures), `GET /api/scenario/{id}/impacts`, `POST /api/scenario/{id}/brief`.
 - **OpenDrift / OpenOil** for transport + weathering.
-- **ML correction**: small model (gradient boosting or MLP) predicting drift residuals from currents, winds, location; trained and evaluated on Global Drifter Program tracks in the Gulf.
+- **ML correction** (done, T14, docs/OURMODEL.md): gradient boosting predicting drifter-minus-current residuals from currents, winds, vorticity/divergence and drogue state; trained on Global Drifter Program tracks in the Gulf, evaluated on held-out drifters; used by our own model (`model=ours`), masked to the training coverage.
 - **Backtest**: replay historical drifters/spills, report separation distance and Liu–Weisberg skill score with vs without correction.
 - Cache results on disk keyed by scenario hash.
 

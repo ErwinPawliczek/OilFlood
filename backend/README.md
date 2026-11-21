@@ -42,6 +42,11 @@ surface release in a 50 m radius, `wind_drift_factor` 0.02, Stokes drift on (fro
 tabularised from wind), horizontal diffusivity 10 m²/s, vertical mixing, evaporation, emulsification, dispersion,
 coastline stranding on the built-in GSHHG landmask. Time step 15 min, output every 30 min.
 
+**Second model, `model=ours`** (POST /api/spill body, or `?model=ours` on hindcasts): our own Lagrangian model in
+`app/ourmodel/` on the same forcing and oil record: Fay spreading, Fingas evaporation, Mackay emulsification/dispersion,
+GSHHG beaching, plus an ML drift correction trained on NOAA drifters (`drift_model.joblib`, retrain with
+`python -m app.ourmodel.train`). Equations, training data and hold-out skill: `docs/OURMODEL.md`. `smoke_test.py` runs both.
+
 ## API
 - `POST /api/spill` `{lat, lon, volume_bbl?, volume_m3=500, oil_type, duration_h=72, start_time?, n_particles=2000, wind_drift_factor=0.02}`
   -> `{id, status, duration_h, requested_duration_h, start_time, volume_bbl, volume_m3, oil_type, seed, seed_moved_km, forecast, truncated, note?}`.
