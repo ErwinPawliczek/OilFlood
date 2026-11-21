@@ -30,6 +30,7 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
 - 2026-11-21 Erwin: docs/ARCHITECTURE.md (deck.gl + MapLibre frontend, FastAPI + OpenDrift + ML correction backend).
 - 2026-11-21 Erwin: roles set (Erwin builds, brother tests + fixes bugs), claimed T2.
 - 2026-11-21 Erwin: docs/RESEARCH.md oil spill modeling research
+- 2026-11-21 A2-data: started (claim T2 data work on branch a2-data)
 
 ## Roles
 - Erwin builds everything (T2–T7).
