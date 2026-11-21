@@ -1,0 +1,198 @@
+[
+ {
+  "id": "dwh",
+  "name": "Deepwater Horizon",
+  "location": "Gulf of Mexico",
+  "date_start": "2010-04-21T03:00:00Z",
+  "date_end": "2010-07-15T19:00:00Z",
+  "lat": 28.7367,
+  "lon": -88.3872,
+  "volume_bbl": 3190000,
+  "volume_note": "3.19M bbl into the Gulf (US District Court, Phase Two findings, 2015)",
+  "oil_type": "Louisiana light sweet crude (MC252)",
+  "commodity": "Diesel, crude oil",
+  "incidentnews_id": 8220,
+  "source_urls": [
+   "https://incidentnews.noaa.gov/incident/8220",
+   "https://www.ncei.noaa.gov/access/metadata/landing-page/bin/iso?id=gov.noaa.nodc:ORR-DWH-ERMA-GIS"
+  ],
+  "has_observed_outlines": true,
+  "forcing": "hycom_gomb0.04",
+  "summary": "A fire and explosion occurred at approximately 11:00 PM CDT, April 20, 2010 on the Deepwater Horizon, a semisubmersible drilling platform, with more than 120 crew aboard. The Deepwater Horizon is located some 50 miles SE of the Mississippi Delta and contained an estimated 700,000 gallons of #2 Fuel Oil or Marine Diesel Fuel. (Related incidents: \"Deepwater Horizon -- Florida Commands\") Editor's Not...",
+  "release": "subsea blowout, 1500 m depth, 87 days"
+ },
+ {
+  "id": "texas_city_y",
+  "name": "Texas City \"Y\" collision",
+  "location": "Port Bolivar, TX",
+  "date_start": "2014-03-22T17:30:00Z",
+  "date_end": "2014-03-26T00:00:00Z",
+  "lat": 29.36342,
+  "lon": -94.79757,
+  "volume_bbl": 4000,
+  "volume_note": "~168,000 gal (NOAA OR&R); barge Kirby 27706 held 924,000 gal",
+  "oil_type": "IFO 380",
+  "commodity": "IFO 380 or RGM 380",
+  "incidentnews_id": 8741,
+  "source_urls": [
+   "https://incidentnews.noaa.gov/incident/8741",
+   "https://response.restoration.noaa.gov/oil-and-chemical-spills/significant-incidents/texas-city-y-oil-spill"
+  ],
+  "has_observed_outlines": false,
+  "forcing": "hycom_gomb0.04",
+  "summary": "On March 22, 2014, the USCG Sector Houston-Galveston (MSU Texas City) notified the NOAA SSC that the 585 foot bulk carrier 'M/V Summer Wind' collided with an oil tank-barge, containing 924,000 gallons of fuel oil. The tank barge was towed by the 'M/V Miss Susan' and owned by Kirby Inland Marine. The collision occurred in Galveston Bay near the Texas City dike on Saturday March 22 at approximately ...",
+  "release": "barge collision, Houston Ship Channel at Texas City Y",
+  "forcing_window": {
+   "start": "2014-03-21",
+   "end": "2014-03-26",
+   "stride_h": 1
+  }
+ },
+ {
+  "id": "mc209_2017",
+  "name": "Mississippi Canyon 209 pipeline",
+  "location": "Offshore Louisiana",
+  "date_start": "2017-10-12T12:00:00Z",
+  "date_end": "2017-10-20T00:00:00Z",
+  "lat": 28.75444,
+  "lon": -88.26722,
+  "volume_bbl": 8650,
+  "volume_note": "7,950-9,350 bbl (updated estimate in IncidentNews)",
+  "oil_type": "Crude oil",
+  "commodity": "Crude oil",
+  "incidentnews_id": 9601,
+  "source_urls": [
+   "https://incidentnews.noaa.gov/incident/9601"
+  ],
+  "has_observed_outlines": false,
+  "forcing": "hycom_gomb0.04",
+  "summary": "On October 13, 2017, a discharge reported as 49.2 gallons of crude oil/saltwater mix occurred from a pipeline in Mississippi Canyon 209. Pipeline has been shut in, and RP (LLOG Exploration) is deploying an ROV to evaluate repair needs. MSU Morgan City requested an analysis of sheen fate and direction. Phone support provided. The spill volume was later updated to 7,950 to 9,350 barrels (or 333,900 ...",
+  "release": "subsea pipeline, Mississippi Canyon 209"
+ },
+ {
+  "id": "dbl_152",
+  "name": "Barge DBL 152",
+  "location": "Offshore, LA",
+  "date_start": "2005-11-11T12:00:00Z",
+  "date_end": "2005-11-18T00:00:00Z",
+  "lat": 29.2058,
+  "lon": -93.468,
+  "volume_bbl": 7200,
+  "volume_note": "~7,200 bbl lost from #1 starboard tank (mostly sank)",
+  "oil_type": "Fuel Oil No. 6 / slurry oil",
+  "commodity": "#6 Fuel Oil, Slurry Oil",
+  "incidentnews_id": 1311,
+  "source_urls": [
+   "https://incidentnews.noaa.gov/incident/1311"
+  ],
+  "has_observed_outlines": false,
+  "forcing": "hycom_gomb0.04",
+  "summary": "On 11 November 2005, an Integrated Tug/Barge System -ITB DBL 152 and the T/V REBEL- allided with an unknown submerged obstruction approximately 32 miles offshore of the Western Louisiana Coast. The obstruction, apparently, was a rig owned by Dynegy that had been toppled during Hurricane Rita. The barge was holed on the starboard bow. The hole was reported to be 30' x 5' and an estimated 7,200 bbls...",
+  "release": "barge holed on submerged wreck, 32 mi off W Louisiana"
+ },
+ {
+  "id": "eugene_island_2009",
+  "name": "Eugene Island pipeline",
+  "location": "GOM, LA",
+  "date_start": "2009-07-25T20:00:00Z",
+  "date_end": "2009-07-30T00:00:00Z",
+  "lat": 28.7211,
+  "lon": -90.8675,
+  "volume_bbl": 1500,
+  "volume_note": "~63,000 gal (IncidentNews)",
+  "oil_type": "Crude oil (API 33.7)",
+  "commodity": "33.7 API Gravity Crude Oil",
+  "incidentnews_id": 8061,
+  "source_urls": [
+   "https://incidentnews.noaa.gov/incident/8061"
+  ],
+  "has_observed_outlines": false,
+  "forcing": "hycom_gomb0.04",
+  "summary": "On Sunday afternoon, 26 July 2009, NOAA was notified of an oil spill 33 miles offshore and 60 miles southwest of Houma, LA that occurred on Saturday afternoon. The leak was from the Eugene Island Pipeline System and approximately 63,000 gallons of oil was released. Pre-approved dispersant was applied to the heaviest concentrations of the spill. On water recovery was also initiated. NOAA is providi...",
+  "release": "pipeline, 33 mi offshore Louisiana"
+ },
+ {
+  "id": "main_pass_2023",
+  "name": "Main Pass pipeline",
+  "location": "19 miles offshore MS River Delta, LA",
+  "date_start": "2023-11-16T14:00:00Z",
+  "date_end": "2023-11-22T00:00:00Z",
+  "lat": 29.29722,
+  "lon": -88.71806,
+  "volume_bbl": 26000,
+  "volume_note": "IncidentNews max potential 1.1M gal; actual release estimated lower",
+  "oil_type": "Louisiana sweet crude",
+  "commodity": "Louisiana sweet crude",
+  "incidentnews_id": 10692,
+  "source_urls": [
+   "https://incidentnews.noaa.gov/incident/10692"
+  ],
+  "has_observed_outlines": false,
+  "forcing": "hycom_gomb0.04",
+  "summary": "On November 16, 2023, at 9:10 am local, a crude oil leak was reported to the NRC. The report came from Third Coast Midstream Pipeline company. Oil sheen on water was observed around 0900. The leak location is thought to be 19 miles offshore of the Mississippi River Delta. An overflight at 1400 CST reported a slick that was 3-4 miles wide, with dark oil scattered throughout. A NOAA ship working in ...",
+  "release": "pipeline, 19 mi off Mississippi River Delta"
+ },
+ {
+  "id": "mega_borg",
+  "name": "M/V Mega Borg",
+  "location": "Gulf of Mexico, 57 miles SE of Galveston, Texas",
+  "date_start": "1990-06-09T04:30:00Z",
+  "date_end": "1990-06-16T00:00:00Z",
+  "lat": 28.55,
+  "lon": -94.1333,
+  "volume_bbl": 100000,
+  "volume_note": "~100,000 bbl burned or released over 7 days (IncidentNews)",
+  "oil_type": "Angolan Palanca crude",
+  "commodity": "Angolan Palanca crude oil",
+  "incidentnews_id": 6748,
+  "source_urls": [
+   "https://incidentnews.noaa.gov/incident/6748"
+  ],
+  "has_observed_outlines": false,
+  "forcing": null,
+  "summary": "On June 8, 1990 at approximately 2330, while the Italian tank vessel Fraqmura was lightering the Norwegian tank vessel Mega Borg, an explosion occurred in the pump room of the Mega Borg. The two ships were in the Gulf of Mexico, 57 miles southeast of Galveston Texas in international waters, but within the U.S. exclusive economic zone. As a result of the explosion, a fire started in the pump room a...",
+  "release": "tanker explosion and fire, 57 mi SE of Galveston"
+ },
+ {
+  "id": "burmah_agate",
+  "name": "Burmah Agate",
+  "location": "Galveston Bay, Texas",
+  "date_start": "1979-11-01T12:00:00Z",
+  "date_end": "1980-01-08T00:00:00Z",
+  "lat": 29.295,
+  "lon": -94.6233,
+  "volume_bbl": 255000,
+  "volume_note": "IncidentNews 10.7M gal potential; most burned",
+  "oil_type": "Nigerian crude",
+  "commodity": "Nigerian Crude, blended crude (high naphtha content)",
+  "incidentnews_id": 6253,
+  "source_urls": [
+   "https://incidentnews.noaa.gov/incident/6253"
+  ],
+  "has_observed_outlines": false,
+  "forcing": null,
+  "summary": "On the morning of November 1, 1979, the Burmah Agate and the Mimosa collided at the entrance to Galveston Harbor. The Mimosa struck the Burmah Agate on its starboard side, tearing an 8 by 15 foot hole in the hull near Cargo Tank No. 5. An explosion occurred upon impact, and the leaking oil ignited. The USCG immediately dispatched the Coast Guard Cutter Valiant to begin search and rescue operations...",
+  "release": "tanker collision and fire off Galveston entrance"
+ },
+ {
+  "id": "ixtoc_i",
+  "name": "Ixtoc I",
+  "location": "Bahia de Campeche, Mexico",
+  "date_start": "1979-06-03T12:00:00Z",
+  "date_end": "1980-03-23T00:00:00Z",
+  "lat": 19.4083,
+  "lon": -92.325,
+  "volume_bbl": 3300000,
+  "volume_note": "~3.0-3.5M bbl over 290 days",
+  "oil_type": "IXTOC I crude",
+  "commodity": "IXTOC I crude oil",
+  "incidentnews_id": 6250,
+  "source_urls": [
+   "https://incidentnews.noaa.gov/incident/6250"
+  ],
+  "has_observed_outlines": false,
+  "forcing": null,
+  "summary": "On June 3, 1979, the 2 mile deep exploratory well, IXTOC I, blew out in the Bahia de Campeche, 600 miles south of Texas in the Gulf of Mexico. The water depth at the wellhead site is about 50 m (164 feet). The IXTOC I was being drilled by the SEDCO 135, a semi-submersible platform on lease to Petroleos Mexicanos (PEMEX). A loss of drilling mud circulation caused the blowout to occur. The oil and g...",
+  "release": "shallow-water well blowout (50 m), Bahia de Campeche"
+ }
+]

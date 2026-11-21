@@ -31,6 +31,7 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
 - 2026-11-21 Erwin: roles set (Erwin builds, brother tests + fixes bugs), claimed T2.
 - 2026-11-21 Erwin: docs/RESEARCH.md oil spill modeling research
 - 2026-11-21 A1 (branch a1-model): `backend/` FastAPI on :5200 with OpenDrift 1.14.11 OpenOil (conda env `oilflood`, see backend/README.md). Works: POST/GET `/api/spill`, `/api/spill/{id}/tracks` per contract (budget in kg; extra `meta` key), request-hash cache in backend/runs/, 4-process worker pool with progress, `/api/spills`, `/api/spills/{id}/footprints`, `/api/spills/{id}/tracks` (hindcast from catalog), `/api/currents` + `/api/currents/{t}` (u/v grid from cached NetCDF), `/api/forcing` debug, serves web/dist. `smoke_test.py` (Texas City Y, 2000 particles, 72 h) passes in ~5–10 s on constant fallback forcing. NetCDF reader path verified with synthetic HYCOM-shaped (0–360 lon, depth dim) and ERA5-shaped (`valid_time`, u10/v10 without standard_name, descending lat) files; datasets are normalized before OpenDrift sees them. Not yet tested with A2's real files. `meta.env_mean` in tracks shows the mean current/wind the particles actually saw (equals fallback values if no reader covered them).
+- 2026-11-21 A2-data: started (claim T2 data work on branch a2-data)
 
 ## Roles
 - Erwin builds everything (T2–T7).
