@@ -44,6 +44,8 @@ export interface Tracks {
   durationH: number;
   particles: Particle[];
   budget: BudgetRow[]; // t in hours since t0
+  /** backend run metadata (forcing files, seed_moved_km, oil_type, ...) */
+  meta?: Record<string, any>;
 }
 
 /** A single observed outline at time t (unix seconds). */

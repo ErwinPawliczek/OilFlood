@@ -22,15 +22,18 @@ If `web/dist` exists it is served at `/` (production). In dev, Vite (port 5273) 
 | Var | Default | Meaning |
 |---|---|---|
 | `OILFLOOD_DATA_DIR` | `<repo>/data` | Where `cache/**/*.nc` forcing and `spills/catalog.json` live. Colon-separated list allowed, e.g. `/home/shmiggy/OilFlood-a2-data/data` to use A2's worktree. |
-| `OILFLOOD_FORCING` | `auto` | `auto`: cached NetCDF covering the spill + constant fallback elsewhere. `cache`: NetCDF only (400 if none). `constant`: constant forcing only. |
-| `OILFLOOD_CONST_CURRENT_U/V` | `-0.08 / -0.05` m/s | Fallback current (weak SW down-coast). |
-| `OILFLOOD_CONST_WIND_U/V` | `-3 / 4` m/s | Fallback 10 m wind (SE onshore breeze). |
+| `OILFLOOD_SNAP_KM` | `8` | Prediction seeds on a forcing-grid land cell move to the nearest model water within this distance, else 400 "on land". |
+| `OILFLOOD_SNAP_KM_HINDCAST` | `30` | Same for catalog hindcasts (Texas City Y sits in Galveston Bay, which is land in HYCOM). |
 | `OILFLOOD_WORKERS` | `4` | Parallel OpenOil runs (separate processes). |
 | `OILFLOOD_RUNS_DIR` | `backend/runs` | Run cache (gitignored). |
 
 Forcing discovery: every `*.nc` under `<data dir>/cache/` is inspected for CF standard names
 (`x_sea_water_velocity`/`eastward_sea_water_velocity`, `x_wind`/`eastward_wind`, Stokes) plus time range and bbox
 (0–360 longitudes OK). Files covering the spill start time are added as `reader_netCDF_CF_generic` readers.
+**Real forcing only**: there is no constant/synthetic fallback. A run needs cached currents *and* winds covering its start
+(else 400 with the cached windows listed); its duration is clipped to the forcing's end; particles leaving the forcing domain
+are deactivated (`status_end: "no_data"`). Catalog oil names map to ADIOS oils (DWH -> `LIGHT LOUISIANNA SWEET, BP`).
+Clicks on land / in bays the model treats as land get a 400 with a friendly message; pre-2001 catalog spills get a 400 (no reanalysis).
 `GET /api/forcing` shows what the backend sees.
 
 ## Model settings
@@ -51,4 +54,9 @@ coastline stranding on the built-in GSHHG landmask. Time step 15 min, output eve
 - `GET /api/spills/{id}/tracks` -> hindcast run from catalog lat/lon/date_start/volume_bbl/oil_type; 202 + status until done, then tracks JSON.
 - `GET /api/currents?start=&end=&bbox=` -> `{bbox, times:[unix_s]}` available in cached current NetCDF.
 - `GET /api/currents/{t}?bbox=&step=0.1` (alias `GET /api/fields/currents?t=`) -> `{t, lon0, lat0, dlon, dlat, nx, ny, u:[], v:[]}`, row-major south->north, west->east, `null` on land.
+- Global layer (T10, `data/fetch_global.py`; fields in `data/cache/fields/global/<window>/`). All additions are optional params, old calls behave as before:
+  - `GET /api/currents?layer=global&start=&end=` -> `{layer:"global", bbox:[-180,-90,180,90], times, windows:[{window, source, t_start, t_end, n, dlon}], png:"/api/currents/global/{t}.png", vmax, gulf_box}`.
+  - `GET /api/currents?layer=auto&...` -> the Gulf answer plus a `global` key. No `layer`: Gulf; if the Gulf NetCDF has no times for the window, the global times are returned instead (with the requested bbox).
+  - `GET /api/currents/global/{t}.png` -> nearest global u/v texture within 12 h (header `X-Field-Time`). Encoding as in data/README.md.
+  - `GET /api/currents/{t}?layer=global&bbox=&step=` -> JSON grid (same shape as the Gulf one) decoded from the PNG, capped at ~260k nodes. `layer=auto` -> global grid with the Gulf field pasted inside 18–31N 98–80W. No `layer` and no Gulf NetCDF for that time -> the global field over the requested bbox (default Gulf box).
 - `GET /api/forcing`, `GET /api/health`.

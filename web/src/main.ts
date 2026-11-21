@@ -5,12 +5,13 @@ import { MapboxOverlay } from '@deck.gl/mapbox';
 import { ScatterplotLayer } from '@deck.gl/layers';
 import type { Layer } from '@deck.gl/core';
 import {
-  FORCE_MOCK, onMock, getCatalog, getHistoricalTracks, getFootprints, getCurrents,
-  postSpill, pollSpill, getSpillTracks, toUnix, type CurrentsSource, type SpillJob,
+  getCatalog, getHistoricalTracks, getFootprints, getCurrents, postSpill, pollSpill, getSpillTracks,
+  toUnix, PRED, GULF_BBOX, type CurrentsSource, type SpillJob,
 } from './api';
-import { FlowField, SPEED_RAMP } from './flow';
-import { OilView, footprintLayer, budgetAt } from './oil';
-import { MOCK_BBOX, isWater } from './geo';
+import { FlowField } from './flow';
+import { getGlobalCurrents, type GlobalCurrents } from './globalCurrents';
+import { OilView, footprintLayer, footprintAt, budgetAt } from './oil';
+import { initPanel, legendHTML, RATES_H, autoRateIdx, rateLabel } from './panel';
 import { ON_SURFACE, type CatalogSpill, type Tracks, type Footprint } from './types';
 
 // ---------------------------------------------------------------- starfield
@@ -79,103 +80,209 @@ interface Scene {
   tracks: Tracks | null;
   oil: OilView | null;
   footprints: Footprint[];
+  /** real Gulf HYCOM currents for this window; null = none cached */
   currents: CurrentsSource | null;
+  currentsReq: boolean;
+  /** global RTOFS/HYCOM layer drawn under the Gulf one; null = none for this window */
+  global: GlobalCurrents | null;
+  globalReq: boolean;
+  /** currents requests still in flight */
+  pending: number;
   loading: string | null;
+  /** user-facing problems (backend messages), e.g. "No real ocean currents data cached for ..." */
+  errors: string[];
 }
 const nowHour = () => Math.floor(Date.now() / 3600000) * 3600;
-const emptyScene = (t0: number, durationH: number): Scene => ({ t0, durationH, tracks: null, oil: null, footprints: [], currents: null, loading: null });
+const emptyScene = (t0: number, durationH: number): Scene => ({
+  t0, durationH, tracks: null, oil: null, footprints: [], currents: null, currentsReq: false,
+  global: null, globalReq: false, pending: 0, loading: null, errors: [],
+});
 
-const SPEEDS = [0.25, 0.5, 1, 2, 4];
 const state = {
   mode: 'prediction' as Mode,
   catalog: [] as CatalogSpill[],
+  catalogError: null as string | null,
   selected: null as CatalogSpill | null,
   hist: emptyScene(nowHour(), 72),
-  pred: emptyScene(nowHour(), 72),
+  pred: emptyScene(nowHour(), PRED.durationH),
   job: null as (SpillJob & { status: string; progress: number; error?: string }) | null,
   jobToken: 0,
   tH: 0,
   playing: false,
-  speedIdx: 2,
+  rateIdx: autoRateIdx(72),
   showCurrents: true,
-  mockParts: [] as string[],
 };
 const scene = () => (state.mode === 'historical' ? state.hist : state.pred);
+const simT = () => scene().t0 + state.tH * 3600;
+const covers = (c: CurrentsSource | null, t: number) => !!c && t >= c.t0 - 6 * 3600 && t <= c.t1 + 6 * 3600;
 
+// ---------------------------------------------------------------- current layers (Gulf HYCOM on top of global)
+// Each layer is a FlowField (windy-style streaks) fed by a CurrentsSource; more layers can be added here.
 let flow: FlowField | null = null;
+let globalFlow: FlowField | null = null;
+// The Gulf layer owns 18-31N 98-80W whenever it has real data for the current time; the global layer fills the rest.
+const gulfActive = () => covers(scene().currents, simT());
 
-// ---------------------------------------------------------------- UI
+function loadCurrents(sc: Scene, t0 = sc.t0, t1 = sc.t0 + sc.durationH * 3600) {
+  if (!sc.currentsReq) {
+    sc.currentsReq = true;
+    sc.pending++;
+    getCurrents(t0, t1)
+      .then((c) => { sc.currents = c; if (scene() === sc) useCurrents(c); })
+      .catch((e) => { sc.errors.push(`Currents: ${e.message}`); })
+      .finally(() => { sc.pending--; if (scene() === sc) renderContent(); });
+  }
+  if (!sc.globalReq) {
+    sc.globalReq = true;
+    sc.pending++;
+    getGlobalCurrents(t0, t1, gulfActive)
+      .then((g) => { sc.global = g; if (scene() === sc) useGlobal(g); })
+      .finally(() => { sc.pending--; if (scene() === sc) renderContent(); });
+  }
+}
+function useCurrents(c: CurrentsSource | null) {
+  if (!c) return;
+  if (!flow) flow = new FlowField(c);
+  else if (flow.source !== c) flow.setSource(c);
+}
+function useGlobal(g: GlobalCurrents | null) {
+  if (!g) return;
+  if (!globalFlow) globalFlow = new FlowField(g, { id: 'currents-global', n: 6500, width: 1.6, alpha: 220 });
+  else if (globalFlow.source !== g) globalFlow.setSource(g);
+}
+
+let globalTick = 0, globalDt = 0;
+let globalLayer: ReturnType<FlowField['layer']> | null = null;
+function currentLayers(s: Scene, tUnix: number, dt: number): Layer[] {
+  const out: Layer[] = [];
+  const z = map.getZoom();
+  const hasGlobal = !!(globalFlow && s.global && globalFlow.source === s.global && covers(s.global, tUnix));
+  if (hasGlobal) {
+    const c = map.getCenter();
+    s.global!.prefetch(tUnix);
+    // advance/re-upload the big global layer at half rate (deck re-tessellates paths on every update)
+    globalDt += dt;
+    if (++globalTick % 2 === 0 || !globalLayer) {
+      globalFlow!.step(view, z, tUnix, globalDt * 60, [c.lng, c.lat]);
+      globalDt = 0;
+      globalLayer = globalFlow!.layer(state.showCurrents);
+    } else if (globalLayer.props.visible !== state.showCurrents) {
+      globalLayer = globalFlow!.layer(state.showCurrents);
+    }
+    out.push(globalLayer as any);
+  }
+  if (flow && s.currents && flow.source === s.currents) {
+    s.currents.prefetch(tUnix);
+    // thin the dense Gulf streaks when zoomed out so they match the global layer's density
+    flow.step(view, z, tUnix, dt * 60, undefined, hasGlobal ? Math.min(1, Math.max(0.12, (z - 1.5) / 3.5)) : 1);
+    out.push(flow.layer(state.showCurrents) as any);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- UI: the one floating panel
 const ui = document.getElementById('ui')!;
 ui.innerHTML = `
-  <div class="mode glass">
-    <button data-mode="historical">Historical</button>
-    <button data-mode="prediction">Prediction</button>
-  </div>
-  <div class="card glass" id="card"></div>
-  <div class="toast glass" id="toast" style="opacity:0"></div>
-  <div class="bar glass">
-    <button class="play" id="play" title="Play / pause (space)"></button>
-    <button class="speed" id="speed" title="Playback speed"></button>
-    <input type="range" id="slider" min="0" max="1000" value="0" />
-    <div class="clock"><b id="clock-date"></b><span id="clock-rel"></span></div>
-  </div>`;
+  <section class="panel glass" id="panel">
+    <header class="ph" title="Drag to move · double-click to collapse">
+      <span class="grip" aria-hidden="true"></span>
+      <b class="brand">OilFlood</b>
+      <span class="hclock" id="hclock"></span>
+      <button class="collapse" aria-label="Collapse panel"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </header>
+    <div class="pb">
+      <div class="mode">
+        <button data-mode="historical">Historical</button>
+        <button data-mode="prediction">Prediction</button>
+      </div>
+      <div id="content"></div>
+      <div class="sec time">
+        <div class="clock"><b id="clock-utc"></b><span id="clock-local"></span></div>
+        <div class="trow">
+          <button class="play" id="play" title="Play / pause (space)"></button>
+          <input type="range" id="slider" min="0" max="1000" value="0" aria-label="Simulation time" />
+        </div>
+        <div class="trow small">
+          <span id="clock-rel"></span>
+          <span class="rate"><button id="slower" title="Slower">−</button><span id="rate"></span><button id="faster" title="Faster">+</button></span>
+        </div>
+      </div>
+      <div id="dyn"></div>
+      <div class="sec legend" id="legend"></div>
+      <div class="msg" id="msg"></div>
+    </div>
+  </section>`;
 const $ = (id: string) => document.getElementById(id)!;
-const card = $('card');
+const panel = $('panel');
+const content = $('content');
 const slider = $('slider') as HTMLInputElement;
+initPanel(panel);
 const ICON_PLAY = '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 1.2v9.6L10.5 6z" fill="currentColor"/></svg>';
 const ICON_PAUSE = '<svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"/><rect x="7" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"/></svg>';
 
-ui.querySelectorAll<HTMLButtonElement>('.mode button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode as Mode)));
+panel.querySelectorAll<HTMLButtonElement>('.mode button').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode as Mode)));
 $('play').addEventListener('click', togglePlay);
-$('speed').addEventListener('click', () => { state.speedIdx = (state.speedIdx + 1) % SPEEDS.length; renderBar(); });
-slider.addEventListener('input', () => { state.tH = (Number(slider.value) / 1000) * scene().durationH; state.playing = false; renderBar(); });
+$('slower').addEventListener('click', () => { state.rateIdx = Math.max(0, state.rateIdx - 1); renderTime(true); });
+$('faster').addEventListener('click', () => { state.rateIdx = Math.min(RATES_H.length - 1, state.rateIdx + 1); renderTime(true); });
+slider.addEventListener('input', () => { state.tH = (Number(slider.value) / 1000) * scene().durationH; state.playing = false; renderTime(true); });
 addEventListener('keydown', (e) => {
   if (e.code === 'Space' && !(e.target instanceof HTMLInputElement && e.target.type === 'text')) { e.preventDefault(); togglePlay(); }
 });
+content.addEventListener('click', (e) => {
+  const b = (e.target as HTMLElement).closest<HTMLButtonElement>('.spills button');
+  if (!b) return;
+  const c = state.catalog.find((x) => x.id === b.dataset.id);
+  if (c) selectSpill(c);
+});
+$('legend').addEventListener('change', (e) => {
+  if ((e.target as HTMLElement).id === 'cur-toggle') state.showCurrents = (e.target as HTMLInputElement).checked;
+});
 
-let toastTimer = 0;
-function toast(msg: string, ms = 2500) {
-  const t = $('toast');
-  t.textContent = msg; t.style.opacity = '1';
-  clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => (t.style.opacity = '0'), ms);
+let msgTimer = 0;
+function message(msg: string, ms = 5000) {
+  const t = $('msg');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(msgTimer);
+  msgTimer = window.setTimeout(() => t.classList.remove('on'), ms);
 }
 
 function togglePlay() {
   const s = scene();
   if (!state.playing && state.tH >= s.durationH - 1e-6) state.tH = 0;
   state.playing = !state.playing;
-  renderBar();
+  renderTime(true);
 }
 
-const fmtDate = (t: number) => {
+const pad = (n: number) => String(n).padStart(2, '0');
+const fmtUTC = (t: number) => {
   const d = new Date(t * 1000);
-  return d.toLocaleString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) + ' UTC';
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
 };
+const fmtLocal = (t: number) => new Date(t * 1000).toLocaleString(undefined, {
+  month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short',
+});
+const fmtDay = (t: number) => fmtUTC(t).slice(0, 10);
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 let lastClock = '';
-function renderBar() {
+function renderTime(force = false) {
   const s = scene();
-  $('play').innerHTML = state.playing ? ICON_PAUSE : ICON_PLAY;
-  $('speed').textContent = `${SPEEDS[state.speedIdx]}×`;
+  const t = simT();
+  const utc = fmtUTC(t);
+  const rel = s.durationH > 96 ? `Day ${Math.floor(state.tH / 24) + 1} of ${Math.ceil(s.durationH / 24)}` : `T+${state.tH.toFixed(1)} h of ${Math.round(s.durationH)} h`;
+  const key = utc + rel + state.playing + state.rateIdx;
   slider.value = String(Math.round((state.tH / s.durationH) * 1000));
-  const date = fmtDate(s.t0 + state.tH * 3600);
-  const rel = s.durationH > 96 ? `Day ${Math.floor(state.tH / 24) + 1} · T+${Math.round(state.tH)} h` : `T+${state.tH.toFixed(1)} h of ${Math.round(s.durationH)} h`;
-  const key = date + rel;
-  if (key !== lastClock) { lastClock = key; $('clock-date').textContent = date; $('clock-rel').textContent = rel; }
-}
-
-function legendHTML() {
-  const max = 1.8;
-  const stops = SPEED_RAMP.map(([v, r, g, b]) => `rgb(${r},${g},${b}) ${(v / max) * 100}%`).join(',');
-  return `<div class="sec legend">
-    <div class="row"><div class="label" style="margin:0">Surface current</div>
-      <label class="toggle"><input type="checkbox" id="cur-toggle" ${state.showCurrents ? 'checked' : ''}/> show</label></div>
-    <div class="ramp" style="margin-top:6px;background:linear-gradient(90deg,${stops})"></div>
-    <div class="ticks"><span>0</span><span>0.5</span><span>1.0</span><span>1.5+ m/s</span></div>
-  </div>`;
+  if (key === lastClock && !force) return;
+  lastClock = key;
+  $('play').innerHTML = state.playing ? ICON_PAUSE : ICON_PLAY;
+  $('clock-utc').textContent = utc;
+  $('clock-local').textContent = fmtLocal(t);
+  $('hclock').textContent = utc;
+  $('clock-rel').textContent = rel;
+  $('rate').textContent = rateLabel(RATES_H[state.rateIdx]);
+  ($('slower') as HTMLButtonElement).disabled = state.rateIdx === 0;
+  ($('faster') as HTMLButtonElement).disabled = state.rateIdx === RATES_H.length - 1;
 }
 
 function budgetHTML() {
@@ -187,97 +294,122 @@ function budgetHTML() {
     ['Surface', b.surface, '#ffb547'], ['Evaporated', b.evaporated, '#8fb8ff'],
     ['Dispersed', b.dispersed, '#62d5c0'], ['Stranded', b.stranded, '#ff5a64'],
   ];
-  return `<div class="sec"><div class="label">Oil budget</div><div class="budget">${rows
+  return `<div class="sec"><div class="label">Oil budget (model)</div><div class="budget">${rows
     .map(([k, v, c]) => `<span>${k}</span><div class="bbar"><div style="width:${pct(v)};background:${c}"></div></div><span class="pct">${pct(v)}</span>`)
     .join('')}</div></div>`;
 }
 
-function mockBadgeHTML() {
-  if (!state.mockParts.length && !FORCE_MOCK) return '';
-  const what = FORCE_MOCK ? 'forced by ?mock=1' : `not from backend: ${state.mockParts.join(', ')}`;
-  return `<div class="badge" title="Synthetic client-side data (backend unavailable or has no data for this window). Not a real forecast.">MOCK DATA <small>· ${esc(what)}</small></div>`;
+/** Small honest notes about what real data exists at the current sim time. */
+function notesHTML() {
+  const s = scene();
+  const t = simT();
+  const notes: string[] = [];
+  if (s.pending > 0 && !covers(s.currents, t) && !covers(s.global, t)) notes.push('Loading currents…');
+  else if (!covers(s.currents, t) && !covers(s.global, t)) {
+    notes.push(`No current data for ${fmtDay(t)}`);
+  }
+  if (state.mode === 'historical' && state.selected) {
+    if (s.footprints.length && !footprintAt(s.footprints, t)) notes.push(`No observed outline for ${fmtDay(t)}`);
+    if (s.tracks) {
+      const end = s.tracks.t0 + s.tracks.durationH * 3600;
+      if (t < s.tracks.t0) notes.push('Model hindcast starts ' + fmtUTC(s.tracks.t0));
+      else if (t > end + 3600) notes.push('Model hindcast ended ' + fmtUTC(end));
+    }
+  }
+  return notes.length ? `<div class="notes">${notes.map((n) => `<div class="note">${esc(n)}</div>`).join('')}</div>` : '';
 }
 
-function renderCard() {
+let lastDyn = '';
+function renderDyn() {
+  const html = notesHTML() + budgetHTML();
+  if (html !== lastDyn) { lastDyn = html; $('dyn').innerHTML = html; }
+}
+
+function sourceLine() {
+  const s = scene();
+  const t = simT();
+  const parts: string[] = [];
+  if (covers(s.currents, t)) parts.push(`Gulf: ${s.currents!.source}`);
+  if (s.global && covers(s.global, t)) parts.push(/RTOFS/.test(s.global.source) ? 'Global: NOAA RTOFS' : /ESPC/.test(s.global.source) ? 'Global: HYCOM ESPC' : 'Global: HYCOM GOFS 3.1');
+  return parts.length ? `<div class="hint" style="margin-top:4px">${esc(parts.join(' · '))}</div>` : '';
+}
+let lastLegend = '';
+function renderLegend() {
+  const html = legendHTML(state.showCurrents, sourceLine());
+  if (html !== lastLegend) { lastLegend = html; $('legend').innerHTML = html; }
+}
+
+function errorsHTML(errs: string[]) {
+  return errs.map((e) => `<div class="err">${esc(e)}</div>`).join('');
+}
+
+function renderContent() {
   const s = scene();
   let html = '';
   if (state.mode === 'historical') {
     const sel = state.selected;
-    html += `<h2>${sel ? esc(sel.name) : 'Historical spills'}</h2>`;
-    if (sel) {
-      const year = sel.date_start.slice(0, 4);
-      const srcs = [s.footprints.length ? 'observed outlines' : '', s.tracks ? 'hindcast particles' : ''].filter(Boolean).join(' + ');
-      html += `<div class="sub">${esc(year)}${srcs ? ' · ' + srcs : ''}${s.loading ? esc(s.loading) : ''}</div>
-      <div class="sec kv">
-        <span>Start</span><span>${esc(sel.date_start.slice(0, 10))}</span>
-        ${sel.date_end ? `<span>End</span><span>${esc(sel.date_end.slice(0, 10))}</span>` : ''}
-        ${sel.volume_bbl ? `<span>Volume</span><span>${Number(sel.volume_bbl).toLocaleString()} bbl</span>` : ''}
-        ${sel.oil_type ? `<span>Oil</span><span>${esc(sel.oil_type)}</span>` : ''}
-        <span>Position</span><span>${sel.lat.toFixed(3)}°, ${sel.lon.toFixed(3)}°</span>
-      </div>`;
-      if (sel.source_urls?.length) html += `<div class="links" style="margin-top:6px">${sel.source_urls.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\//, ''))}</a>`).join('<br>')}</div>`;
-    } else {
-      html += `<div class="sub">Pick a spill on the globe or below to replay it.</div>`;
-    }
+    if (state.catalogError) html += errorsHTML([`Spill catalog: ${state.catalogError}`]);
     html += `<div class="sec"><div class="spills">${state.catalog
       .map((c) => `<button data-id="${esc(c.id)}" class="${sel?.id === c.id ? 'on' : ''}"><span>${esc(c.name)}</span><small>${esc(c.date_start.slice(0, 4))}</small></button>`)
       .join('')}</div></div>`;
+    if (sel) {
+      const srcs = [s.footprints.length ? `${s.footprints.length} observed outlines (NOAA/NESDIS)` : '', s.tracks ? 'model hindcast' : ''].filter(Boolean).join(' + ');
+      html += `<div class="sec"><h2>${esc(sel.name)}</h2>
+      <div class="sub">${srcs ? esc(srcs) : ''}${s.loading ? esc(s.loading) : ''}</div>
+      <div class="kv" style="margin-top:6px">
+        <span>Start</span><span>${esc(sel.date_start.slice(0, 10))}</span>
+        ${sel.date_end ? `<span>End</span><span>${esc(sel.date_end.slice(0, 10))}</span>` : ''}
+        ${sel.volume_bbl ? `<span>Volume</span><span>${Number(sel.volume_bbl).toLocaleString()} bbl</span>` : ''}
+        ${sel.oil_type ? `<span>Oil</span><span>${esc(sel.oil_type)}${s.tracks?.meta?.oil_type && s.tracks.meta.oil_type !== sel.oil_type ? ` <small class="hint">(model: ${esc(s.tracks.meta.oil_type)})</small>` : ''}</span>` : ''}
+        <span>Position</span><span>${sel.lat.toFixed(3)}°, ${sel.lon.toFixed(3)}°</span>
+      </div>${errorsHTML(s.errors)}`;
+      if (sel.source_urls?.length) html += `<details class="links"><summary>Sources</summary>${sel.source_urls.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\//, ''))}</a>`).join('<br>')}</details>`;
+      html += `</div>`;
+    } else {
+      html += `<div class="hint">Pick a spill above or on the globe to replay it with its real currents.</div>`;
+    }
   } else {
     const j = state.job;
-    html += `<h2>Spill prediction</h2>`;
     if (!j) {
-      html += `<div class="hint">Click anywhere on the ocean to release a spill and watch it spread over the next 72 hours.</div>`;
+      html += `<div class="hint">Click the ocean (Gulf of Mexico) to release ${PRED.volumeM3} m³ of ${esc(PRED.oilType)} and forecast its drift with the live HYCOM currents + GFS winds.</div>`;
     } else {
-      html += `<div class="sub">${j.lat.toFixed(3)}°, ${j.lon.toFixed(3)}° · 500 m³ IFO 380 · 72 h</div>`;
+      html += `<div class="sec"><h2>Spill prediction</h2><div class="sub">${j.lat.toFixed(3)}°, ${j.lon.toFixed(3)}° · ${PRED.volumeM3} m³ ${esc(PRED.oilType)}</div>`;
       if (j.status !== 'done') {
-        html += `<div class="sec"><div class="row"><span class="hint">${j.status === 'error' ? 'Run failed' : j.status === 'queued' ? 'Queued…' : 'Simulating drift…'}</span><span class="hint">${pct(j.progress)}</span></div>
-          <div class="progress"><div style="width:${pct(j.progress)}"></div></div>${j.error ? `<div class="err">${esc(j.error)}</div>` : ''}</div>`;
-      } else {
-        html += `<div class="sec kv"><span>Particles</span><span>${s.tracks?.particles.length ?? 0}</span><span>Start</span><span>${fmtDate(s.t0)}</span></div>`;
+        html += j.status === 'error'
+          ? `<div class="err">${esc(j.error || 'Run failed')}</div>`
+          : `<div class="row" style="margin-top:6px"><span class="hint">${j.status === 'queued' ? 'Queued…' : 'Simulating drift…'}</span><span class="hint">${pct(j.progress)}</span></div>
+          <div class="progress"><div style="width:${pct(j.progress)}"></div></div>`;
+      } else if (s.tracks) {
+        const m = s.tracks.meta ?? {};
+        html += `<div class="kv" style="margin-top:6px"><span>Start</span><span>${fmtUTC(s.tracks.t0)}</span>
+          <span>Horizon</span><span>${Math.round(s.tracks.durationH)} h${m.requested_duration_h && m.requested_duration_h > s.tracks.durationH + 0.5 ? ' (live forecast ends then)' : ''}</span>
+          <span>Particles</span><span>${s.tracks.particles.length}</span></div>`;
+        if (m.seed_moved_km > 0) html += `<div class="hint" style="margin-top:4px">Seeded ${m.seed_moved_km} km away, at the nearest model water cell.</div>`;
       }
-      html += `<div class="hint" style="margin-top:8px">Click elsewhere on the ocean for a new spill.</div>`;
+      html += `<div class="hint" style="margin-top:8px">Click elsewhere on the ocean for a new spill.</div></div>`;
     }
+    html += errorsHTML(s.errors);
   }
-  html += budgetHTML();
-  html += legendHTML();
-  html += mockBadgeHTML();
-  card.innerHTML = html;
+  content.innerHTML = html;
   syncPins();
-  card.querySelectorAll<HTMLButtonElement>('.spills button').forEach((b) =>
-    b.addEventListener('click', () => { const c = state.catalog.find((x) => x.id === b.dataset.id); if (c) selectSpill(c); }),
-  );
-  ($('cur-toggle') as HTMLInputElement).addEventListener('change', (e) => { state.showCurrents = (e.target as HTMLInputElement).checked; });
+  renderLegend();
+  renderDyn();
 }
-
-// The budget panel changes with time; re-render the card at a modest rate while playing.
-let lastCardRender = 0;
-function maybeRenderCard(now: number) {
-  if (now - lastCardRender > 250 && scene().tracks?.budget.length) { lastCardRender = now; renderCard(); }
-}
-
-onMock((parts) => { state.mockParts = parts; renderCard(); });
 
 // ---------------------------------------------------------------- modes / data
-async function setMode(m: Mode) {
+function setMode(m: Mode) {
   state.mode = m;
-  ui.querySelectorAll<HTMLButtonElement>('.mode button').forEach((b) => b.classList.toggle('on', b.dataset.mode === m));
+  panel.querySelectorAll<HTMLButtonElement>('.mode button').forEach((b) => b.classList.toggle('on', b.dataset.mode === m));
   state.playing = false;
   state.tH = 0;
   map.getCanvas().style.cursor = m === 'prediction' ? 'crosshair' : '';
   const s = scene();
-  if (!s.currents) {
-    s.currents = await getCurrents(s.t0, s.t0 + s.durationH * 3600);
-  }
-  if (state.mode === m) {
-    useCurrents(s.currents);
-    if (s.tracks) { state.tH = 0; state.playing = true; }
-  }
-  renderCard(); renderBar();
-}
-
-function useCurrents(c: CurrentsSource) {
-  if (!flow) flow = new FlowField(c);
-  else if (flow.source !== c) flow.setSource(c);
+  state.rateIdx = autoRateIdx(s.durationH);
+  loadCurrents(s);
+  useCurrents(s.currents);
+  useGlobal(s.global);
+  if (s.tracks || s.footprints.length) state.playing = true;
+  renderContent(); renderTime(true);
 }
 
 async function selectSpill(s: CatalogSpill) {
@@ -285,14 +417,16 @@ async function selectSpill(s: CatalogSpill) {
     map.flyTo({ center: [s.lon, s.lat], zoom: 6.3, pitch: 25, duration: 2000, essential: true });
     return;
   }
+  if (state.mode !== 'historical') setMode('historical');
   state.selected = s;
   const t0 = toUnix(s.date_start);
   const t1 = s.date_end ? toUnix(s.date_end) : t0 + 72 * 3600;
   const sc = emptyScene(t0, Math.max(1, (t1 - t0) / 3600));
-  sc.loading = ' · loading…';
+  sc.loading = 'Loading…';
   state.hist = sc;
   state.playing = false; state.tH = 0;
-  renderCard(); renderBar();
+  state.rateIdx = autoRateIdx(sc.durationH);
+  renderContent(); renderTime(true);
   map.flyTo({ center: [s.lon, s.lat], zoom: 6.3, pitch: 25, duration: 3200, essential: true, curve: 1.6 });
   const stale = () => state.selected !== s || state.hist !== sc;
   const active = () => state.mode === 'historical' && !stale();
@@ -301,55 +435,52 @@ async function selectSpill(s: CatalogSpill) {
   const applyTimeline = () => {
     let a = Infinity, b = -Infinity;
     if (sc.tracks) { a = sc.tracks.t0; b = sc.tracks.t0 + sc.tracks.durationH * 3600; }
-    for (const f of sc.footprints) { a = Math.min(a, f.t); b = Math.max(b, f.t); }
+    for (const f of sc.footprints) { a = Math.min(a, f.t); b = Math.max(b, f.t + 86400); }
     if (!Number.isFinite(a)) return;
     const abs = sc.t0 + state.tH * 3600;
     sc.t0 = a; sc.durationH = Math.max(1, (b - a) / 3600);
-    if (active()) state.tH = Math.min(sc.durationH, Math.max(0, (abs - sc.t0) / 3600));
+    if (active()) {
+      state.tH = Math.min(sc.durationH, Math.max(0, (abs - sc.t0) / 3600));
+      state.rateIdx = autoRateIdx(sc.durationH);
+    }
   };
   const startPlayback = () => { if (active() && !state.playing) { state.tH = 0; state.playing = true; } };
 
-  const pCurrents = getCurrents(t0, t1).then((c) => {
-    if (stale()) return;
-    sc.currents = c;
-    if (active()) useCurrents(c);
-  });
+  // Currents for the spill's own dates (whole outline/hindcast window, padded a day).
+  loadCurrents(sc, t0 - 86400, Math.max(t1, t0 + 72 * 3600) + 86400);
   const pFootprints = getFootprints(s).then((fp) => {
     if (stale()) return;
     sc.footprints = fp;
     applyTimeline();
     if (fp.length) startPlayback();
-    renderCard(); renderBar();
-  });
+  }).catch((e) => { if (!stale()) sc.errors.push(`Observed outlines: ${e.message}`); });
   const onProgress = (p: number) => {
     if (stale()) return;
-    sc.loading = ` · computing hindcast ${Math.round((p > 1 ? p / 100 : p) * 100)}%`;
-    renderCard();
+    sc.loading = `Computing hindcast on real forcing… ${Math.round((p > 1 ? p / 100 : p) * 100)}%`;
+    renderContent();
   };
   const pTracks = getHistoricalTracks(s, onProgress, stale).then((tr) => {
-    if (stale()) return;
+    if (stale() || !tr) return;
     sc.tracks = tr;
-    sc.oil = tr ? new OilView(tr) : null;
+    sc.oil = new OilView(tr);
     applyTimeline();
-    if (tr) startPlayback();
-  });
-  await Promise.all([pCurrents, pFootprints, pTracks]);
+    startPlayback();
+  }).catch((e) => { if (!stale()) sc.errors.push(`Hindcast: ${e.message}`); });
+  renderContent();
+  await Promise.all([pFootprints.then(() => !stale() && (renderContent(), renderTime(true))), pTracks]);
   if (stale()) return;
-  sc.loading = sc.tracks || sc.footprints.length ? null : ' · no track data available';
-  renderCard(); renderBar();
+  sc.loading = null;
+  renderContent(); renderTime(true);
 }
 
 async function startSpill(lon: number, lat: number) {
-  if (!isWater(lon, lat) && lon > MOCK_BBOX.minLon && lon < MOCK_BBOX.maxLon && lat > MOCK_BBOX.minLat && lat < MOCK_BBOX.maxLat) {
-    toast('That looks like land. Click on the ocean.');
-    return;
-  }
   const token = ++state.jobToken;
   if (map.getZoom() < 5) map.flyTo({ center: [lon, lat], zoom: 6.5, duration: 2500, essential: true });
-  state.playing = false; state.tH = 0;
-  state.pred = emptyScene(nowHour(), 72);
-  state.job = { id: '', mock: false, lat, lon, status: 'queued', progress: 0 };
-  renderCard(); renderBar();
+  const prev = state.pred;
+  state.playing = false;
+  state.job = { id: '', lat, lon, status: 'queued', progress: 0 };
+  prev.errors = [];
+  renderContent(); renderTime(true);
   try {
     const job = await postSpill(lat, lon);
     if (token !== state.jobToken) return;
@@ -358,35 +489,47 @@ async function startSpill(lon: number, lat: number) {
       const st = await pollSpill(job);
       if (token !== state.jobToken) return;
       Object.assign(state.job, st);
-      renderCard();
+      renderContent();
       if (st.status === 'done') break;
       if (st.status === 'error') return;
-      await new Promise((r) => setTimeout(r, job.mock ? 120 : 700));
+      await new Promise((r) => setTimeout(r, 700));
     }
     const tracks = await getSpillTracks(job);
     if (token !== state.jobToken) return;
-    const sc = state.pred;
-    sc.t0 = tracks.t0; sc.durationH = tracks.durationH;
+    const sc = emptyScene(tracks.t0, tracks.durationH);
     sc.tracks = tracks; sc.oil = new OilView(tracks);
-    sc.currents = await getCurrents(sc.t0, sc.t0 + sc.durationH * 3600);
-    if (token !== state.jobToken) return;
-    if (state.mode === 'prediction') { useCurrents(sc.currents); state.tH = 0; state.playing = true; }
-    renderCard(); renderBar();
+    // same live window as before the click: reuse its fields when the run sits inside them
+    if (prev.currents && covers(prev.currents, tracks.t0) && covers(prev.currents, tracks.t0 + tracks.durationH * 3600)) {
+      sc.currents = prev.currents; sc.currentsReq = true;
+    }
+    if (prev.global && covers(prev.global, tracks.t0)) { sc.global = prev.global; sc.globalReq = true; }
+    state.pred = sc;
+    loadCurrents(sc);
+    if (state.mode === 'prediction') {
+      useCurrents(sc.currents); useGlobal(sc.global);
+      state.tH = 0; state.playing = true; state.rateIdx = autoRateIdx(sc.durationH);
+    }
+    renderContent(); renderTime(true);
   } catch (e) {
     if (token !== state.jobToken || !state.job) return;
     state.job.status = 'error';
     state.job.error = String((e as Error).message ?? e);
-    renderCard();
+    renderContent();
   }
 }
 
 map.on('click', (e) => {
-  if (state.mode !== 'prediction') return;
-  startSpill(e.lngLat.lng, e.lngLat.lat);
+  if (state.mode !== 'prediction') { message('Switch to Prediction to release a spill.', 2500); return; }
+  const { lng, lat } = e.lngLat;
+  if (lng < GULF_BBOX.minLon - 2 || lng > GULF_BBOX.maxLon + 2 || lat < GULF_BBOX.minLat - 2 || lat > GULF_BBOX.maxLat + 2) {
+    message('Forecasts need real cached forcing, which covers the Gulf of Mexico (18–31°N, 98–80°W). Click inside the Gulf.');
+    return;
+  }
+  startSpill(lng, lat);
 });
 
 // ---------------------------------------------------------------- render loop
-let view = { ...MOCK_BBOX };
+let view = { ...GULF_BBOX };
 function updateView() {
   const b = map.getBounds();
   const z = map.getZoom();
@@ -422,7 +565,7 @@ function syncPins() {
 function markerLayer(): Layer[] {
   if (state.mode !== 'prediction' || !state.job) return [];
   const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
-  const running = state.job.status !== 'done';
+  const running = state.job.status !== 'done' && state.job.status !== 'error';
   return [
     new ScatterplotLayer({
       id: 'spill-marker',
@@ -442,23 +585,19 @@ function markerLayer(): Layer[] {
 }
 
 let last = performance.now();
-let lastTH = -1;
+let lastSlow = 0;
 function frame(now: number) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   const s = scene();
   if (state.playing) {
-    state.tH += dt * (s.durationH / 30) * SPEEDS[state.speedIdx];
-    if (state.tH >= s.durationH) { state.tH = s.durationH; state.playing = false; renderCard(); }
+    state.tH += dt * RATES_H[state.rateIdx];
+    if (state.tH >= s.durationH) { state.tH = s.durationH; state.playing = false; }
   }
-  if (state.tH !== lastTH) { lastTH = state.tH; renderBar(); maybeRenderCard(now); }
-  const tUnix = s.t0 + state.tH * 3600;
-  const layers: Layer[] = [];
-  if (flow) {
-    s.currents?.prefetch(tUnix);
-    flow.step(view, map.getZoom(), tUnix, dt * 60);
-    layers.push(flow.layer(state.showCurrents) as any);
-  }
+  renderTime();
+  if (now - lastSlow > 250) { lastSlow = now; renderDyn(); renderLegend(); }
+  const tUnix = simT();
+  const layers: Layer[] = currentLayers(s, tUnix, dt);
   if (s.footprints.length) layers.push(footprintLayer(s.footprints, tUnix) as any);
   if (s.oil && s.tracks) {
     const oilH = state.tH - (s.tracks.t0 - s.t0) / 3600;
@@ -475,11 +614,17 @@ map.on('load', async () => {
   // zoom so the whole globe floats in view (globe radius ~= 512 * 2^z / 2pi px)
   const fitZoom = Math.log2((0.47 * Math.min(innerWidth, innerHeight) * 2 * Math.PI) / 512);
   map.easeTo({ zoom: Math.max(1.6, fitZoom), duration: 2600, easing: (t) => 1 - Math.pow(1 - t, 3) });
-  state.catalog = await getCatalog();
-  const initial = new URLSearchParams(location.search).get('mode') === 'prediction' ? 'prediction' : 'historical';
-  await setMode(initial);
+  try {
+    state.catalog = await getCatalog();
+  } catch (e) {
+    state.catalogError = (e as Error).message;
+  }
+  const q = new URLSearchParams(location.search);
+  setMode(q.get('mode') === 'prediction' ? 'prediction' : 'historical');
+  const pick = q.get('spill') && state.catalog.find((c) => c.id === q.get('spill'));
+  if (pick) selectSpill(pick);
   requestAnimationFrame(frame);
 });
-renderBar();
+renderTime(true);
 // debugging handle for the console / tests
-(window as any).__oilflood = { map, state, overlay, get flow() { return flow; } };
+(window as any).__oilflood = { map, state, overlay, get flow() { return flow; }, get globalFlow() { return globalFlow; } };

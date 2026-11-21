@@ -10,7 +10,8 @@ npm run build      # -> web/dist (served by the FastAPI backend on :5200)
 npm run typecheck
 ```
 
-URL flags: `?mock=1` forces client-side mock data everywhere. `?mode=prediction` opens in prediction mode (default: historical).
+URL flags: `?mode=prediction` opens in prediction mode (default: historical); `?spill=<id>` opens a catalog spill (e.g. `?spill=dwh`).
+To develop against another backend port: `VITE_API=http://127.0.0.1:5201 npm run dev`.
 
 ## What it does
 - **Historical mode**: catalog pins from `GET /api/spills`. Pick one (pin or list) and the camera flies there and plays it back:
@@ -18,12 +19,20 @@ URL flags: `?mock=1` forces client-side mock data everywhere. `?mode=prediction`
   backend answers 202 `{id,status,progress}`), and animated currents for those dates.
 - **Prediction mode**: click the ocean, `POST /api/spill`, poll `GET /api/spill/{id}` (progress bar), then animate `GET /api/spill/{id}/tracks` 0–72 h.
 - **Currents**: windy-style streaks colored by speed, in both modes, from `GET /api/currents?start&end&bbox` + `GET /api/currents/{t}`.
-- Time bar: play/pause (space), speed (0.25–4×), scrubber, UTC clock. Info card: spill details, oil budget (fractions; kg is normalised), current legend.
+- **Global currents** (`src/globalCurrents.ts`): a second streak layer *under* the Gulf one, from `GET /api/currents?layer=global` + PNG textures
+  `GET /api/currents/global/{t}.png`. Live = NOAA RTOFS, historical = HYCOM GOFS 3.1 for the spill's dates. Inside 18–31N 98–80W the global
+  layer is masked whenever the Gulf layer has real data.
+  Same clock as the timeline (linear blend between steps). For performance: at most 8 decoded textures are kept (each capped at 1440×720),
+  6500 particles are spawned only on the visible hemisphere, the global layer updates at half frame rate, and the Gulf streaks thin out when zoomed out.
+- **One floating panel** (`src/panel.ts` + `main.ts`): drag it by its header (position + collapsed state saved in localStorage
+  key `oilflood.panel.v1`; double-click or the chevron collapses it). It holds the mode toggle, spill list / prediction status,
+  the time row (sim date+time in UTC and local, play/pause (space), scrubber, animation rate shown as "X days/sec" or
+  "X hours/sec" with −/+), notes when real data is missing for the current date, the oil budget and the legend. There are no other panels.
 
-## Mock fallback
-Each endpoint falls back to synthetic client-side data independently if the backend is unreachable, returns 404/5xx, or has no
-data for the window (e.g. currents for 2010). The info card shows a red **MOCK DATA** badge listing exactly which parts are mock.
-Mock = analytic Loop Current + eddies + shelf current field, a coarse Gulf land mask, and a simple Lagrangian run (`src/mock.ts`).
+## Real data only
+There is no mock or synthetic fallback anywhere. Everything drawn comes from the backend's cached real data (HYCOM / RTOFS / GFS
+forcing, NOAA/NESDIS outlines, OpenDrift runs on that forcing). When something is missing for the current date or place the panel
+says so ("No current data for 2010-07-20", "No observed outline for ...", backend error text such as "That spot is on land").
 
 ## Data formats accepted
 - Current grid: `{t, lon0, lat0, dlon, dlat, nx, ny, u:[ny*nx], v:[ny*nx]}` row-major, lat ascending, `null` = land
