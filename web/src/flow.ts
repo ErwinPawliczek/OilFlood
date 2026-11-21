@@ -138,7 +138,7 @@ export class FlowField {
         },
       } as any,
       _pathType: 'open',
-      getWidth: 1.6,
+      getWidth: 1.8,
       widthUnits: 'pixels',
       capRounded: false,
       jointRounded: false,

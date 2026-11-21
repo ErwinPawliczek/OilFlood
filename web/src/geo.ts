@@ -26,7 +26,7 @@ function pip(lon: number, lat: number, poly: [number, number][]): boolean {
   return inside;
 }
 
-export const MOCK_BBOX = { minLon: -98, minLat: 17.5, maxLon: -80, maxLat: 31 };
+export const MOCK_BBOX = { minLon: -100, minLat: 17.5, maxLon: -80, maxLat: 31 };
 const RES = 0.04;
 const NX = Math.round((MOCK_BBOX.maxLon - MOCK_BBOX.minLon) / RES);
 const NY = Math.round((MOCK_BBOX.maxLat - MOCK_BBOX.minLat) / RES);

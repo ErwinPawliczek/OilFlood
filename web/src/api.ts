@@ -61,7 +61,12 @@ export function normalizeTracks(p: TracksPayload): Tracks {
       ts: q.timestamps.map((t) => (toUnix(t) - t0) / 3600),
       status: q.status_end ?? 'active',
     }));
-  const budget: BudgetRow[] = (p.budget ?? []).map((b) => ({ ...b, t: (toUnix(b.t) - t0) / 3600 }));
+  // budget may be fractions or absolute mass (kg); normalise each row to fractions of the released total
+  const budget: BudgetRow[] = (p.budget ?? []).map((b) => {
+    const tot = (b.surface || 0) + (b.evaporated || 0) + (b.dispersed || 0) + (b.stranded || 0);
+    const k = tot > 1.001 ? 1 / tot : 1;
+    return { t: (toUnix(b.t) - t0) / 3600, surface: (b.surface || 0) * k, evaporated: (b.evaporated || 0) * k, dispersed: (b.dispersed || 0) * k, stranded: (b.stranded || 0) * k };
+  });
   return { t0, durationH: Math.max(1, (tEnd - t0) / 3600), particles, budget };
 }
 
@@ -87,11 +92,22 @@ function mockHist(s: CatalogSpill) {
   return t;
 }
 
-export async function getHistoricalTracks(s: CatalogSpill): Promise<Tracks | null> {
+/** Hindcast tracks. The backend may answer 202 {id, status, progress} while the run computes; we poll until done. */
+export async function getHistoricalTracks(s: CatalogSpill, onProgress: (p: number) => void = () => {}, isStale = () => false): Promise<Tracks | null> {
+  const url = `/api/spills/${encodeURIComponent(s.id)}/tracks`;
   try {
-    const r = await getJSON<TracksPayload>(`/api/spills/${encodeURIComponent(s.id)}/tracks`);
+    let r = await getJSON<any>(url);
+    while (!r.particles && r.id && r.status) {
+      if (r.status === 'error') { console.warn('hindcast failed', r.error); return null; }
+      if (isStale()) return null;
+      onProgress(Number(r.progress ?? 0));
+      await new Promise((res) => setTimeout(res, 1000));
+      const st = await getJSON<any>(`/api/spill/${encodeURIComponent(r.id)}`);
+      if (st.status === 'done') r = await getJSON<any>(url);
+      else r = { ...st, id: st.id ?? r.id };
+    }
     markReal('hindcast tracks');
-    return normalizeTracks(r);
+    return normalizeTracks(r as TracksPayload);
   } catch (e) {
     if (!(e instanceof BackendDown)) { console.warn(e); return null; }
     markMock('hindcast tracks');
@@ -238,6 +254,7 @@ export async function getCurrents(startUnix: number, endUnix: number, bbox: BBox
       return { key: String(key), t: toUnix(key) };
     }).filter((s) => Number.isFinite(s.t)).sort((a, b) => a.t - b.t);
     if (!steps.length) throw new BackendDown('no current timesteps');
+    if (Array.isArray(r.bbox) && r.bbox.length === 4) bbox = { minLon: r.bbox[0], minLat: r.bbox[1], maxLon: r.bbox[2], maxLat: r.bbox[3] };
     markReal('currents');
     const grids = new Map<string, CurrentGrid | 'loading' | 'error'>();
     const load = (k: number) => {

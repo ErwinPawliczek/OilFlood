@@ -2,7 +2,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 import maplibregl from 'maplibre-gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
-import { ScatterplotLayer, PathLayer, SolidPolygonLayer, PolygonLayer, GeoJsonLayer } from '@deck.gl/layers';
+import { ScatterplotLayer } from '@deck.gl/layers';
 import type { Layer } from '@deck.gl/core';
 import {
   FORCE_MOCK, onMock, getCatalog, getHistoricalTracks, getFootprints, getCurrents,
@@ -194,8 +194,8 @@ function budgetHTML() {
 
 function mockBadgeHTML() {
   if (!state.mockParts.length && !FORCE_MOCK) return '';
-  const what = FORCE_MOCK ? 'forced by ?mock=1' : `backend offline: ${state.mockParts.join(', ')}`;
-  return `<div class="badge" title="Synthetic client-side data for demo purposes; not a real forecast.">MOCK DATA <small>· ${esc(what)}</small></div>`;
+  const what = FORCE_MOCK ? 'forced by ?mock=1' : `not from backend: ${state.mockParts.join(', ')}`;
+  return `<div class="badge" title="Synthetic client-side data (backend unavailable or has no data for this window). Not a real forecast.">MOCK DATA <small>· ${esc(what)}</small></div>`;
 }
 
 function renderCard() {
@@ -206,10 +206,11 @@ function renderCard() {
     html += `<h2>${sel ? esc(sel.name) : 'Historical spills'}</h2>`;
     if (sel) {
       const year = sel.date_start.slice(0, 4);
-      html += `<div class="sub">${esc(year)} · ${s.footprints.length ? 'observed outlines' : s.tracks ? 'hindcast particle tracks' : ''}${s.loading ? esc(s.loading) : ''}</div>
+      const srcs = [s.footprints.length ? 'observed outlines' : '', s.tracks ? 'hindcast particles' : ''].filter(Boolean).join(' + ');
+      html += `<div class="sub">${esc(year)}${srcs ? ' · ' + srcs : ''}${s.loading ? esc(s.loading) : ''}</div>
       <div class="sec kv">
-        <span>Start</span><span>${esc(sel.date_start)}</span>
-        ${sel.date_end ? `<span>End</span><span>${esc(sel.date_end)}</span>` : ''}
+        <span>Start</span><span>${esc(sel.date_start.slice(0, 10))}</span>
+        ${sel.date_end ? `<span>End</span><span>${esc(sel.date_end.slice(0, 10))}</span>` : ''}
         ${sel.volume_bbl ? `<span>Volume</span><span>${Number(sel.volume_bbl).toLocaleString()} bbl</span>` : ''}
         ${sel.oil_type ? `<span>Oil</span><span>${esc(sel.oil_type)}</span>` : ''}
         <span>Position</span><span>${sel.lat.toFixed(3)}°, ${sel.lon.toFixed(3)}°</span>
@@ -280,27 +281,61 @@ function useCurrents(c: CurrentsSource) {
 }
 
 async function selectSpill(s: CatalogSpill) {
+  if (state.selected?.id === s.id && state.hist.loading == null) {
+    map.flyTo({ center: [s.lon, s.lat], zoom: 6.3, pitch: 25, duration: 2000, essential: true });
+    return;
+  }
   state.selected = s;
-  const sc = emptyScene(toUnix(s.date_start), 72);
+  const t0 = toUnix(s.date_start);
+  const t1 = s.date_end ? toUnix(s.date_end) : t0 + 72 * 3600;
+  const sc = emptyScene(t0, Math.max(1, (t1 - t0) / 3600));
   sc.loading = ' · loading…';
   state.hist = sc;
   state.playing = false; state.tH = 0;
   renderCard(); renderBar();
   map.flyTo({ center: [s.lon, s.lat], zoom: 6.3, pitch: 25, duration: 3200, essential: true, curve: 1.6 });
-  const [tracks, footprints] = await Promise.all([getHistoricalTracks(s), getFootprints(s)]);
-  if (state.selected !== s) return;
-  let t0 = Infinity, t1 = -Infinity;
-  if (tracks) { t0 = tracks.t0; t1 = tracks.t0 + tracks.durationH * 3600; }
-  for (const f of footprints) { t0 = Math.min(t0, f.t); t1 = Math.max(t1, f.t); }
-  if (!Number.isFinite(t0)) { t0 = toUnix(s.date_start); t1 = s.date_end ? toUnix(s.date_end) : t0 + 72 * 3600; }
-  sc.t0 = t0; sc.durationH = Math.max(1, (t1 - t0) / 3600);
-  sc.tracks = tracks;
-  sc.oil = tracks ? new OilView(tracks) : null;
-  sc.footprints = footprints;
-  sc.currents = await getCurrents(sc.t0, sc.t0 + sc.durationH * 3600);
-  if (state.selected !== s) return;
-  sc.loading = tracks || footprints.length ? null : ' · no track data available';
-  if (state.mode === 'historical') { useCurrents(sc.currents); state.tH = 0; state.playing = !!(tracks || footprints.length); }
+  const stale = () => state.selected !== s || state.hist !== sc;
+  const active = () => state.mode === 'historical' && !stale();
+
+  // Timeline = union of observed outlines and hindcast; keep the absolute clock when it changes.
+  const applyTimeline = () => {
+    let a = Infinity, b = -Infinity;
+    if (sc.tracks) { a = sc.tracks.t0; b = sc.tracks.t0 + sc.tracks.durationH * 3600; }
+    for (const f of sc.footprints) { a = Math.min(a, f.t); b = Math.max(b, f.t); }
+    if (!Number.isFinite(a)) return;
+    const abs = sc.t0 + state.tH * 3600;
+    sc.t0 = a; sc.durationH = Math.max(1, (b - a) / 3600);
+    if (active()) state.tH = Math.min(sc.durationH, Math.max(0, (abs - sc.t0) / 3600));
+  };
+  const startPlayback = () => { if (active() && !state.playing) { state.tH = 0; state.playing = true; } };
+
+  const pCurrents = getCurrents(t0, t1).then((c) => {
+    if (stale()) return;
+    sc.currents = c;
+    if (active()) useCurrents(c);
+  });
+  const pFootprints = getFootprints(s).then((fp) => {
+    if (stale()) return;
+    sc.footprints = fp;
+    applyTimeline();
+    if (fp.length) startPlayback();
+    renderCard(); renderBar();
+  });
+  const onProgress = (p: number) => {
+    if (stale()) return;
+    sc.loading = ` · computing hindcast ${Math.round((p > 1 ? p / 100 : p) * 100)}%`;
+    renderCard();
+  };
+  const pTracks = getHistoricalTracks(s, onProgress, stale).then((tr) => {
+    if (stale()) return;
+    sc.tracks = tr;
+    sc.oil = tr ? new OilView(tr) : null;
+    applyTimeline();
+    if (tr) startPlayback();
+  });
+  await Promise.all([pCurrents, pFootprints, pTracks]);
+  if (stale()) return;
+  sc.loading = sc.tracks || sc.footprints.length ? null : ' · no track data available';
   renderCard(); renderBar();
 }
 
@@ -310,6 +345,7 @@ async function startSpill(lon: number, lat: number) {
     return;
   }
   const token = ++state.jobToken;
+  if (map.getZoom() < 5) map.flyTo({ center: [lon, lat], zoom: 6.5, duration: 2500, essential: true });
   state.playing = false; state.tH = 0;
   state.pred = emptyScene(nowHour(), 72);
   state.job = { id: '', mock: false, lat, lon, status: 'queued', progress: 0 };
@@ -430,7 +466,6 @@ function frame(now: number) {
     layers.push(...(s.oil.layers(s.footprints.length ? 0.45 : 1) as any[]));
   }
   layers.push(...markerLayer());
-  const dbg = (window as any).__dbgLayers; if (dbg) layers.push(...dbg());
   overlay.setProps({ layers });
   requestAnimationFrame(frame);
 }
@@ -446,4 +481,5 @@ map.on('load', async () => {
   requestAnimationFrame(frame);
 });
 renderBar();
-(window as any).__oilflood = { PathLayer, ScatterplotLayer, SolidPolygonLayer, PolygonLayer, GeoJsonLayer, map, state, overlay, get flow() { return flow; } };
+// debugging handle for the console / tests
+(window as any).__oilflood = { map, state, overlay, get flow() { return flow; } };
