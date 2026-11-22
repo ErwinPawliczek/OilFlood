@@ -3,7 +3,7 @@
 **Where will spilled oil go in the next 72 hours?** OilFlood is an oil-spill trajectory forecaster for first responders such as
 Coast Guard, NOAA and local emergency managers in the first hours of a spill. Click the ocean and it releases a spill there *now*.
 It runs two models on the **live** NOAA ocean-current and wind forecasts: the established OpenDrift/OpenOil model and our own
-particle model with a machine-learned drift correction. It then animates the slick for 72 h on a 3D globe: drift, weathering
+particle model (with an optional, experimental machine-learned drift correction). It then animates the slick for 72 h on a 3D globe: drift, weathering
 and stranding on the coast. Historical mode replays real Gulf of Mexico spills (Deepwater Horizon, Texas City "Y", MC 209, ...)
 on the ocean reanalysis for their dates, against observed slick outlines and the responders' own logged actions. Everything is
 real data; there are no mocks. Built at EvoHacks 2 (Projects for Social Good).
@@ -11,21 +11,25 @@ real data; there are no mocks. Built at EvoHacks 2 (Projects for Social Good).
 **Live: https://oilflood.xyz** (best in desktop Chrome/Edge/Firefox with a GPU)
 
 ## Screenshots
-*(placeholders, to be added before submission)*
-1. `docs/img/home.png`: first load, the globe flies to Houston/Galveston with live RTOFS currents.
-2. `docs/img/prediction.png`: Prediction → "Release it off Galveston": 72 h slick, oil budget, live forecast block.
-3. `docs/img/compare.png`: Compare mode: OpenOil (amber) vs ours (cyan) on the same spill.
-4. `docs/img/dwh.png`: Historical → Deepwater Horizon: 94 NESDIS outlines + hindcast + response log.
-5. `docs/img/global.png`: zoomed out: global RTOFS surface currents.
-6. `docs/img/response.png`: response outline: priority shorelines (ESI), boom-first, dispersant/burn windows.
+Taken from a local test server on 2026-11-22 (UTC) with the live forecast of that day and the real historical data.
+
+| | |
+|---|---|
+| ![Home](docs/img/home.png) | ![Prediction](docs/img/prediction.png) |
+| **Home:** the globe flies to Houston/Galveston with live NOAA RTOFS currents and the historical spill pins. | **Prediction:** "Release it off Galveston" (1,000 bbl medium crude) on the live RTOFS + GFS forecast; slick at T+48 h, forecast block and run details. |
+| ![Compare](docs/img/compare.png) | ![Deepwater Horizon](docs/img/dwh.png) |
+| **Compare:** OpenOil (amber) and our model (blue) on the same spill, with the experimental ML toggle (off). | **Historical → Deepwater Horizon:** NOAA/NESDIS observed outline for 2010-06-02 over the HYCOM reanalysis currents. |
+| ![Global currents](docs/img/global.png) | ![Response outline](docs/img/response.png) |
+| **Zoomed out:** global RTOFS surface currents. | **Response outline** for a live spill off Padre Island: numbered priority shorelines (NOAA ESI) on the map, first landfall, boom-first list and dispersant/burn/skimming windows. |
 
 ## Features
 - **Prediction mode (live).** Click anywhere in the Gulf of Mexico (or use the suggested point off Galveston). Pick the amount
   (bbl) and oil type (9 ADIOS oils). The run starts at the current hour on the newest **NOAA RTOFS** currents and **NCEP GFS**
   winds, which a systemd timer refreshes 4× a day. The panel shows which forecast run it used and how far ahead it is valid. A
   72 h run with 2000 particles takes ~15–25 s.
-- **Two models, side by side.** *OpenOil* (OpenDrift, NOAA-style weathering) is the baseline. *Ours* is a numpy Lagrangian model
-  with an ML drift correction (see below). *Compare* draws both at once with separate oil budgets.
+- **Two models, side by side.** *OpenOil* (OpenDrift, NOAA-style weathering) is the baseline. *Ours* is a numpy Lagrangian model;
+  its ML drift correction is an **experimental** checkbox, off by default (see below). *Compare* draws both at once with separate
+  oil budgets.
 - **Historical mode.** 9 Gulf spills from NOAA IncidentNews, 1979–2023. Each spill shows its record, a hindcast on HYCOM reanalysis
   currents/winds for those dates, and, for DWH, 94 daily NOAA/NESDIS observed slick outlines. Its **response log** lists 280 dated
   responder actions with verbatim source quotes. Clicking a date moves the clock there.
@@ -36,7 +40,7 @@ real data; there are no mocks. Built at EvoHacks 2 (Projects for Social Good).
 - **Response outline** (`docs/RESPONSE.md`): from the forecast, the outline gives time to first landfall, priority shorelines
   ranked by NOAA ESI sensitivity × arrival time, where to boom first, dispersant/in-situ-burn/skimming windows, closures, and
   precedents cited from past spills. An LLM summary is added if an API key is set. *Planning aid only, not operational guidance.*
-- One draggable, collapsible panel. Time scrubber with "X hours/sec" playback. URL flags: `?mode=prediction`, `?spill=dwh`, `?model=ours|compare`.
+- One draggable, collapsible panel. Time scrubber with "X hours/sec" playback. URL flags: `?mode=prediction`, `?spill=dwh`, `?model=ours|compare`, `?ml=1` (experimental ML on).
 
 ## The AI part
 1. **Baseline (pre-existing model): OpenDrift OpenOil** (Norwegian Meteorological Institute), set up the way NOAA GNOME-style
@@ -44,13 +48,21 @@ real data; there are no mocks. Built at EvoHacks 2 (Projects for Social Good).
    coastline stranding. It uses oils from NOAA's ADIOS database.
 2. **Ours: physics + learned drift correction** (`backend/app/ourmodel/`, details in [docs/OURMODEL.md](docs/OURMODEL.md)). The
    physics: RK2 particle advection, Fay spreading, Fingas evaporation, Mackay emulsification/dispersion, beaching on GSHHG.
-   On top of that, a **scikit-learn HistGradientBoosting** model predicts the error of the ocean model's current. It was trained
+   On top of that, an optional, **experimental** (off by default) **scikit-learn HistGradientBoosting** model predicts the error
+   of the ocean model's current. It was trained
    on **NOAA Global Drifter Program** hourly drifters (42 drifters, 14,089 fixes in the Gulf) vs the HYCOM forcing the drifters
    actually saw. Features are the current, wind, speeds, vorticity, divergence and a drogue flag.
    - Hold-out skill (5-fold CV grouped by drifter): velocity RMSE **0.410 → 0.358 m/s**; 24 h separation median **21.2 → 18.1 km**;
      48 h **38.0 → 34.5 km**.
-   - The correction is applied only inside the drifter training coverage. Its limits are written down: the training set is mostly
-     DWH-2010 deep water, and the ML can hurt in some cases (Main Pass 2023). The backtest scores ML on vs off.
+   - The correction is applied only inside the drifter training coverage, and the training set is mostly DWH-2010 deep water.
+   - **On real oil spills it did not help, so it is off by default** ([docs/BACKTEST.md](docs/BACKTEST.md)). On Deepwater Horizon
+     (52 start days, scored against NOAA/NESDIS outlines) the median 72 h centroid error is 46 km with ML and 42 km without
+     (OpenOil 44 km); ML ends closer than no-ML on only 48 % of start days at 72 h, even though DWH is in its training data. At
+     Main Pass 2023, the one true out-of-sample oil case, ours + ML strands 62 % of the oil on the Mississippi Delta within 9 h;
+     OpenOil and ours without ML strand 0 %, and the observed slick did not reach shore. No model beat simple persistence on DWH
+     (39 km at 72 h), largely because neither model has a continuous wellhead source term.
+   - In the app it is a checkbox labelled *experimental* under the model toggle; API: `ml=true` on `POST /api/spill` or the
+     hindcast endpoints (default `false`).
    - Retrain: `cd backend && python -m app.ourmodel.train` (~1 min; downloads the drifter CSVs from AOML ERDDAP).
 3. **LLM briefing (optional)** in the response outline: a short plain-language summary written *from* the rule-based outline.
    It only runs if `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `XAI_API_KEY` is set; otherwise that section is skipped.
@@ -63,7 +75,7 @@ real data; there are no mocks. Built at EvoHacks 2 (Projects for Social Good).
    ▼
  backend/: FastAPI on :5200 (also serves web/dist)
    ├─ jobs.py      run cache keyed by request + forcing hash, 4-process worker pool, progress
-   ├─ runner.py    OpenDrift OpenOil          ├─ ourmodel/  our model + ML drift correction
+   ├─ runner.py    OpenDrift OpenOil          ├─ ourmodel/  our model (+ experimental ML correction)
    ├─ forcing.py   finds cached CF NetCDF     ├─ fields.py / global_fields.py  flow-layer fields
    └─ catalog, footprints, backtest, response outline
    ▲
@@ -150,6 +162,6 @@ model, backtest, response, research notes · `SYNC.md` team/agent coordination l
 ## Limits (honest list)
 - Forecasts cover only the Gulf of Mexico (18–31°N, 98–80°W), because that is where the real forcing is cached.
 - ~4–8 km ocean models treat bays such as Galveston Bay as land, so in-bay spills strand within hours.
-- The ML correction was learned from reanalysis errors, mostly DWH-2010 deep water. In live mode it is applied to RTOFS
-  without a skill claim.
+- The ML correction was learned from reanalysis errors, mostly DWH-2010 deep water, and the oil backtest shows no gain from it
+  (harmful at Main Pass 2023). It is off by default; when switched on in live mode it is applied to RTOFS without a skill claim.
 - Spills before 2001 (Ixtoc I, Burmah Agate, Mega Borg) have no ocean reanalysis. They show the record and response log only.

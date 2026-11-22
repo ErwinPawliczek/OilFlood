@@ -2,7 +2,9 @@
 
 Code: `backend/app/ourmodel/` (`sim.py` model, `grid.py` forcing sampler, `ml.py` + `train.py` ML drift correction).
 API: `POST /api/spill` with `"model": "ours"` (default `"openoil"`), hindcasts `GET /api/spills/{id}/tracks?model=ours`,
-`"ml": false` turns the ML term off. Status and `tracks.meta` carry `model` / `model_label`. `GET /api/models`
+`"ml": true` (or `&ml=true`) turns the ML term on. **Since A12 (2026-11-22) `ml` defaults to `false`**: the oil backtest
+(docs/BACKTEST.md) found no gain on DWH and 62 % false stranding at Main Pass 2023, so the panel shows it as an *experimental*
+checkbox, off by default. Status and `tracks.meta` carry `model` / `model_label`. `GET /api/models`
 lists both models with the ML hold-out scores. The panel's **OpenOil / Ours / Compare** toggle shows either model or both
 (OpenOil amber, ours cyan, budgets side by side) in prediction and historical modes.
 
