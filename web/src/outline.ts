@@ -1,6 +1,8 @@
 // First-responder "Response outline" (T16): fetch GET /api/spill/{id}/response (prediction) or
 // /api/spills/{id}/response?model= (historical hindcast) and render it as a collapsible panel section.
 
+import { respLayerHTML, type RespLayer } from './responseLayer';
+
 const escO = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export interface Outline {
@@ -20,6 +22,8 @@ export interface Outline {
   sources: { what: string; ref: string; url: string }[];
   limits: string[];
   briefing?: { text: string | null; note?: string; provider?: string; model?: string };
+  /** map geometry for the response layer (T21) */
+  layer?: RespLayer;
 }
 export interface Shore {
   priority: number; name: string | null; state: string; lat: number; lon: number; impact: 'landfall' | 'threatened';
@@ -48,7 +52,7 @@ const CAT_LABEL: Record<string, string> = {
   shoreline_cleanup: 'Shoreline cleanup', wildlife: 'Wildlife',
 };
 
-export function outlineHTML(o: Outline | null, st: { loading?: string | null; error?: string | null }, open: boolean) {
+export function outlineHTML(o: Outline | null, st: { loading?: string | null; error?: string | null }, open: Record<string, boolean>, layerOn = true) {
   let body = '';
   if (st.error) body = `<div class="err">${escO(st.error)}</div>`;
   else if (!o) body = `<div class="hint">${escO(st.loading || 'Waiting for the forecast run…')}</div>`;
@@ -57,6 +61,7 @@ export function outlineHTML(o: Outline | null, st: { loading?: string | null; er
     const b = o.briefing;
     if (b?.text) body += `<div class="brief"><div class="label">Briefing <small>(${escO(b.provider)} ${escO(b.model)}, written from the outline below)</small></div>${escO(b.text).replace(/\n/g, '<br>')}</div>`;
     body += `<div class="resp-out">${o.headline.map(escO).join(' ')}</div>`;
+    body += respLayerHTML(o.layer, layerOn);
     body += `<div class="kv" style="margin-top:4px">
       <span>Oil</span><span>${escO(o.spill.oil_class_label)} · ${Number(o.spill.volume_bbl).toLocaleString()} bbl</span>
       <span>First landfall</span><span>${o.eta_first_landfall_h != null ? `<b>${fmtH(o.eta_first_landfall_h)}</b> <small class="hint">${utc(o.eta_first_landfall!)}</small>` : `none in ${Math.round(o.spill.horizon_h)} h`}</span>
@@ -84,12 +89,15 @@ export function outlineHTML(o: Outline | null, st: { loading?: string | null; er
     if (o.closures.length) body += `<div class="label ol-h">Closures / notifications</div>${o.closures.map((c) => `<div class="ol-item">${escO(c.what)}${c.eta_h != null ? ` <small class="hint">(oil within 15 km in ${fmtH(c.eta_h)})</small>` : ''}${c.who ? ` <small class="hint">· ${escO(c.who)}</small>` : ''}</div>`).join('')}`;
     const cats = Object.entries(o.precedents.by_tactic);
     if (cats.length) {
-      body += `<details class="ol-sub"><summary>Precedents <small>${o.precedents.similar_spills.map((s) => `${escO(s.name)} ${s.year}`).slice(0, 3).join(' · ')}</small></summary>${cats.map(([c, acts]) => `
+      body += `<details class="ol-sub" data-k="prec" ${open.prec ? 'open' : ''}><summary>Precedents <small>${o.precedents.similar_spills.map((s) => `${escO(s.name)} ${s.year}`).slice(0, 3).join(' · ')}</small></summary>${cats.map(([c, acts]) => `
         <div class="ol-item"><b>${escO(CAT_LABEL[c] ?? c)}</b>: ${acts.map((a) => `<span title="${escO(a.quote ? `“${a.quote}”` : '')}">${escO(a.spill)} (${escO(a.date)}): ${escO(a.action)} <a href="${escO(a.src)}" target="_blank" rel="noopener">src</a></span>`).join(' · ')}</div>`).join('')}</details>`;
     }
-    body += `<details class="ol-sub"><summary>Sources &amp; limits</summary>${o.sources.map((s) => `<div class="ol-item">${escO(s.what)}: <a href="${escO(s.url)}" target="_blank" rel="noopener">${escO(s.ref)}</a></div>`).join('')}
+    if (o.layer && !o.layer.error) {
+      body += `<details class="ol-sub" data-k="rules" ${open.rules ? 'open' : ''}><summary>Map layer rules &amp; assumptions</summary><ul class="ol-lim">${o.layer.rules.map((r) => `<li>${escO(r)}</li>`).join('')}</ul></details>`;
+    }
+    body += `<details class="ol-sub" data-k="srcs" ${open.srcs ? 'open' : ''}><summary>Sources &amp; limits</summary>${[...o.sources, ...(o.layer?.sources ?? [])].map((s) => `<div class="ol-item">${escO(s.what)}: <a href="${escO(s.url)}" target="_blank" rel="noopener">${escO(s.ref)}</a></div>`).join('')}
       <ul class="ol-lim">${o.limits.map((l) => `<li>${escO(l)}</li>`).join('')}</ul>
       ${b && !b.text && b.note ? `<div class="hint">${escO(b.note)}</div>` : ''}</details>`;
   }
-  return `<details class="resp outline" data-k="outline" ${open ? 'open' : ''}><summary>Response outline <small>rule-based · not operational guidance</small></summary>${body}</details>`;
+  return `<details class="resp outline" data-k="outline" ${open.outline ? 'open' : ''}><summary>Response outline <small>rule-based · not operational guidance</small></summary>${body}</details>`;
 }

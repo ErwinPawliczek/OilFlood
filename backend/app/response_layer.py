@@ -300,14 +300,18 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
         envelope = {"disp": {(int(a), int(c)) for a, c, o in zip(GY.ravel(), GX.ravel(), ok_disp) if o},
                     "burn": {(int(a), int(c)) for a, c, o in zip(GY.ravel(), GX.ravel(), ok_burn) if o}}
         g = _cells_union(envelope["disp"], ZS)
-        # outline of the area where dispersants are NOT pre-authorized (the near-shore / shallow band),
-        # inside the slick's neighbourhood: drawn as a hatched/dim band
         import shapely
         boxg = shapely.box(gx[0] * ZS, gy[0] * ZS, (gx[-1] + 1) * ZS, (gy[-1] + 1) * ZS)
-        nogo = boxg.difference(g) if g is not None else boxg
-        nogo_coords = _poly_coords(shapely.simplify(nogo, ZS * 0.3))
+        # the envelope's seaward edge as lines (the "3 nm / 10 m line"), without the box edges
+        disp_line = []
+        if g is not None:
+            inner = boxg.buffer(-ZS * 1.5)
+            ln = shapely.intersection(g.boundary, inner)
+            for part in getattr(ln, "geoms", [ln]):
+                if part.geom_type == "LineString" and part.length > ZS * 2:
+                    disp_line.append([[_r(x), _r(y)] for x, y in shapely.simplify(part, ZS * 0.25).coords])
     else:
-        nogo_coords = []
+        disp_line = []
 
     hour_by_h = {round(h["h"]): h for h in hours}
 
@@ -534,7 +538,7 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
         "inlets": inlets,
         "zones": zones,
         "zone_step_h": STEP_H,
-        "dispersant_nogo": nogo_coords,
+        "dispersant_line": disp_line,
         "skimmer_targets": skim,
         "staging_bases": [{k: x[k] for k in ("name", "type", "lon", "lat")} for x in bases],
         "staging_ops": staging_ops,

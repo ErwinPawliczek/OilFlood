@@ -178,3 +178,25 @@ body.lowzoom .pin:not(.on):not(:hover) span { opacity: 0; pointer-events: none; 
 .olpin b { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; color: #111; background: var(--c); border: 2px solid rgba(255, 255, 255, 0.9); box-shadow: 0 0 10px var(--c); }
 .olpin span { color: #e8eef7; font-size: 11px; white-space: nowrap; text-shadow: 0 1px 3px #000, 0 0 6px #000; }
 body.lowzoom .olpin span { display: none; }
+
+/* ---- response map layer (T21) ---- */
+.rl-box { margin: 6px 0 2px; padding: 5px 6px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; background: rgba(255, 255, 255, 0.025); }
+.rl-tog { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.rl-leg { margin-top: 4px; font-size: 10.5px; line-height: 1.7; color: #cfd8e6; }
+.rl-leg .sw { display: inline-block; vertical-align: middle; margin: 0 3px 0 6px; border-radius: 2px; }
+.rl-leg .sw:first-of-type { margin-left: 3px; }
+.rl-leg .sw.ring { width: 9px; height: 9px; border-radius: 50%; border: 2px solid; background: none; }
+.rl-leg .sw.dot { width: 7px; height: 7px; border-radius: 50%; background: #ebf0fa; border: 1px solid #0a1428; }
+.ol-shore.na { grid-template-columns: 16px 1fr auto; }
+.ol-shore.na b { font-weight: normal; text-align: center; }
+.ol-shore.na em small { color: var(--muted); margin-left: 2px; }
+.ol-shore.na.k-late span, .ol-shore.na.k-landfall span { color: #ffb0a8; }
+.rlbl { pointer-events: auto; }
+.rlbl span { display: block; font-size: 10.5px; color: #f2f5fa; white-space: nowrap; padding: 1px 5px; border-left: 3px solid var(--c, #fff); background: rgba(8, 16, 32, 0.78); border-radius: 0 3px 3px 0; text-shadow: 0 1px 2px #000; }
+.rlbl span .late { color: #ff6b6b; }
+.rlbl.base span { border-left-color: #ebf0fa; color: #c9d6ea; font-size: 10px; background: rgba(8, 16, 32, 0.6); }
+body.lowzoom .rlbl span { display: none; }
+.lbl-hide { opacity: 0 !important; pointer-events: none; }
+.pin:hover .lbl-hide, .olpin:hover .lbl-hide, .rlbl:hover .lbl-hide { opacity: 1 !important; }
+.pin span, .olpin span { transition: opacity 0.25s; }
+.rl-leg .sw.box { width: 11px; height: 9px; }

@@ -14,6 +14,7 @@ import { getGlobalCurrents, type GlobalCurrents } from './globalCurrents';
 import { OilView, footprintLayer, footprintAt, budgetAt, PALETTES } from './oil';
 import { initPanel, legendHTML, RATES_H, autoRateIdx, rateLabel, responseHTML, backtestHTML } from './panel';
 import { fetchOutline, outlineHTML, type Outline } from './outline';
+import { ResponseMap, nextActionsHTML } from './responseLayer';
 import { ON_SURFACE, type CatalogSpill, type Tracks, type Footprint } from './types';
 
 // ---------------------------------------------------------------- starfield
@@ -146,6 +147,8 @@ const state = {
   playing: false,
   rateIdx: autoRateIdx(72),
   showCurrents: true,
+  /** first-responder map layer (T21): on by default after a run; remembered */
+  showResponse: (() => { try { return localStorage.getItem('oilflood.resp.v1') !== '0'; } catch { return true; } })(),
 };
 const scene = () => (state.mode === 'historical' ? state.hist : state.pred);
 const wanted = (): ModelId[] => (state.model === 'compare' ? [...MODELS] : [state.model]);
@@ -281,11 +284,20 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space' && !(e.target instanceof HTMLElement && e.target.closest('input[type=text], input[type=number], select'))) { e.preventDefault(); togglePlay(); }
 });
 // Response timeline (historical): open state survives re-renders; a date click moves the clock there.
-const respOpen = { resp: true, evo: false, bt: false, outline: true };
+// Every collapsible section (incl. the nested Precedents / Sources & limits) carries data-k so its open state
+// survives the panel re-rendering while a run progresses.
+const respOpen: Record<string, boolean> & { resp: boolean; evo: boolean } = { resp: true, evo: false, bt: false, outline: true, prec: false, srcs: false, rules: false };
 content.addEventListener('toggle', (e) => {
   const d = e.target as HTMLDetailsElement;
-  if (d.dataset?.k === 'resp' || d.dataset?.k === 'evo' || d.dataset?.k === 'bt' || d.dataset?.k === 'outline') respOpen[d.dataset.k as 'resp' | 'evo' | 'bt' | 'outline'] = d.open;
+  if (d.dataset?.k && d.dataset.k in respOpen) respOpen[d.dataset.k] = d.open;
 }, true);
+content.addEventListener('change', (e) => {
+  const t = e.target as HTMLInputElement;
+  if (t.id !== 'resp-layer-cb') return;
+  state.showResponse = t.checked;
+  try { localStorage.setItem('oilflood.resp.v1', t.checked ? '1' : '0'); } catch { /* ignore */ }
+  renderContent();
+});
 content.addEventListener('click', (e) => {
   const sh = (e.target as HTMLElement).closest<HTMLElement>('.ol-shore');
   if (sh) {
@@ -414,10 +426,16 @@ function markPast() {
 }
 
 let lastDyn = '';
+let lastNext = '';
 function renderDyn() {
   markPast();
   const html = notesHTML() + budgetHTML();
   if (html !== lastDyn) { lastDyn = html; $('dyn').innerHTML = html; }
+  const na = document.getElementById('next-actions');
+  if (na) {
+    const h = respMap ? nextActionsHTML(respMap, respTH()) : '';
+    if (h !== lastNext || !na.innerHTML) { lastNext = h; na.innerHTML = h; }
+  }
 }
 
 function sourceLine() {
@@ -459,6 +477,15 @@ function ensureOutline() {
     .catch((e) => { if (state.outline.key === key) { o.error = String((e as Error).message ?? e); o.loading = null; renderContent(); } });
 }
 
+// Response map layer (T21) for the outline on screen.
+let respMap: ResponseMap | null = null;
+/** Hours since the outline run's release at the current clock (historical scenes can start earlier). */
+function respTH() {
+  const st = state.outline.data?.spill?.start;
+  const t0 = st ? Date.parse(st) / 1000 : scene().t0;
+  return (simT() - (Number.isFinite(t0) ? t0 : scene().t0)) / 3600;
+}
+
 // Priority shorelines from the outline as numbered HTML markers on the globe.
 let outlineMarkers: maplibregl.Marker[] = [];
 let outlineMarkersKey = '';
@@ -469,7 +496,12 @@ function syncOutlineMarkers() {
   outlineMarkersKey = k;
   outlineMarkers.forEach((m) => m.remove());
   outlineMarkers = [];
+  respMap?.remove();
+  respMap = null;
+  lastNext = '';
   if (!o.data) return;
+  const lay = (o.data as any).layer;
+  if (lay && !lay.error) respMap = new ResponseMap(lay, k);
   const col = ['', '#ff6b6b', '#ffb547', '#8fb8ff'];
   for (const sh of o.data.priority_shorelines.slice(0, 6)) {
     const el = document.createElement('div');
@@ -480,6 +512,7 @@ function syncOutlineMarkers() {
     // anchor on the numbered circle (18 px + 2 px border), not on the middle of circle + label
     outlineMarkers.push(new maplibregl.Marker({ element: el, anchor: 'left', offset: [-11, 0] }).setLngLat([sh.lon, sh.lat]).addTo(map));
   }
+  declutterSoon();
 }
 
 function renderContent() {
@@ -506,7 +539,7 @@ function renderContent() {
         ${sel.oil_type ? `<span>Oil</span><span>${esc(sel.oil_type)}${s.tracks?.meta?.oil_type && s.tracks.meta.oil_type !== sel.oil_type ? ` <small class="hint">(model: ${esc(s.tracks.meta.oil_type)})</small>` : ''}</span>` : ''}
         <span>Position</span><span>${sel.lat.toFixed(3)}°, ${sel.lon.toFixed(3)}°</span>
       </div>${(sel as any).forcing ? modelNoteHTML(s) : `<div class="hint mnote">No ocean reanalysis exists for ${esc(sel.date_start.slice(0, 4))} (HYCOM starts in 2001), so there is no hindcast for this spill: record and response log only.</div>`}${errorsHTML(s.errors)}`;
-      if (state.outline.key) html += outlineHTML(state.outline.data, state.outline, respOpen.outline);
+      if (state.outline.key) html += outlineHTML(state.outline.data, state.outline, respOpen, state.showResponse);
       html += responseHTML(sel, respOpen);
       html += backtestHTML(sel.id, state.backtest, respOpen.bt);
       if (sel.source_urls?.length) html += `<details class="links"><summary>Sources</summary>${sel.source_urls.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\//, ''))}</a>`).join('<br>')}</details>`;
@@ -544,7 +577,7 @@ function renderContent() {
         if (m.seed_moved_km > 0) html += `<div class="hint" style="margin-top:4px">Seeded ${m.seed_moved_km} km away, at the nearest model water cell.</div>`;
       }
       html += modelNoteHTML(s);
-      if (state.outline.key) html += outlineHTML(state.outline.data, state.outline, respOpen.outline);
+      if (state.outline.key) html += outlineHTML(state.outline.data, state.outline, respOpen, state.showResponse);
       html += `<div class="hint" style="margin-top:8px">Click elsewhere on the ocean for a new spill.</div></div>`;
     }
     html += errorsHTML(s.errors);
@@ -873,6 +906,41 @@ map.on('moveend', updateView);
 map.on('zoom', () => document.body.classList.toggle('lowzoom', map.getZoom() < 5.5));
 map.on('move', () => { if (map.getZoom() < 3.2) updateView(); });
 
+// Label collision handling for all HTML markers (spill pins, priority shorelines, response labels): labels are
+// placed greedily (selected pin, shorelines, boom labels, other pins); a label that would overlap one already placed
+// is nudged one line up/down, else hidden until hovered. Fixes Texas City "Y" / Burmah Agate and DWH / MC 209.
+// Marker positions update with the map's own render, so measure a little later (debounced while moving).
+let declutterTimer = 0;
+function declutterSoon() {
+  clearTimeout(declutterTimer);
+  declutterTimer = window.setTimeout(declutter, 80);
+}
+function declutter() {
+  const low = document.body.classList.contains('lowzoom');
+  const els = [...document.querySelectorAll<HTMLElement>('.pin.on, .olpin, .rlbl, .pin:not(.on)')]
+    .filter((el) => el.style.display !== 'none' && !(low && el.classList.contains('pin') && !el.classList.contains('on')));
+  const placed: DOMRect[] = [];
+  const hit = (r: { left: number; right: number; top: number; bottom: number }) =>
+    placed.some((p) => r.left < p.right && r.right > p.left && r.top < p.bottom && r.bottom > p.top);
+  // dots / numbered circles are obstacles too
+  for (const el of els) { const d = el.querySelector<HTMLElement>('i, b'); if (d && !el.classList.contains('rlbl')) placed.push(d.getBoundingClientRect()); }
+  for (const el of els) {
+    const sp = el.querySelector<HTMLElement>(':scope > span');
+    if (!sp) continue;
+    sp.style.transform = '';
+    sp.classList.remove('lbl-hide');
+    const r = sp.getBoundingClientRect();
+    if (!r.width) continue;
+    const h = r.height + 1;
+    const dy = [0, -h, h, -2 * h, 2 * h].find((y) => !hit({ left: r.left, right: r.right, top: r.top + y, bottom: r.bottom + y }));
+    if (dy === undefined) { sp.classList.add('lbl-hide'); continue; }
+    if (dy) sp.style.transform = `translateY(${dy}px)`;
+    placed.push(new DOMRect(r.left, r.top + dy, r.width, r.height));
+  }
+}
+map.on('move', declutterSoon);
+map.on('moveend', () => requestAnimationFrame(declutter));
+
 // Pins are HTML markers: crisp labels, native click handling, and MapLibre hides them behind the globe.
 const pinMarkers = new Map<string, { m: maplibregl.Marker; el: HTMLElement }>();
 function syncPins() {
@@ -892,6 +960,7 @@ function syncPins() {
     pm.el.style.display = show ? '' : 'none';
     pm.el.classList.toggle('on', state.selected?.id === c.id);
   }
+  declutterSoon();
 }
 
 function markerLayer(): Layer[] {
@@ -947,6 +1016,11 @@ function frame(now: number) {
   const tUnix = simT();
   const layers: Layer[] = currentLayers(s, tUnix, dt);
   if (s.footprints.length) layers.push(footprintLayer(s.footprints, tUnix) as any);
+  if (respMap) {
+    const on = state.showResponse;
+    if (respMap.syncMarkers(map, respTH(), on)) declutterSoon();
+    if (on) layers.push(...respMap.layers(respTH()));
+  }
   for (const r of shownRuns(s)) {
     r.oil.update(state.tH - (r.tracks.t0 - s.t0) / 3600);
     layers.push(...(r.oil.layers(s.footprints.length ? 0.45 : 1) as any[]));
