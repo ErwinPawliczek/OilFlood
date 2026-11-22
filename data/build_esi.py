@@ -13,6 +13,8 @@ Run (from repo root, ~2 min):
     https://response.restoration.noaa.gov/sites/default/files/esimaps/gisdata/NationalESI_Shoreline.zip
   (cd data/raw/esi_x && unzip ../esi_dl/NationalESI_Shoreline.zip)
   PROJ_DATA=$CONDA_PREFIX/share/proj python -I data/build_esi.py data/raw/esi_x/GULF_ATLANTIC_ESI.gdb
+Place names (data/esi/gulf_places.json) from the Census Gazetteer:
+  python -I data/build_esi.py data/raw/gaz/2023_Gaz_place_national.txt
 """
 from __future__ import annotations
 
@@ -125,5 +127,35 @@ def main(gdb: str) -> None:
           f"({OUT.stat().st_size / 1e3:.0f} KB)", file=sys.stderr)
 
 
+
+
+def places(gaz: str, cells_path: Path = OUT) -> None:
+    """Named places near the Gulf ESI shoreline, from the US Census 2023 Gazetteer (places), so the response
+    outline can say "near Galveston, TX". Input: 2023_Gaz_place_national.txt from
+    https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2023_Gazetteer/2023_Gaz_place_national.zip"""
+    cells = np.array([[r[0], r[1]] for r in json.loads(cells_path.read_text())["cells"]])
+    out = []
+    for line in Path(gaz).read_text(encoding="latin-1").splitlines()[1:]:
+        f = [x.strip() for x in line.split("\t")]
+        if f[0] not in ("TX", "LA", "MS", "AL", "FL"):
+            continue
+        lat, lon = float(f[10]), float(f[11])
+        if not (24.4 <= lat <= 31.0 and -98 <= lon <= -80):
+            continue
+        d = np.hypot((cells[:, 1] - lon) * np.cos(np.radians(lat)), cells[:, 0] - lat).min()
+        if d > 0.12:
+            continue
+        name = re.sub(r"\s+(city|town|village|CDP|municipality|city and borough)$", "", f[3])
+        out.append([round(lat, 4), round(lon, 4), name, f[0]])
+    p = OUT.parent / "gulf_places.json"
+    p.write_text(json.dumps({"source": "US Census Bureau 2023 Gazetteer Files (places)",
+                             "source_url": "https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.html",
+                             "fields": ["lat", "lon", "name", "state"], "places": out}, separators=(",", ":")))
+    print(f"{len(out)} places -> {p} ({p.stat().st_size / 1e3:.0f} KB)", file=sys.stderr)
+
+
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "data/raw/esi_x/GULF_ATLANTIC_ESI.gdb")
+    if len(sys.argv) > 1 and sys.argv[1].endswith(".txt"):
+        places(sys.argv[1])
+    else:
+        main(sys.argv[1] if len(sys.argv) > 1 else "data/raw/esi_x/GULF_ATLANTIC_ESI.gdb")
