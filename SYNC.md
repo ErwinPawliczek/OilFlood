@@ -26,13 +26,19 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T13 | Spill + responder-action database (geo/time + response log) | Erwin | done (agent A7, branch a7-db; merged) |
 | T14 | Our own spill model + ML drift correction, comparable to OpenOil | Erwin | done (agent A8, branch a8-model; merged) |
 | T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | in progress (agent A9, branch a9-backtest) |
-| T16 | First-responder action outline (P6) | Erwin | in progress (agent A10, branch a10-response) |
+| T16 | First-responder action outline (P6) | Erwin | done (agent A10, branch a10-response; ready to merge) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-21 A10 (branch a10-response, T16): **first-responder response outline.** Details in docs/RESPONSE.md.
+  - Real ESI: NOAA OR&R National ESI Shoreline (237 MB zip, Gulf/Atlantic ESIL, 2017 compilation) -> `data/build_esi.py` -> `data/esi/gulf_esi_cells.json` (127 KB committed: 2,686 cells of 0.05 deg, TX-FL Gulf incl. Keys, most sensitive + dominant ESI class, shoreline km, wetland km, atlas). Place names from the Census 2023 Gazetteer -> `data/esi/gulf_places.json` (24 KB). Raw download in shared `data/raw/esi_dl`, `esi_x`, `gaz` (gitignored).
+  - `backend/app/response.py` (rules): landfall = stranded particles matched to ESI cells (6 km), threatened = surface oil within 10 km; stretches of <= 30 km named by nearest place; ranked landfall > threatened, ESI tier (9-10, 7-8, 1-6), earliest ETA; boom-first list with 6 h staging check; hourly dispersant / in-situ burn / boom+skimmer windows from oil-type age limits + the run's own forecast wind (GFS/HYCOM) + daylight (solar elevation) + >= 3 nm offshore (RRT 4/6 pre-authorization); closures (safety zone bbox at 24/48/72 h, 17 channel entrances within 15 km, fishery closure with state agencies, vapour hazard for light refined); precedents scored by oil group, size and distance, citing catalog actions per tactic (verbatim quote + IncidentNews URL).
+  - API: `GET /api/spill/{id}/response` (202 while running) and `GET /api/spills/{id}/response?model=` for hindcasts; cached as runs/<id>/response.json. `?brief=0` skips the LLM.
+  - LLM: `backend/app/briefing.py` uses XAI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY from the env or backend/.env (gitignored), `OILFLOOD_LLM_MODEL` override; prompt = use only JSON facts. **No key exists on the tower now**, so `briefing.text` is null and the panel shows the rule-based outline only (not tested against a live LLM).
+  - Panel: collapsible "Response outline" (disclaimer, headline, first landfall, wind/current, priority shorelines (click = fly to), boom first, windows, closures, precedents, sources & limits) in prediction mode and for historical spills with a hindcast; numbered priority-shoreline markers on the globe. Verified on :5210 in headless Chrome (live prediction at 28.9N 94.3W; Texas City Y hindcast: landfall 1 h near Bayou Vista, ESI 10A) and via curl (DWH hindcast, Galveston prediction).
 - 2026-11-21 Erwin (flight loop): claimed T15 backtest (A9, a9-backtest) and T16 response outline (A10, a10-response).
 - 2026-11-21 Erwin: merged T14 to main and deployed (OpenOil / Ours / Compare toggle on oilflood.xyz).
 - 2026-11-21 A8 (branch a8-model, T14): **two models to compare: OpenOil baseline + our own model with an ML drift correction.** Details in docs/OURMODEL.md.
@@ -79,6 +85,7 @@ Format: `- [open|fixed] short title — steps to reproduce — who found / who f
 - [fixed] Prediction click on land (e.g. inland Mexico, outside the frontend's coarse mask) returns `Simulation stopped within first timestep`; the UI shows the error, but the backend could return a friendlier "seed point on land" — found by A3 / fixed by A5 (400 "That spot is on land" / "in a bay ... the model treats as land"; also fixed roaring_landmask call that always said water)
 
 ## Blockers
+- A10: after merging a10-response, rebuild web and restart :5200 (new routes). To enable the LLM briefing, put one of XAI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY in backend/.env (never commit it). Re-run `data/build_esi.py` only if the ESI source changes. Limits: windows ignore waves/depth/slick thickness; bay interiors the ocean model treats as land are not resolved; outline is from one run (OpenOil if Compare is on).
 - [resolved] A8: merged a8-model, rebuilt web, restarted :5200 (oilflood.xyz). GDP training CSVs are in shared `data/cache/gdp/` (1.3 MB). `backend/runs` OpenOil entries stay valid; ours runs are keyed by `ourmodel/sim.py` VERSION (ours-v4).
 - A8 notes on our model: (1) ML training is a subset: drifters only exist in 3 cached windows, mostly DWH 2010 deep water. More HYCOM-TSIS windows (`data/fetch_hycom.py`) give more training data. (2) The correction was learned against reanalysis errors; in prediction mode it is applied to RTOFS with no skill claim. (3) At Main Pass 2023 (observed: moved SW, no shoreline) ours with ML drifts NE and strands 35 % while OpenOil and ours without ML go SW, so the ML can hurt; P5 backtest should score `ml=true/false`. (4) Mackay dispersion is high for thin light slicks (diesel ~90 % dispersed in 72 h vs ~44 % in OpenOil).
 - A8 saw (not caused by A8, not fixed): headless Chrome logged `deck.gl assertion failed` initializing PathLayer `currents-global` right after a scripted `map.jumpTo` during DWH playback. The page kept rendering.

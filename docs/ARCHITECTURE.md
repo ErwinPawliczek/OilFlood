@@ -39,6 +39,7 @@ Rules:
 - `GET /api/models` -> the two trajectory models (OpenOil baseline, ours) + our ML hold-out skill (docs/OURMODEL.md); hindcasts take `?model=openoil|ours` too
 - `GET /api/live` -> live forecast models, issued-at, valid-until, hours available; `GET /api/oils` -> oil types for the prediction panel
 - `GET /api/spill/{id}` -> `{id, status: queued|running|done|error, progress, error?}`
+- `GET /api/spill/{id}/response` (prediction) and `GET /api/spills/{id}/response?model=` (hindcast) -> first-responder action outline: ETA to landfall, priority shorelines (NOAA ESI + arrival), boom-first list, dispersant/ISB/skimming windows, closures, cited precedents, optional LLM `briefing` (docs/RESPONSE.md)
 - `GET /api/spill/{id}/tracks` -> JSON `{times: [unix_s...], particles: [{path: [[lon,lat],...], timestamps:[...], status_end: "active"|"stranded"|"evaporated"|"dispersed"|"no_data"}...], budget: [{t, surface, evaporated, dispersed, stranded}...]}` (Arrow later if size is a problem)
 - `GET /api/fields/currents?t=` -> u/v grid (JSON or PNG texture) for the flow layer (stretch goal)
 - Frontend dev server proxies `/api` to the backend on port 5200. Production: FastAPI serves the built frontend from `web/dist` on port 5200; Cloudflare tunnel oilflood.xyz -> http://127.0.0.1:5200.
