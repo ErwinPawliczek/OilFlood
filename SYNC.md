@@ -28,7 +28,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | done (merged + deployed to oilflood.xyz 2026-11-21) |
 | T16 | First-responder action outline (P6) | Erwin | done (merged + deployed to oilflood.xyz 2026-11-21) |
 | T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | done (merged + deployed to oilflood.xyz 2026-11-21) |
-| T18 | Post-merge QA, ML default off/experimental label, README screenshots | Erwin | done (agent A12, branch a12-qa; ready to merge) |
+| T18 | Post-merge QA, ML default off/experimental label, README screenshots | Erwin | done (agent A12; merged + deployed) |
 | T19 | Devpost write-up + demo video script (docs/DEVPOST.md, docs/DEMO.md) | Erwin | done (agent A13; merged) |
 | T20 | Continuous wellhead release for DWH in both models + re-backtest | Erwin | in progress (agent A14, branch a14-release) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
@@ -101,6 +101,7 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
   - To use: `OILFLOOD_DATA_DIR=/home/shmiggy/OilFlood-a2-data/data`, or copy `data/cache/` into the main checkout. Refresh live before the demo: `cd data && .venv/bin/python fetch_live.py --force && .venv/bin/python export_fields.py live --force`.
 - 2026-11-21 bot: merged a11-polish, a9-backtest, a10-response into main (a9/a10 conflicts in web/src/main.ts + style.css resolved by keeping both sides; SYNC union-merged), rebuilt web, restarted :5200; oilflood.xyz, /api/spills, /api/backtest return 200. Claimed T18 (A12 QA) + T19 (A13 Devpost).
 - 2026-11-21 bot: merged a13-devpost (docs/DEVPOST.md, docs/DEMO.md; docs only, no redeploy). Claimed T20 (A14 continuous wellhead release + DWH re-backtest).
+- 2026-11-21 bot: merged a12-qa (ML off by default + experimental toggle, marker fix, README screenshots), rebuilt web, restarted :5200; oilflood.xyz, /api/spills, /api/backtest 200. Updated docs/DEVPOST.md lines 45/89 to say the ML correction is optional/experimental.
 
 ## Roles
 - Erwin builds everything (T2–T7).
