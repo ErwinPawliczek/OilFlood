@@ -9,6 +9,12 @@ dependencies:
   - netcdf4
   - cartopy
   - shapely
+  - scikit-learn=1.9   # our ML drift correction (drift_model.joblib was saved with 1.9.1)
+  - joblib
+  - pillow         # global current PNG fields
+  - pyshp          # data/ fetch scripts (DWH outlines)
+  - pyproj
+  - requests
   - pip
   - pip:
       - fastapi

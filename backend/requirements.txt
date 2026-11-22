@@ -5,3 +5,6 @@ xarray
 netCDF4
 fastapi
 uvicorn[standard]
+scikit-learn==1.9.*
+joblib
+pillow
