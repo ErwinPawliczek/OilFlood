@@ -532,7 +532,7 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
         lt = bf.get("lead") or P.lead_time(site_lon, site_lat, None)
         ready = lt["lead_h"]
         nb = nearest_bases(site_lon, site_lat) if bases else []
-        late = bool(eta_h < ready)
+        late = bool((bf["eta_p10_h"] if bf.get("eta_p10_h") is not None else eta_h) < ready)  # ensemble: P10 ETA
         for name, plat, plon in port_entrances:
             if _km(plon, plat, site_lon, site_lat) <= 25 and not any(i["name"] == name for i in inlets):
                 inlets.append({"name": name, "lon": plon, "lat": plat, "eta_h": eta_h, "deploy_by_h": round(ready, 1),

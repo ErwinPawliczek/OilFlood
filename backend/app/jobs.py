@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from . import config, forcing, oils, runner
 
 MODEL_VERSION = "openoil-v4-live"  # v3: real forcing only; v4: predictions on the live forecast only
+from .ourmodel import params as MP
 from .ourmodel.sim import VERSION as OURS_VERSION  # bump sim.VERSION when app/ourmodel changes
 BBL_M3 = 0.158987
 MODEL_LABELS = {"openoil": "OpenDrift OpenOil (baseline)", "ours": "OilFlood model (ours)"}
@@ -37,6 +38,10 @@ class SpillRequest(BaseModel):
                                               "ours = OilFlood model (docs/OURMODEL.md)")
     # Default off since the P5 backtest (docs/BACKTEST.md): no gain on DWH, strands 62 % at Main Pass 2023.
     ml: bool = Field(False, description="ours only: apply the experimental ML drift correction (default off)")
+    # T24 (docs/ENSEMBLE.md): "build your own model" params + Monte-Carlo ensemble, our model only.
+    params: dict | None = Field(None, description="ours only: model params (GET /api/model/params)")
+    ensemble: int = Field(0, ge=0, le=30, description="ours only: number of perturbed ensemble members (0 = off)")
+    seed: int = Field(1, ge=0, le=2**31 - 1, description="ensemble random seed (reproducible)")
 
 
 _pool: ProcessPoolExecutor | None = None
@@ -58,6 +63,11 @@ def shutdown() -> None:
 
 
 def _normalize(req: SpillRequest, live: bool = False) -> dict:
+    if req.model != "ours" and (req.params or req.ensemble):
+        raise ValueError("Custom model params and ensembles need model=\"ours\".")
+    eff = MP.validate(req.params) if req.params else None
+    if req.ensemble == 1:
+        raise ValueError("An ensemble needs at least 2 members.")
     if req.start_time is None and live:
         start = datetime.now(timezone.utc).replace(tzinfo=None, minute=0)
     else:
@@ -69,14 +79,18 @@ def _normalize(req: SpillRequest, live: bool = False) -> dict:
         "lat": round(req.lat, 4),
         "lon": round(((req.lon + 180) % 360) - 180, 4),
         "start_time": start.isoformat(),
-        "duration_h": float(req.duration_h),
+        "duration_h": float(eff["horizon_h"]) if eff and "horizon_h" in req.params else float(req.duration_h),
         "volume_m3": round(float(req.volume_bbl) * BBL_M3, 3) if req.volume_bbl else float(req.volume_m3),
         "volume_bbl": float(req.volume_bbl) if req.volume_bbl else round(float(req.volume_m3) / BBL_M3, 1),
         "oil_type": oils.resolve(req.oil_type),
-        "n_particles": int(req.n_particles),
+        "n_particles": int(eff["particles"]) if eff and "particles" in req.params else int(req.n_particles),
         "wind_drift_factor": float(req.wind_drift_factor),
         # Only our model adds keys, so OpenOil run hashes (and cached runs) are unchanged.
-        **({"model": "ours", "ml": bool(req.ml)} if req.model == "ours" else {}),
+        **({"model": "ours", "ml": bool(eff["ml"] if eff and "ml" in req.params else req.ml)}
+           if req.model == "ours" else {}),
+        # only non-default physics params / an actual ensemble enter the dict, so earlier run hashes stay valid
+        **({"model_params": MP.physics(eff)} if eff and MP.physics(eff) else {}),
+        **({"ensemble": {"members": int(req.ensemble), "seed": int(req.seed)}} if req.ensemble else {}),
     }
 
 
@@ -178,6 +192,15 @@ def _summary(params: dict) -> dict:
         out["ml"] = params.get("ml", False)
         if out["ml"]:
             out["model_label"] = OURS_ML_LABEL
+    if out["model"] == "ours":
+        eff = MP.defaults()
+        eff.update(params.get("model_params") or {})
+        eff.update(ml=bool(params.get("ml", False)), particles=int(params["n_particles"]),
+                   horizon_h=float(params.get("requested_duration_h", params["duration_h"])))
+        out["params"] = eff
+    ens = params.get("ensemble")
+    out["ensemble"] = None if not ens else {**ens, "member_particles": min(int(params["n_particles"]),
+                                                                           MP.MEMBER_PARTICLES)}
     out["truncated"] = "note" in params
     out["seed"] = [params["lon"], params["lat"]]
     return out
@@ -194,7 +217,8 @@ def submit(req: SpillRequest, extra_key: str = "", snap_km: float | None = None,
         st = read_status(run_id)
         fut = _futures.get(run_id)
         alive = fut is not None and not fut.done()
-        if st and st.get("status") == "done" and (d / "tracks.json").exists():
+        ens_ok = "ensemble" not in params or (d / "ensemble.json").exists()
+        if st and st.get("status") == "done" and (d / "tracks.json").exists() and ens_ok:
             return {"id": run_id, "status": "done", **_summary(params)}
         if alive:
             return {"id": run_id, "status": st.get("status", "queued") if st else "queued", **_summary(params)}
@@ -203,7 +227,11 @@ def submit(req: SpillRequest, extra_key: str = "", snap_km: float | None = None,
         (d / "request.json").write_text(json.dumps(params, indent=1))
         runner._write_json(d / "status.json", {"id": run_id, "status": "queued", "progress": 0.0,
                                                "created_at": time.time()})
-        _futures[run_id] = pool().submit(runner.run_spill, str(d), params)
+        if params.get("ensemble"):
+            from . import ensemble
+            _futures[run_id] = ensemble.start(run_id, d, params)
+        else:
+            _futures[run_id] = pool().submit(runner.run_spill, str(d), params)
     return {"id": run_id, "status": "queued", **_summary(params)}
 
 
@@ -216,6 +244,8 @@ def status(run_id: str) -> dict | None:
         out.update(_summary(json.loads((run_dir(run_id) / "request.json").read_text())))
     except Exception:  # noqa: BLE001 - request.json is written before status.json; best effort
         pass
+    if out.get("ensemble"):
+        out["ensemble"] = {**out["ensemble"], "done": st.get("members_done", 0), "failed": st.get("members_failed", 0)}
     if st.get("status") == "error":
         out["error"] = st.get("error")
     elif st.get("status") in ("queued", "running"):

@@ -17,7 +17,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import briefing, config, fields, forcing, global_fields, jobs, oils, response
+from . import briefing, config, ensemble, fields, forcing, global_fields, jobs, oils, response
 from .jobs import SpillRequest
 
 logging.basicConfig(level=logging.INFO)
@@ -27,6 +27,7 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(app: FastAPI):
     yield
     jobs.shutdown()
+    ensemble.shutdown()
 
 
 app = FastAPI(title="OilFlood", lifespan=lifespan)
@@ -128,7 +129,8 @@ def _response_for(run_id: str, brief: bool, spill_id: str | None = None):
             out = None
     if out is None:
         req = json.loads((d / "request.json").read_text())
-        out = response.build(json.loads(p.read_text()), req, run_id=run_id, spill_id=spill_id)
+        out = response.build(json.loads(p.read_text()), req, run_id=run_id, spill_id=spill_id,
+                             ens=ensemble.load(d) if req.get("ensemble") else None)
         cache.write_text(json.dumps(out))
     if brief:
         prov = briefing.provider()
@@ -155,6 +157,61 @@ def get_spill_response(run_id: str, brief: bool = True):
     windows, closures, cited precedents. `briefing.text` = optional LLM plain-English summary (null if no key).
     202 + status while the run is still going."""
     return _response_for(run_id, brief)
+
+
+def _finished_dir(run_id: str):
+    """(run dir, None) for a finished run, else (None, error response)."""
+    try:
+        d = jobs.run_dir(run_id)
+    except ValueError:
+        raise HTTPException(400, "bad id")
+    st = jobs.status(run_id)
+    if st is None:
+        raise HTTPException(404, "unknown spill id")
+    if st["status"] != "done":
+        return None, JSONResponse(st, status_code=409 if st["status"] == "error" else 202)
+    return d, None
+
+
+@app.get("/api/spill/{run_id}/probability")
+def get_spill_probability(run_id: str, t: float | None = Query(None, description="hours since start (nearest 3 h step)")):
+    """Ensemble probability products (docs/ENSEMBLE.md section 3): P(oil present) + expected surface mass on a 0.05 deg
+    grid every 3 h, per-shoreline-segment P(oiled by T) + ETA P10/P50/P90, member centroids with 50/90 % ellipses."""
+    d, err = _finished_dir(run_id)
+    if err is not None:
+        return err
+    ens = ensemble.load(d)
+    if ens is None:
+        raise HTTPException(404, "This run has no ensemble: POST /api/spill with model=ours and ensemble=N (2-30).")
+    return ensemble.probability_view(ens, run_id, t)
+
+
+@app.get("/api/spill/{run_id}/forces")
+def get_spill_forces(run_id: str):
+    """Per 3 h step: mean drift decomposition (current, wind drift, Stokes, ML, diffusion) + oil budget
+    (docs/ENSEMBLE.md section 4). Ensemble runs: mean over members, plus the control run."""
+    d, err = _finished_dir(run_id)
+    if err is not None:
+        return err
+    ens = ensemble.load(d)
+    if ens is not None:
+        return {"run_id": run_id, "source": "ensemble", "members": ens["members_ok"], "step_h": ens["step_h"],
+                "components": ["current", "wind", "stokes", "ml", "diffusion"], "steps": ens["forces"],
+                "control": {"steps": ens["control_forces"]}}
+    tr = json.loads((d / "tracks.json").read_text())
+    meta = tr.get("meta") or {}
+    if not meta.get("forces"):
+        raise HTTPException(404, "Force decomposition is only computed by our model (model=ours, ours-v4 T24+).")
+    return {"run_id": run_id, "source": "control", "members": 0, "step_h": 3,
+            "components": ["current", "wind", "stokes", "ml", "diffusion"],
+            "steps": ensemble._forces_steps([meta["forces"]], [tr["budget"]], float(tr["times"][0]))}
+
+
+@app.get("/api/model/params")
+def get_model_params():
+    """Schema of our model's user params ("build your own model") + the ensemble perturbation design."""
+    from .ourmodel import params as MP
+    return MP.schema()
 
 
 @app.get("/api/live")
@@ -226,8 +283,16 @@ def get_models():
          "ml_note": "Experimental: in the oil backtest (docs/BACKTEST.md) the ML correction gives no gain on "
                     "Deepwater Horizon and strands 62 % of the oil on the Mississippi Delta at Main Pass 2023 "
                     "(observed: none), so it is off by default.",
-         "skill": skill},
+         "skill": skill, "params_url": "/api/model/params",
+         "ensemble": {"max_members": 30, "default_members": 20, "probability_url": "/api/spill/{id}/probability",
+                      "forces_url": "/api/spill/{id}/forces"},
+         "calibration": _calibration()},
     ]}
+
+
+def _calibration():
+    p = config.REPO_ROOT / "data" / "backtest" / "ensemble_calibration.json"
+    return json.loads(p.read_text()) if p.exists() else None
 
 
 @app.get("/api/oils")
