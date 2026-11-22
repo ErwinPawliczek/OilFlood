@@ -1,0 +1,672 @@
+{
+ "version": 1,
+ "generated_at": "2026-11-22T09:12Z",
+ "case": "dwh",
+ "model": "ours (no ML), transport only",
+ "members": 20,
+ "seed": 1,
+ "member_particles": 1000,
+ "cell_deg": 0.05,
+ "starts": [
+  "2010-05-08",
+  "2010-05-19",
+  "2010-05-27",
+  "2010-06-01",
+  "2010-06-06",
+  "2010-06-10",
+  "2010-06-19",
+  "2010-06-23",
+  "2010-06-28",
+  "2010-07-03",
+  "2010-07-07",
+  "2010-07-12"
+ ],
+ "observed": "NOAA/NESDIS daily DWH surface-oil analyses (data/spills/dwh/footprints), taken at 18 UTC",
+ "forcing": "HYCOM-TSIS GOMb0.04 reanalysis currents + its 10 m winds (same as docs/BACKTEST.md)",
+ "perturbations": [
+  {
+   "name": "windage_pct",
+   "dist": "uniform",
+   "low": 1.0,
+   "high": 4.0,
+   "description": "Wind drift drawn uniformly in NOAA's 1-4 % range (replaces the user windage).",
+   "citation": "NOAA GNOME minimum-regret windage 1-4 % (PROTOCOLS.md FCST-2, FCST-4)"
+  },
+  {
+   "name": "wind_rot_deg",
+   "dist": "normal",
+   "sigma": 20.0,
+   "description": "The whole wind field is rotated by a constant angle per member: GFS 10 m wind direction error. No GEFS spread is cached on the server, so sigma is a stated value, not a forecast spread.",
+   "citation": "Stated sigma; order of GFS 10 m wind direction RMSE over the ocean at 1-3 day lead (~20-30 deg)"
+  },
+  {
+   "name": "current_factor",
+   "dist": "normal",
+   "mean": 1.0,
+   "sigma": 0.2,
+   "clip": [
+    0.5,
+    1.5
+   ],
+   "description": "Current speed multiplied by a factor (x the user's current multiplier).",
+   "citation": "Stated: model surface current speed errors of order 20-30 % vs drifters (docs/OURMODEL.md hold-out)"
+  },
+  {
+   "name": "diffusivity_m2s",
+   "dist": "lognormal",
+   "median": "user value",
+   "factor": 2.0,
+   "description": "K multiplied by exp(N(0, ln 2)): a factor-of-2 spread around the user's K.",
+   "citation": "Stated; K of 1-100 m\u00b2/s spans the GNOME/OpenDrift range for 1-10 km scales (Okubo 1971)"
+  }
+ ],
+ "summary": [
+  {
+   "h": 24,
+   "n": 12,
+   "coverage_p10_median": 0.751,
+   "coverage_p50_median": 0.505,
+   "coverage_ctrl_median": 0.431,
+   "area_ratio_p10_median": 2.37,
+   "brier_mean": 0.036,
+   "brier_ctrl_mean": 0.054,
+   "centroid_in90_frac": 0.083,
+   "centroid_in50_frac": 0.0,
+   "centroid_err_km_median": 22.25
+  },
+  {
+   "h": 48,
+   "n": 12,
+   "coverage_p10_median": 0.712,
+   "coverage_p50_median": 0.385,
+   "coverage_ctrl_median": 0.356,
+   "area_ratio_p10_median": 2.15,
+   "brier_mean": 0.04,
+   "brier_ctrl_mean": 0.059,
+   "centroid_in90_frac": 0.167,
+   "centroid_in50_frac": 0.0,
+   "centroid_err_km_median": 23.7
+  },
+  {
+   "h": 72,
+   "n": 12,
+   "coverage_p10_median": 0.652,
+   "coverage_p50_median": 0.305,
+   "coverage_ctrl_median": 0.324,
+   "area_ratio_p10_median": 2.37,
+   "brier_mean": 0.04,
+   "brier_ctrl_mean": 0.059,
+   "centroid_in90_frac": 0.167,
+   "centroid_in50_frac": 0.083,
+   "centroid_err_km_median": 34.75
+  }
+ ],
+ "per_start": [
+  {
+   "start": "2010-05-08",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 99,
+     "coverage_p10": 0.98,
+     "coverage_p50": 0.899,
+     "coverage_ctrl": 0.869,
+     "area_ratio_p10": 5.09,
+     "area_p10_km2": 13627,
+     "brier": 0.0309,
+     "brier_ctrl": 0.0507,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 22.8
+    },
+    {
+     "h": 48,
+     "obs_cells": 259,
+     "coverage_p10": 0.822,
+     "coverage_p50": 0.595,
+     "coverage_ctrl": 0.517,
+     "area_ratio_p10": 2.25,
+     "area_p10_km2": 15773,
+     "brier": 0.0325,
+     "brier_ctrl": 0.0539,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 21.5
+    },
+    {
+     "h": 72,
+     "obs_cells": 402,
+     "coverage_p10": 0.739,
+     "coverage_p50": 0.502,
+     "coverage_ctrl": 0.458,
+     "area_ratio_p10": 1.57,
+     "area_p10_km2": 17012,
+     "brier": 0.041,
+     "brier_ctrl": 0.0614,
+     "centroid_in90": true,
+     "centroid_in50": false,
+     "centroid_err_km": 13.8
+    }
+   ]
+  },
+  {
+   "start": "2010-05-19",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 850,
+     "coverage_p10": 0.604,
+     "coverage_p50": 0.442,
+     "coverage_ctrl": 0.367,
+     "area_ratio_p10": 1.24,
+     "area_p10_km2": 28583,
+     "brier": 0.0492,
+     "brier_ctrl": 0.0652,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 77.3
+    },
+    {
+     "h": 48,
+     "obs_cells": 619,
+     "coverage_p10": 0.577,
+     "coverage_p50": 0.401,
+     "coverage_ctrl": 0.339,
+     "area_ratio_p10": 1.93,
+     "area_p10_km2": 32325,
+     "brier": 0.0508,
+     "brier_ctrl": 0.073,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 120.8
+    },
+    {
+     "h": 72,
+     "obs_cells": 943,
+     "coverage_p10": 0.651,
+     "coverage_p50": 0.31,
+     "coverage_ctrl": 0.32,
+     "area_ratio_p10": 1.38,
+     "area_p10_km2": 35074,
+     "brier": 0.0541,
+     "brier_ctrl": 0.0752,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 45.9
+    }
+   ]
+  },
+  {
+   "start": "2010-05-27",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 677,
+     "coverage_p10": 0.795,
+     "coverage_p50": 0.523,
+     "coverage_ctrl": 0.471,
+     "area_ratio_p10": 1.9,
+     "area_p10_km2": 34762,
+     "brier": 0.0217,
+     "brier_ctrl": 0.0348,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 31.4
+    },
+    {
+     "h": 48,
+     "obs_cells": 720,
+     "coverage_p10": 0.733,
+     "coverage_p50": 0.415,
+     "coverage_ctrl": 0.378,
+     "area_ratio_p10": 2.05,
+     "area_p10_km2": 39890,
+     "brier": 0.0219,
+     "brier_ctrl": 0.0354,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 34.6
+    },
+    {
+     "h": 72,
+     "obs_cells": 906,
+     "coverage_p10": 0.7,
+     "coverage_p50": 0.389,
+     "coverage_ctrl": 0.349,
+     "area_ratio_p10": 1.69,
+     "area_p10_km2": 41319,
+     "brier": 0.0208,
+     "brier_ctrl": 0.0313,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 34.6
+    }
+   ]
+  },
+  {
+   "start": "2010-06-01",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 620,
+     "coverage_p10": 0.681,
+     "coverage_p50": 0.487,
+     "coverage_ctrl": 0.39,
+     "area_ratio_p10": 1.98,
+     "area_p10_km2": 33089,
+     "brier": 0.0256,
+     "brier_ctrl": 0.0386,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 60.9
+    },
+    {
+     "h": 48,
+     "obs_cells": 380,
+     "coverage_p10": 0.679,
+     "coverage_p50": 0.368,
+     "coverage_ctrl": 0.324,
+     "area_ratio_p10": 3.67,
+     "area_p10_km2": 37600,
+     "brier": 0.0302,
+     "brier_ctrl": 0.0507,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 90.8
+    },
+    {
+     "h": 72,
+     "obs_cells": 333,
+     "coverage_p10": 0.577,
+     "coverage_p50": 0.18,
+     "coverage_ctrl": 0.216,
+     "area_ratio_p10": 4.52,
+     "area_p10_km2": 40480,
+     "brier": 0.0313,
+     "brier_ctrl": 0.0513,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 85.0
+    }
+   ]
+  },
+  {
+   "start": "2010-06-06",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 373,
+     "coverage_p10": 0.751,
+     "coverage_p50": 0.547,
+     "coverage_ctrl": 0.515,
+     "area_ratio_p10": 2.37,
+     "area_p10_km2": 23772,
+     "brier": 0.0095,
+     "brier_ctrl": 0.0137,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 11.5
+    },
+    {
+     "h": 48,
+     "obs_cells": 889,
+     "coverage_p10": 0.583,
+     "coverage_p50": 0.36,
+     "coverage_ctrl": 0.346,
+     "area_ratio_p10": 1.09,
+     "area_p10_km2": 26085,
+     "brier": 0.0407,
+     "brier_ctrl": 0.052,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 14.8
+    },
+    {
+     "h": 72,
+     "obs_cells": 868,
+     "coverage_p10": 0.493,
+     "coverage_p50": 0.265,
+     "coverage_ctrl": 0.264,
+     "area_ratio_p10": 1.14,
+     "area_p10_km2": 26779,
+     "brier": 0.049,
+     "brier_ctrl": 0.0614,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 34.9
+    }
+   ]
+  },
+  {
+   "start": "2010-06-10",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 663,
+     "coverage_p10": 0.804,
+     "coverage_p50": 0.581,
+     "coverage_ctrl": 0.496,
+     "area_ratio_p10": 1.49,
+     "area_p10_km2": 26518,
+     "brier": 0.0271,
+     "brier_ctrl": 0.04,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 12.6
+    },
+    {
+     "h": 48,
+     "obs_cells": 1007,
+     "coverage_p10": 0.692,
+     "coverage_p50": 0.408,
+     "coverage_ctrl": 0.393,
+     "area_ratio_p10": 1.05,
+     "area_p10_km2": 28492,
+     "brier": 0.033,
+     "brier_ctrl": 0.0425,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 22.0
+    },
+    {
+     "h": 72,
+     "obs_cells": 1088,
+     "coverage_p10": 0.653,
+     "coverage_p50": 0.342,
+     "coverage_ctrl": 0.346,
+     "area_ratio_p10": 0.99,
+     "area_p10_km2": 29050,
+     "brier": 0.0409,
+     "brier_ctrl": 0.0521,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 22.5
+    }
+   ]
+  },
+  {
+   "start": "2010-06-19",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 1024,
+     "coverage_p10": 0.751,
+     "coverage_p50": 0.418,
+     "coverage_ctrl": 0.392,
+     "area_ratio_p10": 1.43,
+     "area_p10_km2": 39389,
+     "brier": 0.0799,
+     "brier_ctrl": 0.1139,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 21.7
+    },
+    {
+     "h": 48,
+     "obs_cells": 1016,
+     "coverage_p10": 0.796,
+     "coverage_p50": 0.352,
+     "coverage_ctrl": 0.351,
+     "area_ratio_p10": 1.66,
+     "area_p10_km2": 45234,
+     "brier": 0.0727,
+     "brier_ctrl": 0.1095,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 3.1
+    },
+    {
+     "h": 72,
+     "obs_cells": 570,
+     "coverage_p10": 0.791,
+     "coverage_p50": 0.3,
+     "coverage_ctrl": 0.328,
+     "area_ratio_p10": 3.15,
+     "area_p10_km2": 48083,
+     "brier": 0.0531,
+     "brier_ctrl": 0.0904,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 42.1
+    }
+   ]
+  },
+  {
+   "start": "2010-06-23",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 374,
+     "coverage_p10": 0.695,
+     "coverage_p50": 0.396,
+     "coverage_ctrl": 0.358,
+     "area_ratio_p10": 3.1,
+     "area_p10_km2": 31121,
+     "brier": 0.0478,
+     "brier_ctrl": 0.0707,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 30.3
+    },
+    {
+     "h": 48,
+     "obs_cells": 809,
+     "coverage_p10": 0.75,
+     "coverage_p50": 0.363,
+     "coverage_ctrl": 0.361,
+     "area_ratio_p10": 1.67,
+     "area_p10_km2": 36227,
+     "brier": 0.0556,
+     "brier_ctrl": 0.082,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 31.0
+    },
+    {
+     "h": 72,
+     "obs_cells": 1181,
+     "coverage_p10": 0.592,
+     "coverage_p50": 0.218,
+     "coverage_ctrl": 0.224,
+     "area_ratio_p10": 1.27,
+     "area_p10_km2": 40104,
+     "brier": 0.0783,
+     "brier_ctrl": 0.108,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 69.2
+    }
+   ]
+  },
+  {
+   "start": "2010-06-28",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 401,
+     "coverage_p10": 0.733,
+     "coverage_p50": 0.461,
+     "coverage_ctrl": 0.387,
+     "area_ratio_p10": 2.98,
+     "area_p10_km2": 31968,
+     "brier": 0.0516,
+     "brier_ctrl": 0.0807,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 16.8
+    },
+    {
+     "h": 48,
+     "obs_cells": 362,
+     "coverage_p10": 0.536,
+     "coverage_p50": 0.276,
+     "coverage_ctrl": 0.279,
+     "area_ratio_p10": 3.08,
+     "area_p10_km2": 29812,
+     "brier": 0.0486,
+     "brier_ctrl": 0.0727,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 25.4
+    },
+    {
+     "h": 72,
+     "obs_cells": 204,
+     "coverage_p10": 0.51,
+     "coverage_p50": 0.206,
+     "coverage_ctrl": 0.24,
+     "area_ratio_p10": 5.02,
+     "area_p10_km2": 27407,
+     "brier": 0.0341,
+     "brier_ctrl": 0.0494,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 24.1
+    }
+   ]
+  },
+  {
+   "start": "2010-07-03",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 179,
+     "coverage_p10": 0.575,
+     "coverage_p50": 0.285,
+     "coverage_ctrl": 0.229,
+     "area_ratio_p10": 4.33,
+     "area_p10_km2": 20838,
+     "brier": 0.0288,
+     "brier_ctrl": 0.0456,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 39.9
+    },
+    {
+     "h": 48,
+     "obs_cells": 221,
+     "coverage_p10": 0.285,
+     "coverage_p50": 0.068,
+     "coverage_ctrl": 0.054,
+     "area_ratio_p10": 3.6,
+     "area_p10_km2": 21410,
+     "brier": 0.0379,
+     "brier_ctrl": 0.0564,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 60.2
+    },
+    {
+     "h": 72,
+     "obs_cells": 220,
+     "coverage_p10": 0.209,
+     "coverage_p50": 0.05,
+     "coverage_ctrl": 0.045,
+     "area_ratio_p10": 3.51,
+     "area_p10_km2": 20789,
+     "brier": 0.0355,
+     "brier_ctrl": 0.0538,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 86.8
+    }
+   ]
+  },
+  {
+   "start": "2010-07-07",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 284,
+     "coverage_p10": 0.775,
+     "coverage_p50": 0.549,
+     "coverage_ctrl": 0.553,
+     "area_ratio_p10": 2.37,
+     "area_p10_km2": 18100,
+     "brier": 0.045,
+     "brier_ctrl": 0.0659,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 21.6
+    },
+    {
+     "h": 48,
+     "obs_cells": 301,
+     "coverage_p10": 0.781,
+     "coverage_p50": 0.551,
+     "coverage_ctrl": 0.548,
+     "area_ratio_p10": 2.51,
+     "area_p10_km2": 20326,
+     "brier": 0.0313,
+     "brier_ctrl": 0.0452,
+     "centroid_in90": true,
+     "centroid_in50": false,
+     "centroid_err_km": 11.8
+    },
+    {
+     "h": 72,
+     "obs_cells": 255,
+     "coverage_p10": 0.675,
+     "coverage_p50": 0.455,
+     "coverage_ctrl": 0.459,
+     "area_ratio_p10": 3.05,
+     "area_p10_km2": 20931,
+     "brier": 0.0298,
+     "brier_ctrl": 0.0419,
+     "centroid_in90": false,
+     "centroid_in50": false,
+     "centroid_err_km": 28.8
+    }
+   ]
+  },
+  {
+   "start": "2010-07-12",
+   "h": [
+    {
+     "h": 24,
+     "obs_cells": 152,
+     "coverage_p10": 0.895,
+     "coverage_p50": 0.796,
+     "coverage_ctrl": 0.75,
+     "area_ratio_p10": 3.99,
+     "area_p10_km2": 16406,
+     "brier": 0.0121,
+     "brier_ctrl": 0.0234,
+     "centroid_in90": true,
+     "centroid_in50": false,
+     "centroid_err_km": 9.6
+    },
+    {
+     "h": 48,
+     "obs_cells": 248,
+     "coverage_p10": 0.77,
+     "coverage_p50": 0.536,
+     "coverage_ctrl": 0.512,
+     "area_ratio_p10": 3.04,
+     "area_p10_km2": 20424,
+     "brier": 0.0191,
+     "brier_ctrl": 0.0327,
+     "centroid_in90": true,
+     "centroid_in50": false,
+     "centroid_err_km": 13.9
+    },
+    {
+     "h": 72,
+     "obs_cells": 261,
+     "coverage_p10": 0.793,
+     "coverage_p50": 0.548,
+     "coverage_ctrl": 0.506,
+     "area_ratio_p10": 3.18,
+     "area_p10_km2": 22485,
+     "brier": 0.0178,
+     "brier_ctrl": 0.0334,
+     "centroid_in90": true,
+     "centroid_in50": true,
+     "centroid_err_km": 8.6
+    }
+   ]
+  }
+ ],
+ "note": "A calibrated ensemble would put the observed centroid inside the 90 % ellipse ~90 % of the time and inside the 50 % ellipse ~50 %; coverage_p10 is the share of the observed slick inside the area reached by >= 10 % of members.",
+ "finding": "The P >= 0.1 area holds ~2x more of the observed slick than one run and the Brier score is ~1/3 lower, but the centroid ellipses are badly under-dispersive (the 4 perturbed parameters do not sample current-pattern errors): read them as parameter spread, not a 90 % confidence region."
+}

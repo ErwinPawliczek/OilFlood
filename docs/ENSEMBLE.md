@@ -11,7 +11,7 @@ Only **our model** (`"model": "ours"`) takes custom params and ensembles. OpenOi
 ```jsonc
 {
   "model": "ours",
-  "version": "ours-v5",
+  "version": "ours-v4",
   "params": [
     {"name": "windage_pct", "label": "Wind drift (windage)", "type": "number", "unit": "% of U10",
      "min": 0, "max": 6, "step": 0.1, "default": 3.0,
@@ -60,6 +60,7 @@ Every param has `name, label, type ("number"|"int"|"bool"), unit, min, max, step
   "params": {...all effective params...},       // only for model=ours
   "ensemble": {"members": 20, "seed": 1, "member_particles": 1000, "done": 7, "failed": 0} // null if ensemble=0
   ```
+  Note: the existing top-level `"seed": [lon, lat]` is still the (snapped) spill point; the RNG seed is `ensemble.seed`.
   `progress` (0..1) covers control run + all members + aggregation.
 - The id's `/tracks` and `/response` are the **control run** (unperturbed params, full particles), so the existing
   map keeps working. The ensemble adds the products below.
@@ -143,3 +144,7 @@ Unchanged shape; when the run has an ensemble it adds:
 
 `/api/models` -> the `ours` entry gets `params_url: "/api/model/params"`, `ensemble: {max_members, ...}` and
 `calibration` (ensemble skill on DWH days, see METHODOLOGY.md; null if not computed).
+
+## Status (A17, 2026-11-22)
+Implemented and tested on :5230 (`backend/smoke_test.py` runs an 8-member ensemble). Timing on the tower: 20 members x 72 h
+~20 s, 8 members ~16 s (process spawn dominates). DWH calibration numbers: docs/METHODOLOGY.md section 7.
