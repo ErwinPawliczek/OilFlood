@@ -94,6 +94,7 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
   - Committed: `data/spills/catalog.json` (9 Gulf spills from NOAA IncidentNews; Ixtoc I, Burmah Agate and Mega Borg predate HYCOM, so `forcing: null`) and `data/spills/dwh/footprints/dwh_YYYYMMDD.geojson` (94 days of NOAA/NESDIS outlines, 2010-05-02..08-25, 3.7 MB).
   - To use: `OILFLOOD_DATA_DIR=/home/shmiggy/OilFlood-a2-data/data`, or copy `data/cache/` into the main checkout. Refresh live before the demo: `cd data && .venv/bin/python fetch_live.py --force && .venv/bin/python export_fields.py live --force`.
 - 2026-11-21 bot: merged a11-polish, a9-backtest, a10-response into main (a9/a10 conflicts in web/src/main.ts + style.css resolved by keeping both sides; SYNC union-merged), rebuilt web, restarted :5200; oilflood.xyz, /api/spills, /api/backtest return 200. Claimed T18 (A12 QA) + T19 (A13 Devpost).
+- 2026-11-21 bot: merged a13-devpost (docs/DEVPOST.md, docs/DEMO.md; docs only, no redeploy). Claimed T20 (A14 continuous wellhead release + DWH re-backtest).
 
 ## Roles
 - Erwin builds everything (T2–T7).
