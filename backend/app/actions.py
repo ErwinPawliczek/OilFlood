@@ -127,8 +127,8 @@ def build(out: dict) -> dict:
             continue
         road = f", {st['km']} km / ~{st.get('travel_h')} h by road" if st.get("km") is not None else ""
         add(b["deploy_by_h"], "boom_on_scene",
-            f"{b.get('label', 'Boom')} on scene at {where}" + (f" from {st.get('name')}" if st.get("name") else ""),
-            where, f"Tier 1 lead time {lt.get('lead_h', '?')} h ({'port area' if lt.get('hvp') else 'outside port areas'}"
+            f"{b.get('label', 'Boom')} on scene at {where}",
+            where, (f"From {st['name']}; " if st.get("name") else "") + f"Tier 1 lead time {lt.get('lead_h', '?')} h ({'port area' if lt.get('hvp') else 'outside port areas'}"
             f"{road}); "
             f"ESI {b.get('esi')} {b.get('esi_label', '')}; current {b.get('across_kt', '?')} kt across the boom",
             "MECH-6, MECH-1, R5", conf_p, p_oil, b["lon"], b["lat"])
