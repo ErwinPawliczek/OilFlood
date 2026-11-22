@@ -159,7 +159,7 @@ const state = {
   schema: null as ParamsSchema | null,
   builderOpen: false,
   /** ensemble products of the 'ours' run on screen (docs/ENSEMBLE.md) */
-  ens: { runId: '', prob: null as ProbView | null, forces: null as ForcesPayload | null, msg: null as string | null, err: null as string | null, status: null as null | { members: number; done: number; failed: number } },
+  ens: { runId: '', dig: null as RunDigest | null, prob: null as ProbView | null, forces: null as ForcesPayload | null, msg: null as string | null, err: null as string | null, status: null as null | { members: number; done: number; failed: number } },
   /** summary of the previous ensemble run, to show what changed after the user edits the model */
   prevSummary: null as null | RunDigest,
   /** 3D tilt, which surface (probability / expected mass / none), force arrows */
@@ -791,8 +791,8 @@ async function startSpill(lon: number, lat: number) {
   state.playing = false;
   state.job = { id: '', lat, lon, status: 'queued', progress: 0 };
   state.jobRuns = {};
-  if (state.ens.prob) state.prevSummary = digest();
-  state.ens = { runId: '', prob: null, forces: null, msg: null, err: null, status: null };
+  if (state.ens.dig) state.prevSummary = state.ens.dig;
+  state.ens = { runId: '', dig: null, prob: null, forces: null, msg: null, err: null, status: null };
   prev.errors = [];
   let sc: Scene | null = null;
   jobScene = (tracks: Tracks) => {
@@ -963,6 +963,7 @@ async function loadEnsemble(id: string, token: number, hasEns: boolean) {
     ? fetchProbability(id, stale).then((p) => {
       if (stale() || !p) return;
       E.prob = new ProbView(p);
+      E.dig = digest(); // labelled with the config this run was made with
       if (!userTilted && !state.view.threeD) set3D(true, false);
       else if (state.view.threeD) set3D(true, false); // re-frame on the new footprint
       requestAnimationFrame(() => content.querySelector('.ens')?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
@@ -988,7 +989,7 @@ function digest(): RunDigest | null {
 }
 
 function changesHTML() {
-  const a = state.prevSummary, b = digest();
+  const a = state.prevSummary, b = state.ens.dig;
   if (!a || !b) return '';
   const fh = (h: number | null) => (h == null ? 'none' : `${Math.round(h)} h`);
   const fa = (x: number | null) => (x == null ? '–' : `${Math.round(x).toLocaleString()} km²`);
@@ -1069,7 +1070,7 @@ function set3D(on: boolean, byUser = true) {
     const [w, s, e, n] = P.bounds();
     const pad = 0.03;
     const cam = map.cameraForBounds([[w - pad, s - pad], [e + pad, n + pad]], { padding: { top: 90, bottom: 60, left: 50, right: 50 + panelWidth() } });
-    if (cam?.zoom != null) frame = { center: [(w + e) / 2, (s + n) / 2], zoom: Math.min(10, cam.zoom - 0.2) };
+    if (cam?.zoom != null) frame = { center: [(w + e) / 2, (s + n) / 2], zoom: Math.min(10.5, cam.zoom + 0.45) }; // tilt foreshortens: go a bit closer than the flat fit
   }
   map.easeTo({
     pitch: on ? 58 : 0, bearing: on ? -20 : 0, ...frame,

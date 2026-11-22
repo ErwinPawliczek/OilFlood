@@ -293,3 +293,5 @@ input.sw:focus-visible + .swi { outline: 2px solid var(--accent); outline-offset
 .ens .ticks { display: flex; justify-content: space-between; color: var(--muted); font-size: 10.5px; margin-top: 3px; }
 .olpin span em { font-style: normal; color: #ffd27a; font-weight: 600; }
 .olpin span small { color: #aab7cb; }
+details.chg .kv { grid-template-columns: 1fr auto; }
+details.chg .kv span:nth-child(even) { white-space: nowrap; text-align: right; }
