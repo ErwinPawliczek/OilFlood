@@ -131,8 +131,9 @@ machine behind a Cloudflare tunnel at oilflood.xyz.
   data is one summer in deep water. We kept the result in the docs instead of hiding it.
 - **Nothing beats persistence on Deepwater Horizon.** Over 52 start days, "the slick stays where it was seen" has the smallest
   median centroid error (23 / 31 / 39 km at 24 / 48 / 72 h) vs OpenOil 27 / 36 / 44 km, ours + ML 25 / 36 / 46 km and ours without
-  ML 25 / 33 / 42 km. The main reason is that DWH was a continuous wellhead release that refilled the slick every day, and none of
-  our runs model that source.
+  ML 25 / 33 / 42 km. We suspected the missing wellhead release, so we added it to both models (official federal flow estimate
+  minus the oil collected at the well) and re-ran: medians moved by 0–2 km (OpenOil 44 → 43 km, ours + ML 46 → 44, ours without ML
+  42 → 42 at 72 h) and persistence still wins. The source term was not the explanation.
 - **Bays are land in the ocean models.** At ~4 km resolution HYCOM treats Galveston Bay as land, so oil released at the Texas City
   "Y" collision point strands 100 % in the bay within the run. Seeded at the bay entrance instead, OpenOil gets within 15 km and
   8 km of the two overflight positions on Mar 24 and 25.
@@ -170,7 +171,8 @@ machine behind a Cloudflare tunnel at oilflood.xyz.
 
 ## What's next
 
-- **Continuous release** (e.g. a wellhead or leaking pipeline) in both models, then re-run the Deepwater Horizon backtest.
+- **Continuous release in the app**: both models already take an optional point source (used in the DWH backtest); expose it in
+  prediction mode for wellheads and leaking pipelines, with a subsurface (plume) release instead of a surface one.
 - **More ML training data**: more reanalysis windows with drifters (e.g. 2012, 2015–2016) so the correction is not one summer of
   deep water; ensembles instead of a single run.
 - **Bays and nearshore**: higher-resolution coastal models (e.g. NOAA's operational coastal forecast systems) so spills inside

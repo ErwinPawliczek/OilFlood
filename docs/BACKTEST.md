@@ -1,12 +1,12 @@
 # Backtest: OpenOil vs our model vs observed spills (P5)
 
-Code: `backend/app/backtest/` · results: `data/backtest/results.json` (committed, ~100 KB) · API: `GET /api/backtest`
+Code: `backend/app/backtest/` (+ `backend/app/source.py`) · results: `data/backtest/results.json` (committed, ~100 KB) · API: `GET /api/backtest`
 (`?spill=dwh`, `&detail=true` adds the per-start rows) · panel: historical mode → a spill → **Backtest** (collapsible).
 
 ```bash
 cd backend
 ~/miniforge3/envs/oilflood/bin/python -m app.backtest            # all cases, 12 workers (~25 min cold, ~5 min cached)
-~/miniforge3/envs/oilflood/bin/python -m app.backtest --only dwh --max-starts 5   # quick subset
+~/miniforge3/envs/oilflood/bin/python -m app.backtest --only dwh --max-starts 5   # quick subset (DWH also runs the 3 wellhead-source variants)
 ~/miniforge3/envs/oilflood/bin/python -m app.backtest.report     # the markdown tables below
 ```
 Runs are cached in `backend/runs/backtest/<hash>/` (gitignored). The first run also trains the held-out ML variant
@@ -20,6 +20,7 @@ Runs are cached in `backend/runs/backtest/<hash>/` (gitignored). The first run a
 | `ours_ml` | our model (docs/OURMODEL.md) with the shipped ML drift correction |
 | `ours_noml` | our model, ML off (`ml=false`) |
 | `ours_ml_nodwh` | DWH only: our model with the ML **retrained without the DWH window** (MC 209 2017 + Eugene Island 2009 drifters, 9 drifters / 1,674 fixes). The shipped ML is 88 % DWH-2010 drifters, so on DWH it is not out of sample; this variant is. |
+| `openoil_src`, `ours_ml_src`, `ours_noml_src` | DWH only: the same three runs **plus a continuous wellhead release** (see "Wellhead source" below). |
 | `persistence` | DWH only: "the slick stays where it was seen" (outline D used as the forecast for D+1..D+3). A reference any model should beat. |
 
 All models run on the same HYCOM-TSIS GOMb0.04 reanalysis currents + its 10 m winds as the app's hindcasts, 2000 particles,
@@ -45,17 +46,22 @@ dt = 15 min, output every 30 min. Seeds go through the same `jobs.plan` as the a
 
 ### Summary
 
-- **Nothing beats persistence on DWH.** Over 52 start days, "the slick stays where it was seen" has the smallest median
-  centroid error (23 / 31 / 39 km at 24 / 48 / 72 h) and the best LW skill and FSS. Each model ends closer than persistence on
-  only 40–48 % of start days at 72 h. DWH was a continuous release: the observed outline is re-fed from the wellhead every day,
-  and none of the runs here has a source term (see limitations), so persistence has a built-in advantage.
+- **Nothing beats persistence on DWH, with or without the wellhead source.** Over 52 start days, "the slick stays where it
+  was seen" has the smallest median centroid error (23 / 31 / 39 km at 24 / 48 / 72 h) and the best LW skill and FSS. Each
+  model ends closer than persistence on only 38–48 % of start days at 72 h.
+- **Adding the continuous wellhead release (federal flow estimate minus containment) changes almost nothing.** Before → after,
+  median 72 h centroid error: OpenOil 44 → 43 km, ours + ML 46 → 44 km, ours without ML 42 → 42 km. FSS at 72 h goes up a
+  little for all three (0.51 → 0.53, 0.49 → 0.53, 0.53 → 0.54), LW skill at 48 h goes down (0.18 → 0.11, 0.15 → 0.12,
+  0.20 → 0.16), and each source run ends closer than its no-source twin on only 48–58 % of start days, i.e. a coin flip. The
+  share of start days beating persistence at 72 h drops (44 → 38 %, 40 → 38 %, 46 → 40 %). So the missing source term was
+  **not** the reason the models lose to persistence. The hypothesis from the first backtest is not supported.
 - **Among the models, ours without ML scores best on DWH** (72 h: 42 km median, LW 0.31, FSS 0.53), then OpenOil (44 km, LW 0.26,
   FSS 0.51) and ours + ML (46 km, LW 0.27, FSS 0.49). The differences are a few km, about the same size as the day-to-day spread,
   so read them as "about equal", not as a ranking.
 - **The ML correction does not help on oil.** On DWH it is closer than no-ML on about half the start days (52 / 54 / 48 %) and a
   little worse in the medians, even though most DWH particle-steps are inside its coverage and it was trained on drifters from the
   same summer (in-sample). Retrained with the DWH window held out, its coverage mask never reaches the DWH slick (0 % of
-  particle-steps), so it is effectively the no-ML model. Its 17 / 31 / 42 % "closer" shares are not a skill signal: identical
+  particle-steps), so it is effectively the no-ML model. Its 25 / 35 / 38 % "closer" shares are not a skill signal: identical
   centroids count as "not closer", and the runs differ only where a few particles touch the edge of the coverage mask.
 - **Main Pass 2023:** all three runs move the floating oil SW like the observed slick (bearing 208–224°). OpenOil and ours without
   ML strand nothing, as observed. **Ours + ML strands 62 % on the Mississippi Delta (around 29.16N 89.01W) within 9 h**, which
@@ -66,7 +72,7 @@ dt = 15 min, output every 30 min. Seeds go through the same `jobs.plan` as the a
   where it was seen on Mar 24–25. Seeded at the bay entrance on Mar 23 instead, OpenOil gets closest to the two overflight
   positions (nearest floating oil 15 km on Mar 24, 8 km on Mar 25). Ours without ML is 21 / 17 km away, ours + ML 21 / 24 km.
 
-_Generated 2026-11-22T01:12:21Z · 2000 particles · raster 0.05° · FSS window 5 cells_
+_Generated 2026-11-22T02:04:53Z · 2000 particles · raster 0.05° · FSS window 5 cells_
 
 ### Deepwater Horizon (`dwh`)
 
@@ -78,13 +84,19 @@ _Generated 2026-11-22T01:12:21Z · 2000 particles · raster 0.05° · FSS window
 | OpenOil | 27 (31) | 36 (40) | 44 (46) | 0.00 | 0.18 | 0.26 | 0.20 | 0.72 | 0.51 | 44 % |
 | Ours + ML | 25 (31) | 36 (39) | 46 (47) | 0.00 | 0.15 | 0.27 | 0.19 | 0.73 | 0.49 | 40 % |
 | Ours (no ML) | 25 (30) | 33 (38) | 42 (44) | 0.00 | 0.20 | 0.31 | 0.21 | 0.73 | 0.53 | 46 % |
-| Ours + ML (DWH drifters held out) | 25 (30) | 33 (38) | 42 (44) | 0.00 | 0.19 | 0.31 | 0.21 | 0.73 | 0.53 | 48 % |
+| Ours + ML (DWH drifters held out) | 25 (30) | 33 (38) | 42 (44) | 0.00 | 0.19 | 0.31 | 0.20 | 0.73 | 0.53 | 48 % |
+| OpenOil + wellhead source | 26 (30) | 36 (38) | 43 (47) | 0.00 | 0.11 | 0.28 | 0.20 | 0.71 | 0.53 | 38 % |
+| Ours + ML + wellhead source | 26 (30) | 38 (38) | 44 (46) | 0.00 | 0.12 | 0.28 | 0.20 | 0.73 | 0.53 | 38 % |
+| Ours (no ML) + wellhead source | 25 (30) | 34 (37) | 42 (45) | 0.00 | 0.16 | 0.28 | 0.21 | 0.73 | 0.54 | 40 % |
 
 - Ours + ML ends closer to the observed centroid than ours without ML on 52 % / 54 % / 48 % of start days (24 / 48 / 72 h).
-- Ours + ML (DWH held out) ends closer to the observed centroid than ours without ML on 17 % / 31 % / 42 % of start days (24 / 48 / 72 h).
+- Ours + ML (DWH held out) ends closer to the observed centroid than ours without ML on 25 % / 35 % / 38 % of start days (24 / 48 / 72 h).
+- OpenOil + wellhead source ends closer to the observed centroid than OpenOil (no source) on 48 % / 56 % / 50 % of start days (24 / 48 / 72 h).
+- Ours + ML + wellhead source ends closer to the observed centroid than Ours + ML (no source) on 52 % / 56 % / 50 % of start days (24 / 48 / 72 h).
+- Ours (no ML) + wellhead source ends closer to the observed centroid than Ours (no ML) (no source) on 48 % / 58 % / 50 % of start days (24 / 48 / 72 h).
 - Ours + ML: mean share of particle-steps inside the ML coverage mask 75 %.
 - Ours + ML (DWH drifters held out): mean share of particle-steps inside the ML coverage mask 0 %.
-- Mean stranded share at 72 h: OpenOil 14 %, Ours + ML 12 %, Ours (no ML) 12 %, Ours + ML (DWH drifters held out) 12 %.
+- Mean stranded share at 72 h: OpenOil 14 %, Ours + ML 12 %, Ours (no ML) 12 %, Ours + ML (DWH drifters held out) 12 %, OpenOil + wellhead source 7 %, Ours + ML + wellhead source 6 %, Ours (no ML) + wellhead source 6 %.
 
 ### Texas City "Y" collision (`texas_city_y`)
 
@@ -122,11 +134,45 @@ Observed: Nov 17: slick over 40 miles (64 km) long heading SW from the leak; Nov
 | Ours + ML | 224 / 215 / 208 | yes | 112 | 62 % | 9 | 21 |
 | Ours (no ML) | 223 / 221 / 217 | yes | 130 | 0 % | – | 11 |
 
+## Wellhead source (DWH `_src` runs)
+
+Code: `backend/app/source.py` (shared by both models), `backend/app/backtest/dwh_source.py` (the DWH schedule).
+A run's params may carry an optional `"source"` (lon, lat, piecewise-linear rate in bbl/day, particle count). Without it nothing
+changes: no existing run hash or result moved. (The `ours_ml_nodwh` runs were recomputed only because the hash contains the
+worktree path. They differ from the earlier ones by ≤ 0.2 km per run. Our model's random seed uses Python's per-process `hash()`.
+The "closer" shares of that ML-vs-no-ML tie-break moved from 17 / 31 / 42 % to 25 / 35 / 38 %, which shows that number is noise.)
+
+- **Location:** the MC252 wellhead, 28.7367 N 88.3872 W (catalog `dwh`), released on the surface in a 50 m disc.
+- **Gross flow (official):** US DOI / Flow Rate Technical Group + DOE estimate (press release 2010-08-02): 62,000 bbl/day at the
+  start, 53,000 bbl/day immediately before the well was shut in (2010-07-15 19:25 UTC), ±10 %, 4.9 M bbl in total, ~800,000 bbl
+  captured. The release only says the rate decreased (reservoir depletion), so we **interpolate linearly** between the two rates.
+  https://www.doi.gov/news/pressreleases/US-Scientific-Teams-Refine-Estimates-of-Oil-Flow-from-BP-Well-Prior-to-Capping
+- **Collection subtracted (bbl/day, linear between knots):** riser insertion tube May 17–25 (22,000 bbl total, i.e. ~2,400/day,
+  [DOE/DOI containment slide, June 30](https://www.energy.gov/sites/prod/files/edg/open/documents/6.0_Item_25_Deepwater_Horizon_Containment_-_30_JUN.pdf));
+  LMRP cap from June 4: 6,000 first day → ~10,000
+  ([PBS](https://www.pbs.org/newshour/science/bp-dome-capturing-more-than-10000-barrels-a-day)) → 15,420 on June 14
+  ([Maritime Executive daily update](https://maritime-executive.com/article/deepwater-horizon-update-june-15-2010));
+  + Q4000 from June 16: 16,026 + 9,269 = 25,295 on June 17
+  ([BP update, archived](https://www.webharvest.gov/congress111th/20101202090543/http://judiciary.house.gov/issues/BPUpdates/BPUpdate100618.pdf)),
+  14,730 + 8,020 = 22,750 on June 26
+  ([BP update, archived](https://www.webharvest.gov/congress111th/20101202090543/http://judiciary.house.gov/issues/BPUpdates/BPupdate100628.pdf)),
+  ~24,000 on June 30 (DOE/DOI slide). **Assumed:** held at 24,000 to July 9, then ~8,000 (Q4000 only, its late-June rate) after the
+  LMRP cap was removed on July 10. This schedule integrates to **787,000 bbl** collected, consistent with the DOI's ~800,000.
+  Net to the sea: ~62,000 bbl/day in early May, ~30,000 in late June–early July, ~45,000 from July 10.
+- **Particle weighting:** a source particle stands for the same volume as a seeded-outline particle. The day-D outline is taken to
+  hold the net release of the previous 3 days (an assumption; the surface residence time of DWH oil is not known well). So the
+  source count is 2000 × (net release during the 72 h run) / (net release in the 3 days before D), 1,558–2,935 particles per run.
+  Each particle's mass is the real net release over the run divided by the count (it only affects weathering; scores use positions).
+- **Physics:** both models release the particles at the computed times (OpenOil in 1 h batches through `seed_elements`, ours
+  particle by particle). In our model each source particle evaporates by its own oil age and gets background diffusion only
+  (K = 10 m²/s, no Fay term). OpenOil handles them like any other element.
+
 ## Limitations (read before quoting a number)
 
-- **No source term for DWH.** Every run seeds the day-D outline once. The real slick was re-fed by ~50–60 thousand bbl/day from
-  the wellhead until July 15, so the observed D+k outlines include fresh oil the runs never released. This favours persistence and
-  pulls every model's error up. A fair next step: add a continuous wellhead release to both models.
+- **The wellhead source is a surface release at the wellhead.** The real oil came up from 1,500 m. Part of it stayed at depth
+  (deep plumes, subsea dispersant injection) and the rest surfaced near the well after a few hours. The `_src` runs put all net
+  release on the surface at the well, and the source-to-seed weighting rests on one assumption (outline D = 3 days of release).
+  Without a source (`openoil`, `ours_*`), the runs never release the fresh oil that is in the observed D+k outlines.
 - **NESDIS outlines are daily composites of SAR / optical analyses**, with no time of day and changing coverage (cloud, swath).
   All days are taken at 18 UTC. Outline area changes a lot from one day to the next for reasons that are not oil transport, which
   limits IoU / FSS for every method.
