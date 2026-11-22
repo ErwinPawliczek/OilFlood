@@ -21,6 +21,10 @@ Taken from a local test server on 2026-11-22 (UTC) with the live forecast of tha
 | **Compare:** OpenOil (amber) and our model (blue) on the same spill, with the experimental ML toggle (off). | **Historical → Deepwater Horizon:** NOAA/NESDIS observed outline for 2010-06-02 over the HYCOM reanalysis currents. |
 | ![Global currents](docs/img/global.png) | ![Response outline](docs/img/response.png) |
 | **Zoomed out:** global RTOFS surface currents. | **Response outline** for a live spill off Padre Island: numbered priority shorelines (NOAA ESI) on the map, first landfall, boom-first list and dispersant/burn/skimming windows. |
+| ![3D probability](docs/img/3d_probability.png) | ![Forces](docs/img/forces.png) |
+| **3D probability view:** a 20-member ensemble of our model for a live spill off Padre Island (27.0°N 97.1°W) at T+40 h. Column height and colour = P(oil present); shorelines show P(oiled) and P10/P50/P90 arrival times. | **Forces view:** chained arrows at the slick centre (current → wind drift → net drift), hover explains each force with its equation; panel charts the drift speed by force and the oil budget over 72 h. |
+| ![Model builder](docs/img/builder.png) | ![Methodology](docs/img/methodology.png) |
+| **Build your model:** every parameter from `GET /api/model/params` with units, defaults and a cited tooltip, ensemble size, compare with OpenOil, shareable link. | **/methodology:** Data → Model → Ensemble → Protocol gates → Action plan, with equations (KaTeX), the parameter table and live validation numbers. |
 
 ## Features
 - **Prediction mode (live).** Click anywhere in the Gulf of Mexico (or use the suggested point off Galveston). Pick the amount
@@ -40,7 +44,25 @@ Taken from a local test server on 2026-11-22 (UTC) with the live forecast of tha
 - **Response outline** (`docs/RESPONSE.md`): from the forecast, the outline gives time to first landfall, priority shorelines
   ranked by NOAA ESI sensitivity × arrival time, where to boom first, dispersant/in-situ-burn/skimming windows, closures, and
   precedents cited from past spills. An LLM summary is added if an API key is set. *Planning aid only, not operational guidance.*
-- One draggable, collapsible panel. Time scrubber with "X hours/sec" playback. URL flags: `?mode=prediction`, `?spill=dwh`, `?model=ours|compare`, `?ml=1` (experimental ML on).
+- **Probabilities, in 3D** (`docs/ENSEMBLE.md`, `docs/METHODOLOGY.md`). Our model can run as an ensemble of up to 30 members, each
+  with perturbed windage (1–4 %), wind direction (σ 20°), current speed (σ 20 %) and diffusivity. The map tilts to 3D (button
+  or key `3`) and shows P(oil present) per 5 km cell as smooth, animated columns (or expected surface mass), with the 50 % and
+  90 % contours draped on the sea and the threatened shorelines coloured by P(oiled). Numbers in the panel: area with P ≥ 10 %
+  / 50 % / 90 %, surface oil (P10–P90), the shoreline most at risk now.
+- **Forces view.** Arrows at the slick centre for each push on the oil (ocean current, wind drift, Stokes drift, ML
+  correction) chained head to tail into the net drift; hover one for a one-line explanation and its equation. Two small charts
+  in the panel: drift speed by force over time and the oil budget (surface / evaporated / dispersed / stranded).
+- **Build your own model.** A panel section generated from `GET /api/model/params`: windage, diffusivity, current multiplier,
+  Stokes drift, each weathering process, ML, particles, horizon, ensemble size; every slider shows units and default and its
+  tooltip cites the source. *Run my model* reruns it at the same spill (optionally next to OpenOil) and the panel lists what
+  changed vs your previous run (earliest P10 landfall, P(oiled) per shoreline, likely area). *Share* copies a link with the
+  params (`?mode=prediction&lat=27&lon=-97.1&model=ours&ens=20&p=windage_pct:4,stokes:1`).
+- **Probabilistic action plan.** With an ensemble the response outline ranks shorelines by P(oiled within 72 h) × ESI
+  sensitivity, shows P10/P50/P90 arrival times, sets boom "deploy by" to the P10 arrival, and gives each tactic window the
+  share of members whose protocol gates pass.
+- **Methodology page** at [/methodology/](https://oilflood.xyz/methodology/): the whole pipeline with equations, the
+  parameter table, validation numbers (backtest, ML hold-out, DWH ensemble calibration) and limits.
+- One draggable, collapsible panel. Time scrubber with "X hours/sec" playback. URL flags: `?mode=prediction`, `?spill=dwh`, `?model=ours|compare`, `?ml=1` (experimental ML on), `?lat=&lon=&ens=&p=` (rerun a shared model).
 
 ## The AI part
 1. **Baseline (pre-existing model): OpenDrift OpenOil** (Norwegian Meteorological Institute), set up the way NOAA GNOME-style
