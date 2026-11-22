@@ -37,13 +37,15 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T24 | Ensemble + probability engine + custom model params + METHODOLOGY.md (backend) | Erwin | done (agent A17; merged + deployed with T25/T26) |
 | T25 | 3D probability/forces visuals + model builder + /methodology page (frontend) | Erwin | done (agent A18; merged + deployed with T24/T26) |
 | T26 | Minimal block UI: one draggable window, 5 numbered steps, flat style (no rounded corners) | Erwin | done (agent A19; merged + deployed, includes T24+T25) |
-| T27 | Black oil slick polygons + response playback on map + time-series action document/export | Erwin | done (agent A20, branch a20-slick; ready to merge) |
+| T27 | Black oil slick polygons + response playback on map + time-series action document/export | Erwin | done (agent A20, branch a20-slick; merged, deploy with T28) |
+| T28 | Place-spill UX: lat/lon fields, tons or bbl, Pick on map, then Run; default show the slick | Erwin | in progress (agent A21, branch a21-place) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-22 Erwin: merged T27 (a20-slick) to main; claimed T28 (A21 a21-place) before deploy.
 - 2026-11-22 A20 (branch a20-slick, T27): **black oil slick + response playback + action timeline.**
   - Slick (`web/src/slick.ts`, d3-contour): surface particles at the clock -> fixed lon/lat lattice (run extent/150, 0.3-3 km) -> Gaussian blur -> marching squares at 3 levels (edge = 1.15x a lone particle so stragglers vanish; 12 % / 45 % of the slick's peak = sheen -> slick -> thick core), near-black fills + grey edge; holes / several blobs OK; stranded oil = black dots band on the shore. ~1 ms per new clock value in swiftshader, cached per 0.05 h. Particles (now dark grey, light rim) are an optional "Particles" toggle in step 3. Compare: ours = black slick, OpenOil = dashed light outline, both labelled on the map. Observed NESDIS outlines unchanged (orange).
   - Fix: our model flags some particles "stranded" after they weathered away (path ends hours earlier, e.g. 122 of 424 "stranded" at T+0 for Padre) -> they were drawn as stranded dots at sea; now treated as gone; real stranding time = start of the final motionless stretch (`strandTimes`).
