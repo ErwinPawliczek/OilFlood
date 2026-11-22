@@ -15,7 +15,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T1 | Repo skeleton, README, SYNC.md | Erwin | done |
 | T2 | Data: currents/wind source + historical spill set (e.g. NOAA) | Erwin | in progress (agent A2, branch a2-data) |
 | T3 | Trajectory model (particle drift + AI correction) | Erwin | done (A1 OpenOil backend; ML correction + own model in T14/A8) |
-| T4 | Backtest on historical spills + metrics | Erwin | todo |
+| T4 | Backtest on historical spills + metrics | Erwin | done via T15 (A9) |
 | T5 | Bare globe UI: historical mode (past spills + currents over time) + prediction mode (click-to-spill); response layer later | Erwin | done Step A (agent A3, branch a3-globe; response layer later) |
 | T6 | Demo video (2–3 min) | Erwin | todo |
 | T7 | Devpost write-up + README setup steps | Erwin | todo |
@@ -25,12 +25,11 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T12 | Live prediction pipeline: auto-fetch latest forecast currents + GFS, amount/type controls | Erwin | done (agent A6, branch a6-live; merged) |
 | T13 | Spill + responder-action database (geo/time + response log) | Erwin | done (agent A7, branch a7-db; merged) |
 | T14 | Our own spill model + ML drift correction, comparable to OpenOil | Erwin | done (agent A8, branch a8-model; merged) |
-| T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | done (agent A9, branch a9-backtest; ready to merge) |
-| T16 | First-responder action outline (P6) | Erwin | in progress (agent A10, branch a10-response) |
-| T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | done (agent A11, branch a11-polish; ready to merge) |
-| T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | in progress (agent A9, branch a9-backtest) |
-| T16 | First-responder action outline (P6) | Erwin | done (agent A10, branch a10-response; ready to merge) |
-| T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | in progress (agent A11, branch a11-polish) |
+| T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | done (merged + deployed to oilflood.xyz 2026-11-21) |
+| T16 | First-responder action outline (P6) | Erwin | done (merged + deployed to oilflood.xyz 2026-11-21) |
+| T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | done (merged + deployed to oilflood.xyz 2026-11-21) |
+| T18 | Post-merge QA, ML default off/experimental label, README screenshots | Erwin | in progress (agent A12, branch a12-qa) |
+| T19 | Devpost write-up + demo video script (docs/DEVPOST.md, docs/DEMO.md) | Erwin | in progress (agent A13, branch a13-devpost) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
@@ -89,6 +88,7 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
   - `fields/<window>/`: index.json + per-step `<unix>.json` (same shape as /api/currents/{t}) + `<unix>.png` u/v texture, 0.1°, 181×130.
   - Committed: `data/spills/catalog.json` (9 Gulf spills from NOAA IncidentNews; Ixtoc I, Burmah Agate and Mega Borg predate HYCOM, so `forcing: null`) and `data/spills/dwh/footprints/dwh_YYYYMMDD.geojson` (94 days of NOAA/NESDIS outlines, 2010-05-02..08-25, 3.7 MB).
   - To use: `OILFLOOD_DATA_DIR=/home/shmiggy/OilFlood-a2-data/data`, or copy `data/cache/` into the main checkout. Refresh live before the demo: `cd data && .venv/bin/python fetch_live.py --force && .venv/bin/python export_fields.py live --force`.
+- 2026-11-21 bot: merged a11-polish, a9-backtest, a10-response into main (a9/a10 conflicts in web/src/main.ts + style.css resolved by keeping both sides; SYNC union-merged), rebuilt web, restarted :5200; oilflood.xyz, /api/spills, /api/backtest return 200. Claimed T18 (A12 QA) + T19 (A13 Devpost).
 
 ## Roles
 - Erwin builds everything (T2–T7).
@@ -104,9 +104,9 @@ Format: `- [open|fixed] short title — steps to reproduce — who found / who f
 - [fixed] Prediction click on land (e.g. inland Mexico, outside the frontend's coarse mask) returns `Simulation stopped within first timestep`; the UI shows the error, but the backend could return a friendlier "seed point on land" — found by A3 / fixed by A5 (400 "That spot is on land" / "in a bay ... the model treats as land"; also fixed roaring_landmask call that always said water)
 
 ## Blockers
-- A11 merge note: a11-polish merges cleanly onto main and with **each** of a9-backtest and a10-response on its own, but a9 and a10 conflict **with each other** in `web/src/main.ts` + `web/src/style.css` (both add panel sections and CSS at the same spots). Resolve by keeping both sides. After merging: rebuild web, restart :5200; `.gz` sidecars appear next to tracks.json in backend/runs on first request. Screenshots for the README placeholders (`docs/img/*.png`) still need taking.
+- [resolved] A11 merge note: a11-polish merges cleanly onto main and with **each** of a9-backtest and a10-response on its own, but a9 and a10 conflict **with each other** in `web/src/main.ts` + `web/src/style.css` (both add panel sections and CSS at the same spots). Resolve by keeping both sides. After merging: rebuild web, restart :5200; `.gz` sidecars appear next to tracks.json in backend/runs on first request. Screenshots for the README placeholders (`docs/img/*.png`) still need taking.
 - A9 notes: (1) the ML correction is not supported by the oil backtest: in-sample ≈ no gain on DWH, clearly harmful at Main Pass (62 % stranded on the delta). Consider defaulting `ml=false` or labelling it experimental in the UI. (2) DWH scores need a continuous wellhead source term in both models to be fair vs persistence. (3) Backtest workers must run with OMP_NUM_THREADS=1 (the script sets it); otherwise HistGradientBoosting threads oversubscribe the pool and ML runs crawl.
-- A10: after merging a10-response, rebuild web and restart :5200 (new routes). To enable the LLM briefing, put one of XAI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY in backend/.env (never commit it). Re-run `data/build_esi.py` only if the ESI source changes. Limits: windows ignore waves/depth/slick thickness; bay interiors the ocean model treats as land are not resolved; outline is from one run (OpenOil if Compare is on).
+- [resolved: merged + deployed] A10: after merging a10-response, rebuild web and restart :5200 (new routes). To enable the LLM briefing, put one of XAI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY in backend/.env (never commit it). Re-run `data/build_esi.py` only if the ESI source changes. Limits: windows ignore waves/depth/slick thickness; bay interiors the ocean model treats as land are not resolved; outline is from one run (OpenOil if Compare is on).
 - [resolved] A8: merged a8-model, rebuilt web, restarted :5200 (oilflood.xyz). GDP training CSVs are in shared `data/cache/gdp/` (1.3 MB). `backend/runs` OpenOil entries stay valid; ours runs are keyed by `ourmodel/sim.py` VERSION (ours-v4).
 - A8 notes on our model: (1) ML training is a subset: drifters only exist in 3 cached windows, mostly DWH 2010 deep water. More HYCOM-TSIS windows (`data/fetch_hycom.py`) give more training data. (2) The correction was learned against reanalysis errors; in prediction mode it is applied to RTOFS with no skill claim. (3) At Main Pass 2023 (observed: moved SW, no shoreline) ours with ML drifts NE and strands 35 % while OpenOil and ours without ML go SW, so the ML can hurt; P5 backtest should score `ml=true/false`. (4) Mackay dispersion is high for thin light slicks (diesel ~90 % dispersed in 72 h vs ~44 % in OpenOil).
 - A8 saw (not caused by A8, not fixed): headless Chrome logged `deck.gl assertion failed` initializing PathLayer `currents-global` right after a scripted `map.jumpTo` during DWH playback. The page kept rendering.
