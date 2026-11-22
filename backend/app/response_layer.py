@@ -241,7 +241,7 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
         if k is None:
             continue
         eta_h, imp = cell_eta[k]
-        if nverts > 60000:
+        if nverts > 40000:
             break
         nverts += len(c)
         tier = 1 if rank >= 9 else 2 if rank >= 7 else 3
