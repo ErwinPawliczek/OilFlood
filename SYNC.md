@@ -32,6 +32,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T19 | Devpost write-up + demo video script (docs/DEVPOST.md, docs/DEMO.md) | Erwin | done (agent A13; merged) |
 | T20 | Continuous wellhead release for DWH in both models + re-backtest | Erwin | done (agent A14; merged + deployed) |
 | T21 | First-responder map layer: arrival times, boom plan, dispersant/burn zones, staging, action timeline | Erwin | in progress (agent A15, branch a15-layer) |
+| T22 | Response protocols research (docs/PROTOCOLS.md + data/response/protocols.json) | Erwin | in progress (research agent, branch research-protocols) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
