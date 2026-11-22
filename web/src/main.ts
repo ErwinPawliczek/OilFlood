@@ -1055,6 +1055,7 @@ let userTilted = false;
 function slickCenter(): [number, number] | null {
   const c = state.ens.prob?.centroidAt(ensTH());
   if (c) return c;
+  if (state.mode === 'historical') return state.selected ? [state.selected.lon, state.selected.lat] : null;
   const j = state.job;
   return j ? [j.lon, j.lat] : null;
 }
