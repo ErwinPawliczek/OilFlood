@@ -362,7 +362,7 @@ function kmPerMs(F: ForcesPayload) {
 }
 export function forceLayers(F: ForcesPayload, tH: number, at: [number, number], threeD: boolean, onHover: (info: any) => void): Layer[] {
   const KM_PER_MS = kmPerMs(F);
-  const alt = threeD ? 22000 : 0;
+  const alt = 0; // on the sea surface, drawn over the columns (parallax made elevated arrows look detached)
   const cosLat = Math.cos((at[1] * Math.PI) / 180);
   const step = (p: [number, number], v: Vec): [number, number] => [p[0] + (v.u * KM_PER_MS) / (KM_PER_DEG * cosLat), p[1] + (v.v * KM_PER_MS) / KM_PER_DEG];
   const arrows: { key: string; from: [number, number]; to: [number, number]; v: Vec }[] = [];
@@ -375,7 +375,8 @@ export function forceLayers(F: ForcesPayload, tH: number, at: [number, number], 
     p = q;
   }
   const tot = forceAt(F, 'total', tH);
-  if (tot && tot.speed > 0.004) arrows.push({ key: 'total', from: at, to: step(at, tot), v: tot });
+  // net drift first, so the component arrows draw on top of it
+  if (tot && tot.speed > 0.004) arrows.unshift({ key: 'total', from: at, to: step(at, tot), v: tot });
   const z = (x: [number, number]) => [x[0], x[1], alt];
   const paths = arrows.map((a) => {
     // arrow head: two barbs at 25° back from the tip, 22 % of the length (min ~2 km)
@@ -392,33 +393,27 @@ export function forceLayers(F: ForcesPayload, tH: number, at: [number, number], 
   });
   const col = (k: string, al = 255) => [...FORCE_RGB[k], al] as [number, number, number, number];
   const layers: Layer[] = [];
-  if (threeD) {
-    layers.push(new PathLayer({
-      id: 'force-stem', data: [{ path: [[at[0], at[1], 0], [at[0], at[1], alt]] }], getPath: (d: any) => d.path,
-      getColor: [255, 255, 255, 120], getWidth: 1.2, widthUnits: 'pixels',
-    }));
-  }
   layers.push(
     new PathLayer({
       id: 'force-glow', data: paths, getPath: (d: any) => d.path, getColor: (d: any) => col(d.key, 60),
-      getWidth: (d: any) => (d.key === 'total' ? 18 : 14), widthUnits: 'pixels', capRounded: true,
-      parameters: threeD ? undefined : ON_SURFACE,
+      getWidth: (d: any) => (d.key === 'total' ? 10 : 14), widthUnits: 'pixels', capRounded: true,
+      parameters: ON_SURFACE,
     }),
     new PathLayer({
       id: 'force-shaft', data: paths, getPath: (d: any) => d.path, getColor: (d: any) => col(d.key),
-      getWidth: (d: any) => (d.key === 'total' ? 5.5 : 4.5), widthUnits: 'pixels', capRounded: true,
+      getWidth: (d: any) => (d.key === 'total' ? 3 : 4.5), widthUnits: 'pixels', capRounded: true,
       pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 255], onHover,
-      parameters: threeD ? undefined : ON_SURFACE,
+      parameters: ON_SURFACE,
     }),
     new PathLayer({
       id: 'force-head', data: paths, getPath: (d: any) => d.head, getColor: (d: any) => col(d.key),
-      getWidth: (d: any) => (d.key === 'total' ? 5.5 : 4.5), widthUnits: 'pixels', capRounded: true, jointRounded: true,
-      pickable: true, onHover, parameters: threeD ? undefined : ON_SURFACE,
+      getWidth: (d: any) => (d.key === 'total' ? 3 : 4.5), widthUnits: 'pixels', capRounded: true, jointRounded: true,
+      pickable: true, onHover, parameters: ON_SURFACE,
     }),
     new ScatterplotLayer({
       id: 'force-origin', data: [z(at)], getPosition: (d: any) => d, getRadius: 5, radiusUnits: 'pixels',
       getFillColor: [255, 255, 255, 255], stroked: true, getLineColor: [10, 16, 28, 255], lineWidthUnits: 'pixels', getLineWidth: 2,
-      parameters: threeD ? undefined : ON_SURFACE,
+      parameters: ON_SURFACE,
     }),
   );
   return layers;

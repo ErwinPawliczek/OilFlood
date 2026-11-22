@@ -80,6 +80,7 @@ const map = new maplibregl.Map({
 
 const overlay = new MapboxOverlay({
   interleaved: true,
+  pickingRadius: 6, // force arrows are a few px wide
   layers: [],
 });
 map.addControl(overlay as any);
