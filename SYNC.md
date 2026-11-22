@@ -24,13 +24,14 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T11 | Real data only (remove mocks/fallbacks) + single draggable UI panel with date/time + days/sec row | Erwin | done (agent A5, branch a5-ui; includes a4-global merge) |
 | T12 | Live prediction pipeline: auto-fetch latest forecast currents + GFS, amount/type controls | Erwin | done (agent A6, branch a6-live; merged) |
 | T13 | Spill + responder-action database (geo/time + response log) | Erwin | done (agent A7, branch a7-db; merged) |
-| T14 | Our own spill model + ML drift correction, comparable to OpenOil | Erwin | done (agent A8, branch a8-model; ready to merge) |
+| T14 | Our own spill model + ML drift correction, comparable to OpenOil | Erwin | done (agent A8, branch a8-model; merged) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-21 Erwin: merged T14 to main and deployed (OpenOil / Ours / Compare toggle on oilflood.xyz).
 - 2026-11-21 A8 (branch a8-model, T14): **two models to compare: OpenOil baseline + our own model with an ML drift correction.** Details in docs/OURMODEL.md.
   - `backend/app/ourmodel/`: numpy Lagrangian particles on the same forcing files, oil record (ADIOS), seed and output format as OpenOil. Physics: RK2 advection (current + ML correction + 3 % wind), random walk K = 10 m²/s + Fay spreading as an equivalent diffusivity, Fingas evaporation (ln / sqrt law from ADIOS distillation cuts), Mackay emulsification + natural dispersion, beaching on GSHHG or ocean-model land (coast-aware bilinear sampling). 72 h, 2000 particles in ~12–17 s (OpenOil ~21–26 s).
   - ML: scikit-learn HistGradientBoosting (u, v) trained on **NOAA GDP hourly drifters** (AOML ERDDAP) vs the HYCOM-TSIS hindcast forcing: 42 drifters, 14,089 fixes, from the 3 windows that have drifters (DWH 2010 = 88 %, MC 209 2017, Eugene Island 2009). Target = drifter velocity minus model current. Features = current, wind, speeds, vorticity, divergence, drogue flag.
@@ -75,7 +76,7 @@ Format: `- [open|fixed] short title — steps to reproduce — who found / who f
 - [fixed] Prediction click on land (e.g. inland Mexico, outside the frontend's coarse mask) returns `Simulation stopped within first timestep`; the UI shows the error, but the backend could return a friendlier "seed point on land" — found by A3 / fixed by A5 (400 "That spot is on land" / "in a bay ... the model treats as land"; also fixed roaring_landmask call that always said water)
 
 ## Blockers
-- A8: after merging a8-model, rebuild web and restart :5200; nothing to fetch (the ML model is in git). The GDP training CSVs were cached into the shared `data/cache/gdp/` (1.3 MB). `backend/runs` OpenOil entries stay valid; ours runs are keyed by `ourmodel/sim.py` VERSION (ours-v4).
+- [resolved] A8: merged a8-model, rebuilt web, restarted :5200 (oilflood.xyz). GDP training CSVs are in shared `data/cache/gdp/` (1.3 MB). `backend/runs` OpenOil entries stay valid; ours runs are keyed by `ourmodel/sim.py` VERSION (ours-v4).
 - A8 notes on our model: (1) ML training is a subset: drifters only exist in 3 cached windows, mostly DWH 2010 deep water. More HYCOM-TSIS windows (`data/fetch_hycom.py`) give more training data. (2) The correction was learned against reanalysis errors; in prediction mode it is applied to RTOFS with no skill claim. (3) At Main Pass 2023 (observed: moved SW, no shoreline) ours with ML drifts NE and strands 35 % while OpenOil and ours without ML go SW, so the ML can hurt; P5 backtest should score `ml=true/false`. (4) Mackay dispersion is high for thin light slicks (diesel ~90 % dispersed in 72 h vs ~44 % in OpenOil).
 - A8 saw (not caused by A8, not fixed): headless Chrome logged `deck.gl assertion failed` initializing PathLayer `currents-global` right after a scripted `map.jumpTo` during DWH playback. The page kept rendering.
 - A6: after merging a6-live, re-run `~/OilFlood/data/install_live_timer.sh` so the timer runs the main checkout's scripts (it points at ~/OilFlood-a6-live now), rebuild web, restart :5200. The shared cache (data/cache symlink -> a2-data) already has the RTOFS live window + live.json + global live to f096, so production's current code also uses the fresher RTOFS currents. Old prediction runs in backend/runs are not reused (MODEL_VERSION openoil-v4-live).
