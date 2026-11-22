@@ -27,6 +27,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T14 | Our own spill model + ML drift correction, comparable to OpenOil | Erwin | done (agent A8, branch a8-model; merged) |
 | T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | done (agent A9, branch a9-backtest; ready to merge) |
 | T16 | First-responder action outline (P6) | Erwin | in progress (agent A10, branch a10-response) |
+| T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | in progress (agent A11, branch a11-polish) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
@@ -39,6 +40,7 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
   - Texas City Y: no polygons. Catalog seed strands 100 % in Galveston Bay (HYCOM land). Seeded at Bolivar Roads Mar 23: nearest floating oil to the Mar 24/25 overflight fixes OpenOil 15/8 km, ours no ML 21/17, ours + ML 21/24. Matagorda landfall (Mar 27) is after the forcing ends, not scored.
   - API `GET /api/backtest` (`?spill=`, `&detail=true`). Panel (historical): collapsible "Backtest" under the response log with the selected spill's table (best value green), "not scored" for the others. Verified on :5209 in headless Chromium (DWH, Texas City Y, Main Pass, Mega Borg).
   - Model code touched (backward compatible, production hashes unchanged): `sim.py` + `runner.py` accept `seed_lon/seed_lat` arrays and `record_all` (ours), `sim.py` `ml_dir`; `ml.use_dir()`; `train.py --exclude/--out-dir`.
+- 2026-11-21 Erwin (flight loop): claimed T17 polish (A11, a11-polish).
 - 2026-11-21 Erwin (flight loop): claimed T15 backtest (A9, a9-backtest) and T16 response outline (A10, a10-response).
 - 2026-11-21 Erwin: merged T14 to main and deployed (OpenOil / Ours / Compare toggle on oilflood.xyz).
 - 2026-11-21 A8 (branch a8-model, T14): **two models to compare: OpenOil baseline + our own model with an ML drift correction.** Details in docs/OURMODEL.md.
