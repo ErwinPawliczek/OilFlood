@@ -50,23 +50,29 @@ where they disagree.
 - time to first landfall,
 - priority shorelines ranked by NOAA Environmental Sensitivity Index (ESI) class and arrival time, named after the nearest town
   and shown as numbered markers on the globe,
-- where to boom first (with a check whether boom can be staged before the oil arrives),
-- hourly windows for dispersants, in-situ burning and boom + skimmers, from the oil type, the forecast wind, daylight and distance
-  from shore,
+- where to boom first, with the real USCG Tier 1 lead time (6 h in the federal "higher-volume port areas" such as Galveston
+  Bay, 12 h elsewhere, 33 CFR 154.1045) compared with the oil's best-guess and earliest plausible arrival,
+- hourly go/no-go gates for dispersants, in-situ burning and boom + skimmers taken from the real Gulf protocols (RRT-6
+  dispersant pre-approval: >= 3 nm AND >= 10 m deep, wind <= 25 kt, daylight, API gravity band; RRT-6 burn policy: water in
+  emulsion <= 25 %, > 500 bbl per burn, wind <= 25 mph, current <= 0.75 kt, sun > 15°), each shown as a chip with its source,
+- "best guess + uncertainty" like NOAA: the forecast plus a dashed envelope of where oil could go if the wind drift were 1-4 %,
 - closures to consider (safety zone, channel entrances, fisheries),
-- precedents: what responders actually did at similar past Gulf spills, each with a verbatim quote and the NOAA IncidentNews link.
+- precedents: what responders actually did at similar past Gulf spills, each with a verbatim quote and the NOAA IncidentNews link,
+  and next to every recommended action what Deepwater Horizon and Texas City "Y" responders did (NOAA OSC report, NTSB),
+- a short "How we go from model to action" explainer (forecast -> priority sites -> tactic gates -> lead time vs arrival ->
+  assignments) linking docs/PROTOCOLS.md, where every threshold is sourced.
 
 **Response map layer.** The same outline is drawn on the globe for whichever run is on screen (live prediction or historical
 hindcast, OpenOil or ours) and follows the time slider:
 - the threatened coastline itself (real NOAA ESI shoreline lines) coloured by predicted oil arrival (< 12 h red, 12–24 h orange,
   24–48 h yellow, 48–72 h pale) and brightening when the oil gets there, plus offshore arrival outlines at T+6/12/24/48/72 h;
-- a boom plan on the actual shoreline where the oil comes ashore: exclusion boom on marsh / sheltered shores, deflection boom
-  angled to the current where the forecast current is above ~0.7 kt (ITOPF angle table), beach crews on exposed beaches, boom
-  across nearby channel entrances, each with a "deploy by" time (arrival minus 2 h) and a "mobilize by" time from the nearest
-  real staging base (USCG stations, MSRC / Clean Gulf / Texas GLO equipment depots, cited);
-- dispersant and in-situ burn zones every 3 h, only where the oil is still fresh enough, the wind and daylight allow it, and it is
-  inside the RRT-6 pre-approval zone (10 m depth line or 3 nmi from shore, whichever is farther; real ETOPO1 bathymetry), and
-  skimmer targets on the densest patches of surface oil;
+- a boom plan on the actual shoreline where the oil comes ashore, typed by the forecast current ACROSS each boom line:
+  exclusion boom up to 0.7 kt, deflection boom angled to the current at 0.7-1 kt, "boom won't hold" above 1 kt (shoreline crews
+  + skimmers downstream); beach crews on exposed beaches, boom across nearby channel entrances; each with its Tier 1 "on scene"
+  time and the nearest real staging base (USCG stations, MSRC / Clean Gulf / Texas GLO equipment depots, cited);
+- dispersant and in-situ burn zones every 3 h, only where every protocol gate passes and inside the RRT-6 pre-approval zone
+  (10 m depth line or 3 nmi from shore, whichever is farther; real ETOPO1 bathymetry), the 10 nm RRT-6 planning circle around
+  the source, the dashed uncertainty envelope, and skimmer targets on the densest patches of surface oil;
 - a "Next actions" list in the panel (T+ hours, click to fly there) and a Response layer on/off toggle with a legend.
 
 It is labelled as a planning aid, not operational guidance. An optional LLM summary can be added on top (see below).
@@ -125,9 +131,12 @@ Also Texas City "Y" (overflight positions) and Main Pass 2023 (reported directio
 
 **Response outline** (`backend/app/response.py`, rule-based). Stranded particles are matched to ESI cells (6 km) for landfall;
 surface oil within 10 km of shore counts as threatened. Shore stretches are ranked landfall > threatened, then ESI tier
-(9–10 marshes and sheltered flats first), then arrival time. Tactic windows use oil-age limits by oil type from NOAA/ITOPF
-guidance, the run's own forecast wind, solar elevation for daylight, and the 3 nm offshore line from the RRT 4/6 pre-authorization
-zones (plus the 10 m depth rule from ETOPO1 bathymetry). Precedents are past catalog spills scored by oil group, size and distance.
+(9–10 marshes and sheltered flats first), then arrival time. Tactic windows apply the gates of docs/PROTOCOLS.md
+(`backend/app/protocols.py`, every threshold with a rule ID and source): API gravity and pour point from the ADIOS oil record,
+emulsion water content from Mackay's formula on the forecast wind, surface oil per ~6 km patch for the 500 bbl burn minimum, the
+run's forecast wind and current at the slick, solar elevation, distance from shore and ETOPO1 depth. Boom lead time follows
+33 CFR 154.1045 (notify 30 min, en route 2 h, Tier 1 6 h / 12 h); the uncertainty envelope re-drifts the particles with GNOME's
+1-4 % windage range. Precedents are past catalog spills scored by oil group, size and distance.
 The map layer (`backend/app/response_layer.py`) reads the real ESI shoreline geometry for the oiled stretches, intersects the
 particle positions with the regulatory envelope on a ~2 km grid every 3 h, and uses a cited list of 54 Gulf staging bases
 (`data/response/staging_bases.json`); the rules and their sources (RRT-6/RRT-4 pre-authorization, NOAA ORR, ITOPF TIP 3, 33 CFR

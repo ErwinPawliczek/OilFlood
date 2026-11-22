@@ -111,6 +111,16 @@ used to *prioritise and stage*, not to promise where oil would be.
 | GAP-15 | low | closures | navigation closure if oil within 15 km of a listed channel entrance; safety zone over slick bbox | Consistent with Texas City Y (COTP closed the ship channel to stop wakes pushing oil ashore; 5 days per Texas AG, 22-25 Mar with full reopening 27 Mar per IncidentNews log) but the trigger distance is ours, not a published rule. (S13, S22, S23) | Keep; label 'planning assumption' and cite the precedent; add safety-zone-for-responders purpose per IncidentNews. |
 | GAP-16 | info | what is right | ESI tiering direction; 25 kt dispersant wind cap; 3 nm distance concept; daylight-only dispersant; 0.75 kt boom threshold value; USCG safety zone; SMART mentioned only as one line in the dispersant conditions | These match the sources. Under-stated in the panel: SMART monitoring is required for every dispersant use (Tier I minimum), not just 'a condition'; missing:, PM10 150 ug/m3 burn trigger, RRT notification/consultation steps, contract-before-spill requirement for dispersant platform, and the FOSC-decides disclaimer is correct. (S1, S3, S20) | Add a 'who decides / what must happen before' block to each tactic in the outline. |
 
+**Status after T23 (A16, resp-v3, `backend/app/protocols.py`).** Fixed: GAP-1 (>= 3 nm AND >= 10 m, 10 nm circle drawn),
+GAP-2 (oil-age windows removed: API/pour point from ADIOS, emulsion <= 25 % from Mackay on the forecast wind, freshest oil for
+continuous releases), GAP-3 (> 500 bbl per ~6 km patch; 2-3 mm collected thickness stays a field check), GAP-4 (21.7 / 17.4 kt),
+GAP-5 partly (Grand Isle 7 mi onshore-wind buffer, 3 mi from Census places; reef/bank zones still missing), GAP-6 (burn sun > 15°;
+LA 08-17 h rule not applied), GAP-7 (25 kt, 4 kt advisory, visibility/ceiling shown as "check"), GAP-8 (current across each boom
+line, deflection 0.7-1 kt, won't hold > 1 kt), GAP-10 (Tier 1 6 h higher-volume port area / 12 h elsewhere + travel; marsh 3-5 days
+note), GAP-12 partly (windage 1-4 % envelope + earliest ETA; no wind-direction/current members), GAP-13 partly (DWH/Texas City Y
+recovery fractions quoted; no EnR formula), GAP-15 (labelled planning assumption + precedent), GAP-16 (who decides / SMART / PM10
+per tactic). Open: GAP-9 (waves), GAP-11 (ACP/GRP priority areas), ISB exclusion maps, visibility/ceiling forecast.
+
 ## 6. Sources
 
 | ID | Document | Publisher | Opened |
