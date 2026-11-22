@@ -151,7 +151,10 @@ def main():
            "perturbations": MP.PERTURBATIONS, "summary": summ, "per_start": rows,
            "note": ("A calibrated ensemble would put the observed centroid inside the 90 % ellipse ~90 % of the time "
                     "and inside the 50 % ellipse ~50 %; coverage_p10 is the share of the observed slick inside the "
-                    "area reached by >= 10 % of members.")}
+                    "area reached by >= 10 % of members."),
+           "finding": ("The P >= 0.1 area holds ~2x more of the observed slick than one run and the Brier score is ~1/3 "
+                       "lower, but the centroid ellipses are badly under-dispersive (the 4 perturbed parameters do not "
+                       "sample current-pattern errors): read them as parameter spread, not a 90 % confidence region.")}
     OUT.write_text(json.dumps(out, indent=1))
     for s in summ:
         print(s)
