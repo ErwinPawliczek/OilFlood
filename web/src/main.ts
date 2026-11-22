@@ -637,10 +637,11 @@ function renderContent() {
     } else {
       stPlace = `${j.lat.toFixed(2)}°, ${j.lon.toFixed(2)}°`;
       place += `<div class="kv"><span>Spill at</span><span>${j.lat.toFixed(3)}°, ${j.lon.toFixed(3)}°</span>${j.volume_bbl ? `<span>Amount</span><span>${fmtBbl(j.volume_bbl)}${j.oil_type ? ` · ${esc(j.oil_type)}` : ''}</span>` : ''}</div>`;
-      if (j.note) place += `<div class="warn">${esc(j.note)}</div>`;
+
       const busy = j.status === 'queued' || j.status === 'running' || !!state.ens.msg;
       stRun = busy ? `${pct(j.progress ?? 0)}` : j.status === 'done' ? 'done' : j.status === 'error' ? 'error' : '';
       run += `<button class="primary" id="run-btn" ${busy ? 'disabled' : ''}>${busy ? 'Running…' : '▶ Run again here'}</button>`;
+      if (j.note && !state.live?.note) run += `<div class="warn">${esc(j.note)}</div>`;
       const multi = wanted().length > 1;
       if (!Object.keys(state.jobRuns).length && j.status === 'error') run += `<div class="err">${esc(j.error || 'Run failed')}</div>`;
       for (const mid of wanted()) {
@@ -752,7 +753,7 @@ async function initPredForm() {
     if (!state.job) renderContent();
   };
   mountBuilder($('builder'));
-  $('builder').style.display = state.mode === 'prediction' ? '' : 'none';
+  syncBuilderVis();
   amt.addEventListener('input', save);
   oil.addEventListener('change', save);
   renderForecast();
@@ -768,7 +769,7 @@ function setMode(m: Mode) {
   state.tH = 0;
   map.getCanvas().style.cursor = m === 'prediction' ? 'crosshair' : '';
   $('predform').style.display = m === 'prediction' ? '' : 'none';
-  $('builder').style.display = m === 'prediction' ? '' : 'none';
+  syncBuilderVis();
   const s = scene();
   state.rateIdx = autoRateIdx(s.durationH);
   loadCurrents(s);
@@ -939,12 +940,18 @@ async function runPrediction(m: ModelId, token: number) {
   }
 }
 
+/** The builder (Advanced) only changes our model, and only for forecasts. */
+function syncBuilderVis() {
+  $('builder').style.display = state.mode === 'prediction' && wanted().includes('ours') ? '' : 'none';
+}
+
 /** Model toggle: show OpenOil, ours, or both; runs whatever the current spill is missing. */
 function setModel(m: ModelChoice, run = true) {
   state.model = m;
   try { localStorage.setItem(MODEL_KEY, m); } catch { /* private mode */ }
   panel.querySelectorAll<HTMLButtonElement>('#modelsel button').forEach((b) => b.classList.toggle('on', b.dataset.model === m));
   $('mltoggle').style.display = wanted().includes('ours') ? '' : 'none';
+  syncBuilderVis();
   if (run && state.hist.loadRun && state.selected) for (const id of wanted()) state.hist.loadRun(id);
   if (run && state.job && state.job.lat != null) for (const id of wanted()) if (!state.jobRuns[id]) runPrediction(id, state.jobToken);
   renderContent();
@@ -967,7 +974,7 @@ function modelNoteHTML(s: Scene) {
   const mo = s.runs.ours?.tracks.meta;
   const mlOn = mo ? mo.ml_correction === true : state.ml;
   const c = PALETTES.ours.css;
-  if (!mlOn) return `<div class="hint mnote"><b style="color:${c}">Ours</b>: currents + 3 % wind + spreading + weathering, no ML correction. The ML option is experimental: in our backtest it gave no gain on Deepwater Horizon and stranded 62 % of the oil at Main Pass 2023, where none came ashore (docs/BACKTEST.md).</div>`;
+  if (!mlOn) return `<div class="hint mnote" title="The ML option is experimental: in our backtest it gave no gain on Deepwater Horizon and stranded 62 % of the oil at Main Pass 2023, where none came ashore (docs/BACKTEST.md)."><b style="color:${c}">Ours</b>: currents + 3 % wind + spreading + weathering.</div>`;
   const sk = info?.skill;
   let html = `<div class="hint mnote"><b style="color:${c}">Ours + ML</b> <span class="exp">experimental</span>: `;
   if (sk?.traj_24h) {

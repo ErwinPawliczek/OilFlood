@@ -21,7 +21,7 @@ Judging criteria: **I** = impact, **T** = technical execution, **C** = creativit
 
 ### 0:15 – 0:45 · Live prediction (T, P)
 - **Screen:** in the panel set *Oil type* = **Bunker fuel (IFO 380)** and *Amount* = **4000** bbl (the Texas City "Y" scale).
-  Point the cursor at the **Live forecast** block. Click **Release it off Galveston**. The progress bar runs, then the slick plays.
+  In step 1 point at **Live data**. In step 3 click **Run forecast off Galveston**. The progress bar runs, then the slick plays.
   Drag the time scrubber from 0 to 72 h, then let it play.
 - **Say:** "I'll release four thousand barrels of bunker fuel thirty kilometres off Galveston, starting now. It runs on NOAA's
   RTOFS currents and GFS winds, refreshed four times a day: `[read: currents issued …, valid until …]`. Two thousand particles drift, spread, evaporate and strand on the coast for 72 hours.
@@ -39,8 +39,8 @@ Judging criteria: **I** = impact, **T** = technical execution, **C** = creativit
 - **Screen:** open https://oilflood.xyz/?mode=prediction&lat=27.0&lon=-97.1&model=ours&ens=20 beforehand (Padre Island,
   20-member ensemble; it is cached after the first run). The map flies into 3D on its own and the probability columns rise.
   Drag the time slider so the columns grow and spread toward the shore. Click **Forces**, hover the blue (current) and amber
-  (wind) arrows so the explanation pops up. Then open **Build your model**, drag *Wind drift* to 4 %, switch on *Stokes drift*,
-  press **Run my model**; when it finishes, hold on **What changed vs your last run**.
+  (wind) arrows so the explanation pops up. Then open **Model → Advanced: build your model**, drag *Wind drift* to 4 %, switch on *Stokes drift*,
+  press **Run with these**; when it finishes, hold on **What changed vs your last run**.
 - **Say:** "One forecast is a guess, so we run twenty, each with different wind drift, wind direction and current error.
   The height is the probability of oil. These arrows are what pushes it: the current, the wind, and where they add up.
   And anyone can build their own model: more wind drift, Stokes drift on, run it, and see the plan change:
@@ -57,7 +57,7 @@ Judging criteria: **I** = impact, **T** = technical execution, **C** = creativit
   quote. It's a planning aid; the On-Scene Coordinator decides."
 
 ### 1:50 – 2:20 · History and honesty (T, I)
-- **Screen:** switch to **Historical**, pick **Deepwater Horizon**. The NESDIS satellite outlines and the hindcast appear; press play
+- **Screen:** switch to the **Past spills** tab, pick **Deepwater Horizon**. The NESDIS satellite outlines and the hindcast appear; press play
   for a few seconds. Open **Response log** and click one date so the clock jumps. Then open **Backtest** and hold on the table.
 - **Say:** "Historical mode replays nine real Gulf spills on the ocean reanalysis for their dates, with 280 logged responder
   actions, each with a verbatim source quote. For Deepwater Horizon we scored both models against 94 days of NOAA satellite
@@ -97,7 +97,7 @@ Judging criteria: **I** = impact, **T** = technical execution, **C** = creativit
 - [ ] Check `https://oilflood.xyz/api/live`: `stale` is false and `hours_available` is close to 72. The forecast refreshes at
       02/08/14/20:30 UTC. Record **after** a refresh, not across one: runs are cached per forecast, and a new forecast means a
       new ~20 s run on camera.
-- [ ] Do the whole prediction once off camera: **Release it off Galveston** with IFO 380 / 4000 bbl, then **Compare**, then open
+- [ ] Do the whole prediction once off camera: **Run forecast off Galveston** with IFO 380 / 4000 bbl, then **Compare**, then open
       **Response outline**. On camera the same click then loads from cache.
 - [ ] Read the outline. If it shows **no landfall** within 72 h for this forecast, either say "no landfall forecast in 72 hours,
       these shorelines are threatened" (if threatened stretches are listed) or click a point closer to shore and preload that
