@@ -197,6 +197,10 @@ def _run(run_dir: Path, p: dict) -> None:
         wind_drift_factor=float(p.get("wind_drift_factor", 0.02)),
     )
 
+    n_src = _seed_source(o, p, start, total_s, oil)
+    if n_src:
+        n += n_src
+
     o.run(duration=duration,
           time_step=timedelta(minutes=config.TIME_STEP_MIN),
           time_step_output=timedelta(minutes=config.OUTPUT_STEP_MIN))
@@ -223,6 +227,29 @@ def _run(run_dir: Path, p: dict) -> None:
     }
     _write_json(run_dir / "tracks.json", tracks)
     _status(run_dir, status="done", progress=1.0, finished_at=time.time())
+
+
+def _seed_source(o, p: dict, start: datetime, total_s: float, oil: str) -> int:
+    """Optional continuous point source (app/source.py): surface elements released at the source over the run,
+    in 1 h batches (each spread uniformly over its hour), with the same release times as our model."""
+    src = p.get("source")
+    if not src or int(src.get("n_particles", 0)) <= 0:
+        return 0
+    from . import source as srcmod
+    t0 = float(np.datetime64(start, "s").astype(np.int64))
+    rel = srcmod.release_times(src, t0, total_s)
+    vol_pp = srcmod.volume_m3_per_particle(src, t0, total_s)
+    edges = np.arange(t0, t0 + total_s + 3600, 3600.0)
+    counts = np.histogram(rel, bins=edges)[0]
+    for k, c in enumerate(counts):
+        if c == 0:
+            continue
+        ta = start + timedelta(seconds=float(edges[k] - t0))
+        tb = ta + timedelta(hours=1)
+        o.seed_elements(lon=float(src["lon"]), lat=float(src["lat"]), radius=50, time=[ta, tb], number=int(c), z=0,
+                        oil_type=oil, m3_per_hour=vol_pp * int(c),
+                        wind_drift_factor=float(p.get("wind_drift_factor", 0.02)))
+    return int(counts.sum())
 
 
 def build_tracks(o, start: datetime, duration: timedelta, step_min: int) -> dict:

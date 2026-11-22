@@ -8,7 +8,8 @@ import json
 
 from .run import OUT_DIR
 
-ORDER = ["persistence", "openoil", "ours_ml", "ours_noml", "ours_ml_nodwh"]
+ORDER = ["persistence", "openoil", "ours_ml", "ours_noml", "ours_ml_nodwh", "openoil_src", "ours_ml_src", "ours_noml_src"]
+SRC_BASE = {"openoil_src": "openoil", "ours_ml_src": "ours_ml", "ours_noml_src": "ours_noml"}
 
 
 def fmt(x, d=0):
@@ -52,6 +53,9 @@ def main():
                 if key in s:
                     out.append(f"- {lab} ends closer to the observed centroid than ours without ML on "
                                f"{pct(s[key][0])} / {pct(s[key][1])} / {pct(s[key][2])} of start days (24 / 48 / 72 h).")
+            for k, v in s.get("source_closer_share", {}).items():
+                out.append(f"- {names.get(k, k)} ends closer to the observed centroid than {names.get(SRC_BASE[k], k)} "
+                           f"(no source) on {pct(v[0])} / {pct(v[1])} / {pct(v[2])} of start days (24 / 48 / 72 h).")
             for k in ("ours_ml", "ours_ml_nodwh"):
                 if k in s and "ml_coverage_mean" in s[k]:
                     out.append(f"- {names.get(k, k)}: mean share of particle-steps inside the ML coverage mask "

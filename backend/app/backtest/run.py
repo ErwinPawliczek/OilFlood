@@ -48,7 +48,13 @@ MODELS = {
 # there. This variant retrains it with the DWH window left out (MC 209 2017 + Eugene Island 2009 drifters only).
 ML_NODWH_DIR = RUNS / "ml_nodwh"
 DWH_EXTRA = {"ours_ml_nodwh": {"label": "Ours + ML (DWH drifters held out)", "model": "ours", "ml": True,
-                               "ml_dir": str(ML_NODWH_DIR)}}
+                               "ml_dir": str(ML_NODWH_DIR)},
+             # DWH only: the same runs plus the continuous wellhead release (dwh_source.py, docs/BACKTEST.md)
+             "openoil_src": {"label": "OpenOil + wellhead source", "model": "openoil", "source": True},
+             "ours_ml_src": {"label": "Ours + ML + wellhead source", "model": "ours", "ml": True, "source": True},
+             "ours_noml_src": {"label": "Ours (no ML) + wellhead source", "model": "ours", "ml": False,
+                               "source": True}}
+SRC_PAIRS = {"openoil_src": "openoil", "ours_ml_src": "ours_ml", "ours_noml_src": "ours_noml"}
 ALL_MODELS = {**MODELS, **DWH_EXTRA}
 HORIZONS = (24, 48, 72)
 N_PART = 2000
@@ -230,6 +236,9 @@ def plan_run(lat, lon, start: datetime, hours: float, oil: str, volume_bbl: floa
         slo, sla = seed_fn(p)
         p["seed_lon"], p["seed_lat"] = [round(float(x), 5) for x in slo], [round(float(x), 5) for x in sla]
         p["n_particles"] = len(slo)
+    if m.get("source"):
+        from .dwh_source import source_for
+        p["source"] = source_for(start, hours, int(p["n_particles"]))
     return p
 
 
@@ -373,6 +382,8 @@ def case_dwh(workers: int, max_starts: int | None) -> dict:
                 r["fss"].append(round(fss(a, b), 3))
                 r["stranded"].append(round(float(st.mean()), 3))
             r["lw"] = [round(lw_skill(r["sep_km"][:k], cum[:k]), 3) for k in (1, 2, 3)]
+            if p.get("source"):
+                r["source_particles"] = p["source"]["n_particles"]
             if "ml_coverage_fraction" in tr.get("meta", {}):
                 r["ml_coverage"] = tr["meta"]["ml_coverage_fraction"]
             row["models"][mk] = r
@@ -403,6 +414,17 @@ def case_dwh(workers: int, max_starts: int | None) -> dict:
             a = np.array([x for x, _ in pairs])
             b = np.array([y for _, y in pairs])
             summary[key] = [round(float(x), 3) for x in (a < b).mean(0)]
+    # paired: with vs without the wellhead source (share of start days where the source run ends closer)
+    src_closer = {}
+    for mk, base in SRC_PAIRS.items():
+        pairs = [(r["models"][mk]["sep_km"], r["models"][base]["sep_km"]) for r in per_start
+                 if "error" not in r["models"][mk] and "error" not in r["models"][base]]
+        if pairs:
+            a = np.array([x for x, _ in pairs])
+            b = np.array([y for _, y in pairs])
+            src_closer[mk] = [round(float(x), 3) for x in (a < b).mean(0)]
+    if src_closer:
+        summary["source_closer_share"] = src_closer
     return {
         "id": "dwh", "name": cat["name"], "kind": "outlines",
         "observed": "NOAA/NESDIS daily satellite oil outlines (data/spills/dwh/footprints)",
@@ -410,7 +432,17 @@ def case_dwh(workers: int, max_starts: int | None) -> dict:
                    f"from D {DWH_OBS_HOUR}:00 UTC on HYCOM-TSIS reanalysis currents + winds, compare with the "
                    f"outlines of D+1/D+2/D+3. Persistence = outline D unchanged."),
         "starts": starts, "horizons_h": list(HORIZONS), "summary": summary, "per_start": per_start,
+        "source": _source_meta(),
     }
+
+
+def _source_meta() -> dict:
+    from . import dwh_source as ds
+    t, r = ds.net_knots()
+    return {"lon": ds.WELL_LON, "lat": ds.WELL_LAT, "gross": ds.GROSS, "containment": ds.CONTAINMENT,
+            "net_rate_t": t, "net_rate_bbl_day": [round(x) for x in r], "res_days": ds.RES_DAYS,
+            "gross_src": ds.GROSS_SRC, "containment_src": ds.CONTAINMENT_SRC,
+            "collected_total_bbl": round(ds.total_collected_bbl())}
 
 
 def _area_km2(geom) -> float:

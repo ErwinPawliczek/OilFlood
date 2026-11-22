@@ -77,6 +77,16 @@ def fingas_fraction(p: dict, t_s: float) -> float:
     return float(min(max(pct / 100.0, 0.0), p["f_evap_max"]))
 
 
+def fingas_fraction_arr(p: dict, t_s: np.ndarray) -> np.ndarray:
+    """fingas_fraction for an array of oil ages (continuous source: each particle has its own age)."""
+    t_min = np.maximum(np.asarray(t_s, float) / 60.0, 1.0)
+    if p["evap_law"] == "sqrt":
+        pct = (0.0254 * p["pct_d180"] + 0.01 * (T_WATER_C - 15)) * np.sqrt(t_min)
+    else:
+        pct = (0.165 * p["pct_d180"] + 0.045 * (T_WATER_C - 15)) * np.log(t_min)
+    return np.minimum(np.maximum(pct / 100.0, 0.0), p["f_evap_max"])
+
+
 def fay_radius(v0: float, delta: float, t_s: float) -> float:
     """Fay (1971) gravity-inertia then gravity-viscous radius (m)."""
     t_s = max(t_s, 1.0)
@@ -132,6 +142,26 @@ def run(run_dir: Path, p: dict, status) -> dict:
         lon = np.asarray(p["seed_lon"], float).copy()
         lat = np.asarray(p["seed_lat"], float).copy()
 
+    # Optional continuous point source (app/source.py, e.g. the DWH wellhead): extra particles released at the
+    # source over the run. They start "unborn" (state 3), get their own oil age for evaporation and no Fay
+    # spreading term (a continuous release is not one Fay slick). Off by default: nothing below changes then.
+    src = p.get("source")
+    n_seed = n
+    birth = None
+    if src and int(src.get("n_particles", 0)) > 0:
+        from .. import source as srcmod
+        rel = srcmod.release_times(src, t0, dur_s)
+        ns = len(rel)
+        rng_s = np.random.default_rng(int(rel[0]) % 2**32 if ns else 0)
+        rs = 50.0 * np.sqrt(rng_s.random(ns))
+        ths = 2 * np.pi * rng_s.random(ns)
+        lat = np.concatenate([lat, src["lat"] + rs * np.sin(ths) / M_LAT])
+        lon = np.concatenate([lon, src["lon"] + rs * np.cos(ths) / (M_LON * np.cos(np.radians(src["lat"])))])
+        m0 = np.concatenate([m0, np.full(ns, srcmod.volume_m3_per_particle(src, t0, dur_s) * op["density"])])
+        birth = np.concatenate([np.full(n, t0), rel])
+        vis_u_src = rng_s.random(ns)
+        n = n + ns
+
     mass = m0.copy()           # surface mass per particle (kg)
     evap = np.zeros(n)
     disp = np.zeros(n)
@@ -140,7 +170,14 @@ def run(run_dir: Path, p: dict, status) -> dict:
     state = np.zeros(n, np.int8)   # 0 active, 1 stranded, 2 no_data
     visible = np.ones(n, bool)
     vis_end = np.empty(n, dtype=object)
-    vis_u = rng.random(n)      # particle disappears when its lost mass fraction passes this
+    vis_u = rng.random(n_seed)  # particle disappears when its lost mass fraction passes this
+    if birth is not None:
+        vis_u = np.concatenate([vis_u, vis_u_src])
+        unborn = birth > t0
+        state[unborn] = 3
+        visible[unborn] = False
+        mass[unborn] = 0.0
+        fe_prev_arr = np.zeros(n)
 
     n_out = int(round(dur_s / out_dt)) + 1
     times = [int(t0 + i * out_dt) for i in range(n_out)]
@@ -173,6 +210,11 @@ def run(run_dir: Path, p: dict, status) -> dict:
     for k in range(1, n_steps + 1):
         t = t0 + (k - 1) * dt
         age = (k - 1) * dt
+        if birth is not None:  # release source particles due by the start of this step
+            new = (state == 3) & (birth <= t)
+            state[new] = 0
+            mass[new] = m0[new]
+            visible[new] = True
         act = state == 0
         idx = np.nonzero(act)[0]
         if len(idx):
@@ -198,10 +240,12 @@ def run(run_dir: Path, p: dict, status) -> dict:
             v2 = np.where(np.isfinite(v2), v2, v1)
             # Diffusion: background + Fay spreading as an equivalent diffusivity while the slick is thick.
             r_a, r_b = fay_radius(v0, delta, age), fay_radius(v0, delta, age + dt)
-            v_surf = mass[state != 1].sum() / op["density"]
+            v_surf = mass[:n_seed][state[:n_seed] != 1].sum() / op["density"]
             h = v_surf / (math.pi * r_a ** 2)
             k_fay = (r_b ** 2 - r_a ** 2) / (8 * dt) if h > op["h_terminal"] else 0.0
             sig = math.sqrt(2 * (K_H + k_fay) * dt)
+            if birth is not None:  # source particles: background diffusion only
+                sig = np.where(idx < n_seed, sig, math.sqrt(2 * K_H * dt))
             dx = u2 * dt + sig * rng.standard_normal(len(idx))
             dy = v2 * dt + sig * rng.standard_normal(len(idx))
             nlo = lo + dx / (M_LON * np.cos(np.radians(la)))
@@ -225,21 +269,40 @@ def run(run_dir: Path, p: dict, status) -> dict:
             # --- weathering of surface oil (active + out-of-domain particles keep weathering) -----
             wsp = np.hypot(uw, vw)
             fe = fingas_fraction(op, age + dt)
-            surf = np.nonzero(state != 1)[0]
-            if fe > fe_prev and fe_prev < 1:
-                de = mass[surf] * (fe - fe_prev) / (1 - fe_prev)
+            if birth is None:
+                surf = np.nonzero(state != 1)[0]
+                if fe > fe_prev and fe_prev < 1:
+                    de = mass[surf] * (fe - fe_prev) / (1 - fe_prev)
+                    mass[surf] -= de
+                    evap[surf] += de
+            else:  # per-particle oil age
+                surf = np.nonzero((state != 1) & (state != 3))[0]
+                fe_i = fingas_fraction_arr(op, t + dt - birth[surf])
+                fp = fe_prev_arr[surf]
+                de = np.where((fe_i > fp) & (fp < 1), mass[surf] * (fe_i - fp) / np.maximum(1 - fp, 1e-9), 0.0)
                 mass[surf] -= de
                 evap[surf] += de
-            fe_prev = fe
+                fe_prev_arr[surf] = fe_i
+                fe = fe_i  # per-particle in emulsification / viscosity below
+            fe_prev = fe if birth is None else fe_prev
             # wind at each surface particle (out-of-domain ones use the slick mean)
             w_all = np.full(n, float(np.mean(wsp)) if len(wsp) else 5.0)
             w_all[idx] = wsp
             ws = w_all[surf]
-            if op["ymax"] > 0 and fe >= op["emul_onset"]:
-                water[surf] += dt * K_EM * (ws + 1) ** 2 * (1 - water[surf] / op["ymax"])
-                water[surf] = np.minimum(water[surf], op["ymax"])
-            y = water[surf]
-            mu = op["mu_cp"] * math.exp(C4_VISC * fe) * np.exp(2.5 * y / (1 - 0.654 * y))
+            if birth is None:
+                if op["ymax"] > 0 and fe >= op["emul_onset"]:
+                    water[surf] += dt * K_EM * (ws + 1) ** 2 * (1 - water[surf] / op["ymax"])
+                    water[surf] = np.minimum(water[surf], op["ymax"])
+                y = water[surf]
+                mu = op["mu_cp"] * math.exp(C4_VISC * fe) * np.exp(2.5 * y / (1 - 0.654 * y))
+            else:
+                if op["ymax"] > 0:
+                    on = fe >= op["emul_onset"]
+                    w_ = water[surf]
+                    w_ = np.where(on, np.minimum(w_ + dt * K_EM * (ws + 1) ** 2 * (1 - w_ / op["ymax"]), op["ymax"]), w_)
+                    water[surf] = w_
+                y = water[surf]
+                mu = op["mu_cp"] * np.exp(C4_VISC * fe) * np.exp(2.5 * y / (1 - 0.654 * y))
             h_cm = max(h, op["h_terminal"]) * 100.0
             frac_h = 0.11 * (ws + 1) ** 2 / (1 + 50 * np.sqrt(mu) * h_cm * op["surface_tension"])
             dd = mass[surf] * np.minimum(frac_h * dt / 3600.0, 1.0)
@@ -290,5 +353,6 @@ def run(run_dir: Path, p: dict, status) -> dict:
             "water_temp_c": T_WATER_C,
             "emulsion_water_fraction_end": round(float(np.mean(water)), 3),
             "runtime_s": round(time.time() - t_wall, 1),
+            **({"source_particles": n - n_seed} if birth is not None else {}),
         },
     }
