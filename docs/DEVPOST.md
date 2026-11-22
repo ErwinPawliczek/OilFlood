@@ -77,6 +77,21 @@ hindcast, OpenOil or ours) and follows the time slider:
 
 It is labelled as a planning aid, not operational guidance. An optional LLM summary can be added on top (see below).
 
+**Probabilities in 3D, and build your own model.** One forecast is a guess; responders need to know how sure it is. Our
+model runs as an ensemble (20 members by default, up to 30): each member draws its own windage (1–4 %, NOAA's GNOME range), wind
+direction error (σ 20°), current-speed error (σ 20 %) and diffusivity. Tilt the map to 3D and P(oil present) rises out of the
+sea as smooth columns that animate with the clock, with the 50 % and 90 % contours draped underneath and every threatened
+shoreline coloured by P(oiled) and labelled with its P10 / P50 / P90 arrival time. A forces view puts arrows at the slick centre
+for each push (current, wind drift, Stokes, ML correction) chained into the net drift, with a hover explanation and equation,
+plus charts of drift by force and the oil budget over time. The "Build your model" panel exposes every parameter (units,
+default, cited source); change windage or switch on Stokes drift, press *Run my model*, and the panel shows how the probability
+map and the action plan moved (for example: earliest plausible landfall 42 h → 38 h, P(oiled) at Port Mansfield 60 % → 80 %).
+A share link reproduces the exact model. With an ensemble the action plan becomes probabilistic: shorelines ranked by
+P(oiled) × ESI sensitivity, boom "deploy by" = the P10 arrival (in place in time in 9 of 10 futures), and each tactic window
+shows the share of members whose protocol gates pass. A /methodology page explains the whole pipeline with the equations and
+the validation numbers, including the honest part: on 12 DWH days the P ≥ 10 % area holds ~70 % of the observed slick vs ~35 %
+for a single run, but the centroid ellipses are too narrow.
+
 **Historical mode.** 9 Gulf of Mexico spills from NOAA IncidentNews, 1979–2023 (Deepwater Horizon, Ixtoc I, Texas City "Y",
 Mega Borg, Burmah Agate, Barge DBL 152, MC 209, Eugene Island, Main Pass). For the 6 spills after 2001, a hindcast runs on the
 HYCOM ocean reanalysis for those exact dates. Deepwater Horizon also shows 94 daily NOAA/NESDIS satellite slick outlines. Each

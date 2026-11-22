@@ -14,8 +14,9 @@ export interface Outline {
   stranded_pct_end: number | null;
   priority_shorelines: Shore[];
   shorelines_total: number;
-  boom_first: { priority: number; name: string | null; lat: number; lon: number; eta_h: number; eta_earliest_h?: number; esi: string; esi_label: string; action: string; lead_time_ok: boolean; note: string; lead?: Lead }[];
-  tactics: Record<string, { tactic: string; feasible: boolean; windows: { start: string; end: string; from_h: number; to_h: number; hours: number }[]; total_hours: number; not_applicable: string | null; conditions: string[]; notes: string[]; gates?: Gate[]; precedents?: Prec[] }>;
+  boom_first: { deploy_by_h?: number; deploy_by?: string; eta_p50_h?: number | null; priority: number; name: string | null; lat: number; lon: number; eta_h: number; eta_earliest_h?: number; esi: string; esi_label: string; action: string; lead_time_ok: boolean; note: string; lead?: Lead }[];
+  ensemble?: { members: number; seed: number; method: string } | null;
+  tactics: Record<string, { tactic: string; feasible: boolean; p_members_by_h?: [number, number][]; windows: { start: string; end: string; from_h: number; to_h: number; hours: number; p_members?: number }[]; total_hours: number; not_applicable: string | null; conditions: string[]; notes: string[]; gates?: Gate[]; precedents?: Prec[] }>;
   boom_precedents?: Prec[]; shoreline_precedents?: Prec[]; closure_precedents?: Prec[];
   uncertainty?: { label: string; method: string; skill: string; envelope_only_shoreline: { cells: number; shoreline_km: number; earliest_h: number | null; places: string[] } };
   oil?: { adios: string; api: number | null; pour_point_c: number | null; api_band: string; continuous_release: boolean; emulsion_pct: Record<string, number>; window_note: string };
@@ -35,6 +36,8 @@ interface Gate { key: string; label: string; limit: string; rules: string[]; sof
 interface Prec { incident: string; text: string; url: string | null }
 export interface Shore {
   eta_earliest_h?: number;
+  /** ensemble (resp-v4) */
+  p_oiled_72h?: number; p_oiled?: Record<string, number>; eta_p10_h?: number | null; eta_p50_h?: number | null; eta_p90_h?: number | null; priority_score?: number;
   priority: number; name: string | null; state: string; lat: number; lon: number; impact: 'landfall' | 'threatened';
   eta_h: number; eta: string; particles_pct: number; stranded_bbl: number; shoreline_km: number; wetland_km: number;
   esi_most_sensitive: string; esi_most_sensitive_label: string; esi_dominant_label: string; sensitivity_tier: number; shoreline_tactic: string;
@@ -55,6 +58,7 @@ export async function fetchOutline(url: string, isStale: () => boolean): Promise
 
 const TIER_COL = ['', '#ff6b6b', '#ffb547', '#8fb8ff'];
 const fmtH = (h: number) => (h < 1 ? '<1 h' : `${Math.round(h)} h`);
+const etaQ = (h: number | null | undefined) => (h == null ? '–' : fmtH(h));
 const utc = (s: string) => s.replace(/^\d{4}-(\d{2})-(\d{2})T(\d{2}:\d{2})Z$/, '$1-$2 $3Z');
 const CAT_LABEL: Record<string, string> = {
   closure: 'Closures', boom: 'Boom', skimming: 'Skimming', dispersant: 'Dispersant', in_situ_burn: 'In-situ burn',
@@ -75,9 +79,11 @@ export function outlineHTML(o: Outline | null, st: { loading?: string | null; er
   if (st.error) body = `<div class="err">${escO(st.error)}</div>`;
   else if (!o) body = `<div class="hint">${escO(st.loading || 'Waiting for the forecast run…')}</div>`;
   else {
+    const ens = o.ensemble && o.ensemble.members ? o.ensemble : null;
     body += `<div class="disc">${escO(o.disclaimer)}</div>`;
     const b = o.briefing;
     if (b?.text) body += `<div class="brief"><div class="label">Briefing <small>(${escO(b.provider)} ${escO(b.model)}, written from the outline below)</small></div>${escO(b.text).replace(/\n/g, '<br>')}</div>`;
+    if (ens) body += `<div class="ens-tag">Ensemble of ${ens.members} members: probabilities, P10 / P50 / P90 arrival times and the share of members in which each tactic's gates pass.</div>`;
     body += `<div class="resp-out">${o.uncertainty ? `<span class="unc-tag" title="${escO(o.uncertainty.method)}">${escO(o.uncertainty.label)}</span> ` : ''}${o.headline.map(escO).join(' ')}</div>`;
     if (o.protocol) {
       body += `<details class="ol-sub how" data-k="how" ${open.how ? 'open' : ''}><summary>How we go from model to action</summary><ol class="ol-how">${o.protocol.steps.map((st) => `<li><b>${escO(st.step)}</b>: ${escO(st.text)} <small class="hint">This run: ${escO(st.this_run)} · ${escO(st.rules.join(', '))}</small></li>`).join('')}</ol><div class="hint">Every threshold cites a rule in <a href="${escO(o.protocol.doc_url)}" target="_blank" rel="noopener">docs/PROTOCOLS.md</a> (RRT-6, NOAA, USCG / 33 CFR). The FOSC / Unified Command decides.</div></details>`;
@@ -94,21 +100,22 @@ export function outlineHTML(o: Outline | null, st: { loading?: string | null; er
         <button class="ol-shore" data-lon="${s.lon}" data-lat="${s.lat}" title="${escO(s.shoreline_tactic)}">
           <b style="color:${TIER_COL[s.sensitivity_tier]}">${s.priority}</b>
           <span>${escO(s.name ?? `${s.lat}, ${s.lon}`)} <small>ESI ${escO(s.esi_most_sensitive)} ${escO(s.esi_most_sensitive_label)}</small></span>
-          <em>${s.impact === 'landfall' ? `${fmtH(s.eta_h)} · ${s.particles_pct}%` : `near in ${fmtH(s.eta_h)}`}${s.eta_earliest_h != null && s.eta_earliest_h < s.eta_h - 0.5 ? `<small> earliest ${fmtH(s.eta_earliest_h)}</small>` : ''}</em>
+          <em>${s.p_oiled_72h != null ? `<b class="pq" style="--p:${s.p_oiled_72h}">${Math.round(s.p_oiled_72h * 100)}%</b><small> ${etaQ(s.eta_p10_h)} / ${etaQ(s.eta_p50_h)} / ${etaQ(s.eta_p90_h)}</small>` : s.impact === 'landfall' ? `${fmtH(s.eta_h)} · ${s.particles_pct}%` : `near in ${fmtH(s.eta_h)}`}${s.p_oiled_72h == null && s.eta_earliest_h != null && s.eta_earliest_h < s.eta_h - 0.5 ? `<small> earliest ${fmtH(s.eta_earliest_h)}</small>` : ''}</em>
         </button>`).join('')}</div>`;
       if (o.shorelines_total > 6) body += `<div class="hint">+${o.shorelines_total - 6} more stretches in the JSON.</div>`;
+      if (ens) body += `<div class="hint">Ranked by P(oiled within 72 h) × ESI sensitivity. % = share of ${ens.members} members that oil the stretch; times = arrival P10 / P50 / P90 (– : fewer members reach it).</div>`;
       body += `<div class="hint">ICS-232-style list from NOAA ESI only: defer to the ACP / GRP priority protection areas (R8). "earliest" = oil within 10 km in the uncertainty envelope.</div>`;
     }
     const eo = o.uncertainty?.envelope_only_shoreline;
     if (eo && eo.cells > 0) body += `<div class="ol-item warn-t">Uncertainty envelope also reaches ${eo.places.slice(0, 4).map(escO).join(', ') || 'more shoreline'} (earliest ~${fmtH(eo.earliest_h ?? 0)}), not hit in the best guess.</div>`;
     if (o.boom_first.length) {
       body += `<div class="label ol-h">Boom first <small>lead time = USCG Tier 1 (6 h port area / 12 h elsewhere) vs arrival</small></div>${o.boom_first.slice(0, 3).map((x) => `
-        <div class="ol-item"><b>${escO(x.name ?? '')}</b>: ${escO(x.action)}. <span class="${x.lead_time_ok ? 'hint' : 'warn-t'}">${escO(x.note)}</span>${x.lead ? ` <small class="hint" title="${escO(`notify 0.5 h + en route 2 h + ${x.lead.travel_h ?? '?'} h road from ${x.lead.base ?? 'nearest base'}; floor ${x.lead.tier1_h} h ${x.lead.hvp ? `(higher-volume port area: ${x.lead.hvp})` : '(outside higher-volume port areas)'}; 33 CFR 154.1045`)}">[MECH-6]</small>` : ''}</div>`).join('')}`;
+        <div class="ol-item"><b>${escO(x.name ?? '')}</b>: ${escO(x.action)}.${x.deploy_by_h != null && ens ? ` <span class="ok-t" title="Deploy before the P10 arrival (oil arrives earlier in only 1 of 10 members)${x.eta_p50_h != null ? `; P50 arrival ${fmtH(x.eta_p50_h)}` : ''}">Deploy by ${fmtH(x.deploy_by_h)}</span>` : ''} <span class="${x.lead_time_ok ? 'hint' : 'warn-t'}">${escO(x.note)}</span>${x.lead ? ` <small class="hint" title="${escO(`notify 0.5 h + en route 2 h + ${x.lead.travel_h ?? '?'} h road from ${x.lead.base ?? 'nearest base'}; floor ${x.lead.tier1_h} h ${x.lead.hvp ? `(higher-volume port area: ${x.lead.hvp})` : '(outside higher-volume port areas)'}; 33 CFR 154.1045`)}">[MECH-6]</small>` : ''}</div>`).join('')}`;
       body += precHTML(o.boom_precedents);
     }
     body += `<div class="label ol-h">Windows <small>(hours after release; chips = protocol gates, hover for limit + source)</small></div>`;
     for (const t of Object.values(o.tactics)) {
-      const w = t.windows.map((x) => `${Math.round(x.from_h)}–${Math.round(x.to_h + 1)} h`).join(', ');
+      const w = t.windows.map((x) => `${Math.round(x.from_h)}–${Math.round(x.to_h + 1)} h${x.p_members != null ? ` <small class="pm" title="share of ensemble members whose protocol gates pass in this window">${Math.round(x.p_members * 100)}% of members</small>` : ''}`).join(', ');
       const block = (t.gates ?? []).filter((g) => !g.soft && g.pass_h === 0 && g.fail_h > 0).map((g) => g.label.toLowerCase());
       body += `<div class="ol-item ol-tac" title="${escO([...t.conditions, ...t.notes].join('\n'))}"><b>${escO(t.tactic)}</b>: ${t.not_applicable ? `<span class="hint">${escO(t.not_applicable)}</span>` : t.feasible ? `<span class="ok-t">${w}</span> <small class="hint">${t.total_hours} h total</small>` : `<span class="warn-t">no window in this forecast${block.length ? ` (blocked: ${escO(block.join(', '))})` : ''}</span>`}${t.not_applicable ? '' : gatesHTML(t.gates)}${precHTML(t.precedents)}</div>`;
     }

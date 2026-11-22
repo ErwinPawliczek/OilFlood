@@ -22,7 +22,8 @@ from scipy.spatial import cKDTree
 
 from . import config, oils
 
-VERSION = "resp-v3"  # v3 (T23): real protocol gates (PROTOCOLS.md R1-R10), uncertainty envelope, Tier 1 lead time
+VERSION = "resp-v4"  # v4 (T24): ensemble probabilities (P(oiled) x ESI ranking, P10 deploy-by, gate pass fractions)
+_V3 = "resp-v3"  # v3 (T23): real protocol gates (PROTOCOLS.md R1-R10), uncertainty envelope, Tier 1 lead time
 # v2: + "layer" (map geometry, T21); windows use ETOPO1 depth + coast distance
 KT = 1.943844  # m/s -> knots
 NM_KM = 1.852
@@ -311,7 +312,8 @@ def precedents(ocls: str, vol_bbl: float, lon: float, lat: float, cats: list[str
 
 # --- main ---------------------------------------------------------------------------------------------
 
-def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | None = None) -> dict:
+def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | None = None,
+          ens: dict | None = None) -> dict:
     times = np.array(tracks["times"], dtype=float)
     t0 = float(times[0])
     parts = tracks["particles"]
@@ -446,6 +448,8 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
     # tiny hits (< 0.5 % of particles) after the real ones.
     shorelines.sort(key=lambda s: (s["impact"] != "landfall" or s["particles_pct"] < 0.5, s["sensitivity_tier"],
                                    s["eta_h"]))
+    if ens:
+        _ens_shorelines(shorelines, ens, cells, labels, a_state, atlases, elat, elon, t0, dur_h)
     for i, s in enumerate(shorelines):
         s["priority"] = i + 1
     landfalls = [s for s in shorelines if s["impact"] == "landfall"]
@@ -607,6 +611,7 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
                                (hours[0]["gates"][kind] if hours else [])],
                 "notes": extra, "precedents": P.precedents_for(prec_key)}
 
+    ens_p = _ens_gate_fractions(ens, hours, rl, oc) if ens else None
     disp = _tactic("disp", "Dispersants (aerial / vessel)",
                    ["FOSC decides under RRT-6 pre-approval; RRT notified, results to RRT within 24 h; spray contractor "
                     "under contract before the spill (AUTH-1, DISP-6).",
@@ -630,6 +635,18 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
                     "Expect a fraction: DWH skimmed ~3 %, Texas City Y recovered ~18 % as liquid (MON-2, R7).",
                     f"Mean current along the slick {np.mean(curs):.2f} kt (max {max(curs):.2f} kt)." if curs else
                     "No current data along the slick."], "skimming")
+
+    if ens_p:
+        for kind, tac in (("disp", disp), ("burn", burn), ("mech", mech)):
+            pk = ens_p[kind]
+            for w in tac["windows"]:
+                sel = [pk[i] for i, h in enumerate(hours) if w["from_h"] <= h["h"] <= w["to_h"]]
+                w["p_members"] = round(float(np.mean(sel)), 3) if sel else None
+            tac["p_members_by_h"] = [[hours[i]["h"], round(float(pk[i]), 3)] for i in range(0, len(hours), 3)]
+            tac["p_members_max"] = round(float(max(pk)), 3) if pk else 0.0
+            # hours where >= half the members pass, even if the control run's centroid fails (e.g. too close to shore)
+            tac["windows_p50"] = _windows([{"t": h["t"], "h": h["h"], "ok": pk[i] >= 0.5} for i, h in enumerate(hours)],
+                                          "ok")
 
     # --- uncertainty envelope (R1, FCST-2/FCST-4): windage 1-4 % instead of the model's own value ---------------
     # our model: fixed 3 % (ourmodel/sim.py WINDAGE); OpenOil: the request's wind_drift_factor (default 2 %)
@@ -674,12 +691,18 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
     # --- boom-first list with real lead times (R6) ---------------------------------------------------------------
     boom_first = []
     for s in shorelines:
-        if s["impact"] != "landfall" or s["particles_pct"] < 0.5:
+        if ens:
+            if (s.get("p_oiled_72h") or 0) < 0.1:
+                continue
+        elif s["impact"] != "landfall" or s["particles_pct"] < 0.5:
             continue
         base = rl.nearest_equipment_base(s["lon"], s["lat"])
         lt = P.lead_time(s["lon"], s["lat"], base)
         in_time = s["eta_h"] >= lt["lead_h"]
         early_ok = s["eta_earliest_h"] >= lt["lead_h"]
+        p10 = s.get("eta_p10_h") if ens else None
+        if p10 is not None:  # ensemble: the boom must be in place by the earliest plausible arrival (P10 ETA)
+            in_time = early_ok = p10 >= lt["lead_h"]
         marsh = s["sensitivity_tier"] == 1
         boom_first.append({
             "priority": s["priority"], "name": s["name"], "lat": s["lat"], "lon": s["lon"], "eta_h": s["eta_h"],
@@ -699,6 +722,18 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
                 f" Marsh: in the Galveston Bay ACP, protective booming of marsh tributaries takes "
                 f"{P.MARSH_BOOM_DAYS[0]}-{P.MARSH_BOOM_DAYS[1]} days (MECH-7): pre-position early." if marsh else ""),
         })
+        if p10 is not None:
+            bf = boom_first[-1]
+            bf.update(deploy_by_h=p10, deploy_by=_iso(t0 + p10 * 3600), eta_p10_h=p10, eta_p50_h=s.get("eta_p50_h"),
+                      eta_p90_h=s.get("eta_p90_h"), p_oiled_72h=s.get("p_oiled_72h"),
+                      priority_score=s.get("priority_score"))
+            p50 = s.get("eta_p50_h")
+            bf["note"] = (f"P(oiled within 72 h) {100 * s['p_oiled_72h']:.0f} %. Earliest plausible arrival (P10) "
+                          f"{p10:.0f} h" + (f", median (P50) {p50:.0f} h" if p50 is not None else
+                                            ", median: fewer than half the members reach it") +
+                          (f". Deploy boom by T+{p10:.0f} h; it can be on scene in ~{lt['lead_h']:.0f} h."
+                           if in_time else f". Boom (~{lt['lead_h']:.0f} h) cannot beat the P10 arrival: protect the "
+                           "next site and stage shoreline crews (R6)."))
         if len(boom_first) >= 5:
             break
 
@@ -786,8 +821,18 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
     for s in shorelines:
         s.pop("_cells", None)
 
+    ens_block = None
+    if ens:
+        ens_block = {"members": ens["members_ok"], "seed": ens["seed"], "member_particles": ens["member_particles"],
+                     "method": ("Shorelines ranked by P(oiled within 72 h) x ESI weight (rank/10); P = share of "
+                                f"{ens['members_ok']} perturbed members (windage 1-4 %, wind direction sigma 20 deg, "
+                                "current x N(1, 0.2), K x2) that strand oil on the segment. Boom deploy-by = P10 ETA "
+                                "(earliest plausible arrival); P50 shown. Tactic windows: share of members whose gates "
+                                "pass (zone gates on each member's slick centroid). docs/METHODOLOGY.md"),
+                     "probability_url": f"/api/spill/{run_id}/probability" if run_id else None}
+        headline.insert(0, _ens_headline(shorelines, ens, dur_h))
     out = {
-        "version": VERSION, "run_id": run_id, "spill_id": spill_id, "disclaimer": DISCLAIMER,
+        "version": VERSION, "run_id": run_id, "ensemble": ens_block, "spill_id": spill_id, "disclaimer": DISCLAIMER,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
         "spill": {"lat": lat0, "lon": lon0, "start": _iso(t0), "horizon_h": round(dur_h, 1),
                   "volume_bbl": round(vol_bbl, 1), "oil_type": oil_name, "oil_class": ocls,
@@ -892,6 +937,107 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
         ],
     }
     return json.loads(json.dumps(out, default=_plain))
+
+
+def _ens_member_eta(ens: dict, ks) -> np.ndarray:
+    """Per-member first stranding time (h, inf = never) over a set of ESI cells."""
+    M = ens["members_ok"]
+    eta = np.full(M, np.inf)
+    ce = ens.get("_cell_eta") or {}
+    for k in ks:
+        v = ce.get(str(k))
+        if v:
+            eta = np.minimum(eta, np.array([np.inf if x is None else x for x in v], float))
+    return eta
+
+
+def _q(vals: np.ndarray, q: float):
+    x = float(np.quantile(vals, q, method="inverted_cdf"))
+    return None if not math.isfinite(x) else round(x, 1)
+
+
+def _ens_shorelines(shorelines, ens, cells, labels, a_state, atlases, elat, elon, t0, dur_h) -> None:
+    """Add P(oiled) + ETA quantiles to each stretch, add stretches only the ensemble reaches, rank by P72 x ESI."""
+    T72 = min(72.0, dur_h)
+
+    def fill(s, ks):
+        eta = _ens_member_eta(ens, ks)
+        s["p_oiled"] = {**{str(T): round(float(np.mean(eta <= T)), 3) for T in (24, 48, 72) if T <= dur_h + 0.01},
+                        "end": round(float(np.mean(np.isfinite(eta))), 3)}
+        s["p_oiled_72h"] = round(float(np.mean(eta <= T72)), 3)
+        s["eta_p10_h"], s["eta_p50_h"], s["eta_p90_h"] = _q(eta, 0.1), _q(eta, 0.5), _q(eta, 0.9)
+        s["esi_weight"] = round(esi_rank(s["esi_most_sensitive"]) / 10, 3)
+        s["priority_score"] = round(s["p_oiled_72h"] * s["esi_weight"], 4)
+
+    for s in shorelines:
+        fill(s, s["_cells"])
+    known = {k for s in shorelines for k in s["_cells"]}
+    for es in ens.get("shorelines", []):
+        ks = [k for k in es.get("_cells", []) if k not in known]
+        if not ks or es["p_oiled"]["end"] < 0.05:
+            continue
+        known.update(ks)
+        cmax = max((cells[k][3] for k in ks), key=esi_rank)
+        dom = Counter()
+        for k in ks:
+            dom[cells[k][4]] += cells[k][2]
+        cdom = dom.most_common(1)[0][0]
+        rank_max = esi_rank(cmax)
+        s = {"name": es["name"], "state": es["state"], "lat": es["lat"], "lon": es["lon"],
+             "bbox": [round(float(elon[ks].min()), 3), round(float(elat[ks].min()), 3),
+                      round(float(elon[ks].max()), 3), round(float(elat[ks].max()), 3)],
+             "impact": "ensemble", "particles_pct": 0.0, "stranded_kg": 0, "stranded_bbl": 0,
+             "shoreline_km": round(sum(cells[k][2] for k in ks), 1), "wetland_km": round(sum(cells[k][5] for k in ks), 1),
+             "esi_most_sensitive": cmax, "esi_most_sensitive_label": labels.get(cmax, cmax),
+             "esi_dominant": cdom, "esi_dominant_label": labels.get(cdom, cdom),
+             "sensitivity_tier": 1 if rank_max >= 9 else 2 if rank_max >= 7 else 3,
+             "shoreline_tactic": next(txt for r, txt in SHORE_TACTICS if rank_max >= r), "_cells": ks}
+        fill(s, ks)
+        e = s["eta_p50_h"] if s["eta_p50_h"] is not None else s["eta_p10_h"]
+        if e is None:
+            continue
+        s["eta_h"], s["eta"] = e, _iso(t0 + e * 3600)
+        shorelines.append(s)
+    shorelines.sort(key=lambda s: (-s["priority_score"], s["sensitivity_tier"], s["eta_h"]))
+
+
+def _ens_gate_fractions(ens, hours, rl, oc) -> dict:
+    """Per hour, the share of members whose dispersant / burn / boom gates pass. Time gates (wind, daylight, emulsion,
+    oil) come from the forecast at the control slick; the zone gates (>= 3 nm, >= 10 m) and 'oil on the surface' are
+    evaluated on each member's own slick centroid."""
+    cen = np.array([[[np.nan if x is None else x for x in pt] for pt in row] for row in ens["_cen_hourly"]], float)
+    M, nh = cen.shape[0], cen.shape[1]
+    out = {"disp": [], "burn": [], "mech": []}
+    for i, h in enumerate(hours):
+        j = min(i, nh - 1)
+        c = cen[:, j]
+        fin = np.isfinite(c[:, 0])
+        off = np.full(M, np.nan)
+        dep = np.full(M, np.nan)
+        if fin.any():
+            off[fin] = rl.shore_km(c[fin, 0], c[fin, 1]) / NM_KM
+            d_ = rl.depth_m(c[fin, 0], c[fin, 1])
+            if d_ is not None:
+                dep[fin] = d_
+        zone_d = fin & (off >= P.DISP_MIN_NM) & (np.isnan(dep) | (dep >= P.DISP_MIN_DEPTH_M))
+        zone_b = fin & (off >= P.BURN_MIN_NM)
+        out["disp"].append(float(np.mean(zone_d)) if h["disp_t"] else 0.0)
+        out["burn"].append(float(np.mean(zone_b)) if h["burn_t"] else 0.0)
+        mech_t = bool(oc["mechanical"]) and all(g["ok"] is not False for g in h["gates"]["mech"] if not g["soft"])
+        out["mech"].append(float(np.mean(fin)) if mech_t else 0.0)
+    return out
+
+
+def _ens_headline(shorelines, ens, dur_h) -> str:
+    top = [s for s in shorelines if (s.get("p_oiled_72h") or 0) >= 0.1]
+    if not top:
+        return (f"Ensemble ({ens['members_ok']} members): no shoreline segment is oiled in 10 % or more of the members "
+                f"within {min(72, dur_h):.0f} h.")
+    s = top[0]
+    p10 = s.get("eta_p10_h")
+    return (f"Ensemble ({ens['members_ok']} members): top priority {s['name'] or 'the coast'} (ESI "
+            f"{s['esi_most_sensitive']}), P(oiled within {min(72, dur_h):.0f} h) {100 * s['p_oiled_72h']:.0f} %"
+            + (f", earliest plausible arrival (P10) {p10:.0f} h." if p10 is not None else "."))
 
 
 def _envelope_places(extra_cells, early, elon, elat, k=6) -> list[str]:
