@@ -1,0 +1,758 @@
+{
+ "source": "Real Gulf response staging bases: USCG units (positions from OpenStreetMap facility footprints, cross-checked with the US Census Geocoder where an address exists), MSRC equipment sites (MSRC Equipment Site Map), Clean Gulf Associates bases and Texas GLO oil-spill warehouses (GLO 'Prestaged Equipment and Staging Areas'). Compiled 2026-11-22 for OilFlood T21; each entry cites its own src + coord_src.",
+ "url": "https://www.openstreetmap.org/",
+ "note": "Planning context only. Several units are offices inland (see each 'note'); travel times use straight-line distance x 1.3 at 30 km/h. Not a list of available equipment.",
+ "types": {
+  "uscg_sector": "USCG Sector",
+  "uscg_msu": "USCG Marine Safety Unit",
+  "uscg_station": "USCG Station / small boat",
+  "uscg_air": "USCG Air Station",
+  "osro_depot": "OSRO / state spill equipment depot",
+  "port": "Port"
+ },
+ "bases": [
+  {
+   "name": "USCG Station South Padre Island",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 26.073,
+   "lon": -97.1671,
+   "coord_source": "facility coordinates from OpenStreetMap way 115607605 (feature centroid)",
+   "address": null,
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/Heartland-District/Units/Sector-Corpus-Christi/Units/Station-SPI/",
+   "coord_src": "https://www.openstreetmap.org/way/115607605"
+  },
+  {
+   "name": "USCG Sector / Air Station Corpus Christi",
+   "type": "uscg_air",
+   "operator": "U.S. Coast Guard",
+   "lat": 27.7811,
+   "lon": -97.5093,
+   "coord_source": "facility coordinates from OpenStreetMap way 833929941 (feature centroid)",
+   "address": "249 Glasson Drive, Corpus Christi, TX 78406",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/Heartland-District/Units/Sector-Corpus-Christi/",
+   "coord_src": "https://www.openstreetmap.org/way/833929941",
+   "note": "INLAND: at Corpus Christi International Airport (~20 km from Corpus Christi Bay). Sector HQ co-located with Air Station since 2017 (per USCG Sector/Air Station history). OSM tags the hangar '249 Gleason Drive / Captain of the Port'. Census geocoder could not match the address."
+  },
+  {
+   "name": "USCG Station Port Aransas",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 27.839,
+   "lon": -97.0591,
+   "coord_source": "facility coordinates from OpenStreetMap way 833624315 (feature centroid)",
+   "address": "800 North Station Street, Port Aransas, TX (OSM tag)",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/Heartland-District/Units/Sector-Corpus-Christi/Units/Station-Port-Aransas",
+   "coord_src": "https://www.openstreetmap.org/way/833624315"
+  },
+  {
+   "name": "USCG Station Port O'Connor",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 28.4344,
+   "lon": -96.4278,
+   "coord_source": "facility coordinates from OpenStreetMap way 519457533 (feature centroid)",
+   "address": "2307 W Maple St, Port O'Connor, TX 77982 (OSM tag)",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/Heartland-District/Units/Sector-Corpus-Christi/Units/Station-Port-OConnor/",
+   "coord_src": "https://www.openstreetmap.org/way/519457533",
+   "census_geocode_check": {
+    "lat": 28.4343,
+    "lon": -96.4296,
+    "dist_km": 0.18,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=2307%20W%20Maple%20St%2C%20Port%20O%27Connor%2C%20TX%2077982&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Station Freeport",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 28.9438,
+   "lon": -95.3023,
+   "coord_source": "facility coordinates from OpenStreetMap way 833343577 (feature centroid)",
+   "address": "823 Coast Guard Drive, Freeport, TX 77541 (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/833343577",
+   "coord_src": "https://www.openstreetmap.org/way/833343577",
+   "census_geocode_check": {
+    "lat": 28.9449,
+    "lon": -95.3014,
+    "dist_km": 0.15,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=823%20Coast%20Guard%20Drive%2C%20Freeport%2C%20TX%2077541&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Station Galveston / Base Galveston",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.3331,
+   "lon": -94.7718,
+   "coord_source": "facility coordinates from OpenStreetMap way 833049085 (feature centroid)",
+   "address": null,
+   "src": "https://www.openstreetmap.org/way/833049085",
+   "coord_src": "https://www.openstreetmap.org/way/833049085",
+   "note": "Existence sourced only from OSM (station building next to 'Coast Guard Base Galveston' helipad, way 833051197); no USCG page fetched."
+  },
+  {
+   "name": "USCG Marine Safety Unit Texas City",
+   "type": "uscg_msu",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.4129,
+   "lon": -95.0318,
+   "coord_source": "facility coordinates from OpenStreetMap way 833322465 (feature centroid)",
+   "address": "3101 FM 2004, Texas City, TX 77591 (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/833322465",
+   "coord_src": "https://www.openstreetmap.org/way/833322465",
+   "census_geocode_check": {
+    "lat": 29.4118,
+    "lon": -95.0312,
+    "dist_km": 0.14,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=3101%20FM%202004%2C%20Texas%20City%2C%20TX%2077591&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Sector Houston-Galveston",
+   "type": "uscg_sector",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.6046,
+   "lon": -95.1772,
+   "coord_source": "facility coordinates from OpenStreetMap way 719491037 (feature centroid)",
+   "address": "13411 Hillard St, Houston, TX 77034 (OSM tag)",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/District-8/Units/Sector-Houston-Galveston/",
+   "coord_src": "https://www.openstreetmap.org/way/719491037",
+   "census_geocode_check": {
+    "lat": 29.6032,
+    "lon": -95.1779,
+    "dist_km": 0.17,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=13411%20Hillard%20St%2C%20Houston%2C%20TX%2077034&benchmark=Public_AR_Current&format=json"
+   },
+   "note": "INLAND: at Ellington Field, ~10 km from Galveston Bay."
+  },
+  {
+   "name": "USCG Air Station Houston",
+   "type": "uscg_air",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.6103,
+   "lon": -95.1683,
+   "coord_source": "facility coordinates from OpenStreetMap way 833604319 (feature centroid)",
+   "address": "1178 Ellington Field, Houston, TX 77034",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/Heartland-District/Units/Air-Station-Houston",
+   "coord_src": "https://www.openstreetmap.org/way/833604319",
+   "note": "INLAND: Ellington Field JRB. Address from USCG Air Station Houston page (via search index; direct fetch 403)."
+  },
+  {
+   "name": "USCG Station Houston",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.7295,
+   "lon": -95.2572,
+   "coord_source": "facility coordinates from OpenStreetMap way 833339920 (feature centroid)",
+   "address": "9640 Clinton Dr, Houston, TX (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/833339920",
+   "coord_src": "https://www.openstreetmap.org/way/833339920",
+   "note": "On the Houston Ship Channel (inland waterway)."
+  },
+  {
+   "name": "USCG Station Sabine Pass",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.728,
+   "lon": -93.8716,
+   "coord_source": "facility coordinates from OpenStreetMap way 832946373 (feature centroid)",
+   "address": "7034 1st Ave, Sabine Pass, TX 77655 (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/832946373",
+   "coord_src": "https://www.openstreetmap.org/way/832946373",
+   "census_geocode_check": {
+    "lat": 29.7105,
+    "lon": -93.8595,
+    "dist_km": 2.27,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=7034%201st%20Ave%2C%20Sabine%20Pass%2C%20TX%2077655&benchmark=Public_AR_Current&format=json"
+   },
+   "note": "Census geocode of the same address lands ~2 km away (address-range interpolation); OSM footprint preferred."
+  },
+  {
+   "name": "USCG Marine Safety Unit Port Arthur",
+   "type": "uscg_msu",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.943,
+   "lon": -93.9887,
+   "coord_source": "facility coordinates from OpenStreetMap node 9875616442 (feature centroid)",
+   "address": "2901 Turtle Creek Dr, Port Arthur, TX 77642",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/Heartland-District/Units/Sector-Houston-Galveston/Units/MSU-PortArthur/",
+   "coord_src": "https://www.openstreetmap.org/node/9875616442",
+   "note": "Office building, not on the water (~3 km from Sabine-Neches Waterway). OSM node tagged 'Captain of the Port, 2901 Turtle Creek Drive'. Census geocoder: no match."
+  },
+  {
+   "name": "USCG Station Lake Charles",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 30.2031,
+   "lon": -93.2397,
+   "coord_source": "facility coordinates from OpenStreetMap way 832938702 (feature centroid)",
+   "address": "1245 Giovanni St, Lake Charles, LA 70601 (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/832938702",
+   "coord_src": "https://www.openstreetmap.org/way/832938702",
+   "census_geocode_check": {
+    "lat": 30.204,
+    "lon": -93.239,
+    "dist_km": 0.12,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=1245%20Giovanni%20St%2C%20Lake%20Charles%2C%20LA%2070601&benchmark=Public_AR_Current&format=json"
+   },
+   "note": "On the Calcasieu River, ~50 km inland from the Gulf."
+  },
+  {
+   "name": "USCG Marine Safety Unit Lake Charles",
+   "type": "uscg_msu",
+   "operator": "U.S. Coast Guard",
+   "lat": 30.2297,
+   "lon": -93.2187,
+   "coord_source": "exact address geocode (US Census Geocoder, Public_AR_Current; address-range interpolation, matched '127 BROAD ST, LAKE CHARLES, LA, 70601')",
+   "address": "127 W. Broad Street, Ste. 200, Lake Charles, LA 70601",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/Heartland-District/Units/Sector-Houston-Galveston/Units/MSU-PortArthur/MSU-Lake-Charles/",
+   "coord_src": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=127%20W%20Broad%20St%2C%20Lake%20Charles%2C%20LA%2070601&benchmark=Public_AR_Current&format=json",
+   "note": "Downtown office building, ~50 km inland from the Gulf; not a waterfront facility."
+  },
+  {
+   "name": "USCG Marine Safety Unit Morgan City",
+   "type": "uscg_msu",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.6944,
+   "lon": -91.1862,
+   "coord_source": "facility coordinates from OpenStreetMap node 7767905113 (feature centroid)",
+   "address": "7327 State Highway 182, Morgan City, LA (OSM tag)",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/Heartland-District/Units/Sector-New-Orleans/Units/MSU-Morgan-City",
+   "coord_src": "https://www.openstreetmap.org/node/7767905113",
+   "census_geocode_check": {
+    "lat": 29.694,
+    "lon": -91.1869,
+    "dist_km": 0.08,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=7327%20Highway%20182%2C%20Morgan%20City%2C%20LA%2070380&benchmark=Public_AR_Current&format=json"
+   },
+   "note": "On the Atchafalaya River, ~30 km inland from Atchafalaya Bay."
+  },
+  {
+   "name": "USCG Marine Safety Unit Houma",
+   "type": "uscg_msu",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.5954,
+   "lon": -90.7244,
+   "coord_source": "exact address geocode (US Census Geocoder, Public_AR_Current; address-range interpolation, matched '423 LAFAYETTE ST, HOUMA, LA, 70360')",
+   "address": "423 Lafayette St, Suite 204, Houma, LA",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/Heartland-District/Units/Sector-New-Orleans/Units/MSU-Houma",
+   "coord_src": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=423%20Lafayette%20St%2C%20Houma%2C%20LA%2070360&benchmark=Public_AR_Current&format=json",
+   "note": "Office in downtown Houma (on Bayou Terrebonne), ~50 km inland from the Gulf. Address via search-indexed USCG page (direct fetch 403)."
+  },
+  {
+   "name": "USCG Station Grand Isle",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.2648,
+   "lon": -89.9571,
+   "coord_source": "facility coordinates from OpenStreetMap way 361573260 (feature centroid)",
+   "address": "453 Admiral Craik Dr, Grand Isle, LA 70358 (OSM tag)",
+   "src": "https://www.history.uscg.mil/Browse-by-Topic/Assets/Land/All/Article/2650287/station-grand-isle-louisiana/",
+   "coord_src": "https://www.openstreetmap.org/way/361573260",
+   "census_geocode_check": {
+    "lat": 29.2642,
+    "lon": -89.9549,
+    "dist_km": 0.22,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=453%20Admiral%20Craik%20Dr%2C%20Grand%20Isle%2C%20LA%2070358&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Station Venice",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.2527,
+   "lon": -89.3582,
+   "coord_source": "facility coordinates from OpenStreetMap way 832338672 (feature centroid)",
+   "address": "436 Coast Guard Road, Venice, LA (OSM tag); mail P.O. Box 707, Venice, LA 70091",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/Heartland-District/Units/Sector-New-Orleans/Units/",
+   "coord_src": "https://www.openstreetmap.org/way/832338672",
+   "note": "Cross-check: USGS GNIS feature 2512146 'Coast Guard Station Venice' at 29.2555,-89.3561 (via https://geo.mytopo.com/feature/louisiana/plaquemines/military/2512146/coast-guard-station-venice/), ~0.4 km away."
+  },
+  {
+   "name": "USCG Sector New Orleans",
+   "type": "uscg_sector",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.9526,
+   "lon": -90.0372,
+   "coord_source": "facility coordinates from OpenStreetMap way 831544103 (feature centroid)",
+   "address": "200 Hendee St, New Orleans, LA 70114 (OSM tag)",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/Heartland-District/Units/Sector-New-Orleans/Units/",
+   "coord_src": "https://www.openstreetmap.org/way/831544103",
+   "note": "On the Mississippi River (Algiers), ~150 river-km above Head of Passes."
+  },
+  {
+   "name": "USCG Base New Orleans",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 30.0148,
+   "lon": -89.9291,
+   "coord_source": "facility coordinates from OpenStreetMap way 831384450 (feature centroid)",
+   "address": "1790 Saturn Blvd, New Orleans, LA (OSM tag)",
+   "src": "https://www.dcms.uscg.mil/Our-Organization/Operational-Logistics-Command-LOGCOM/Bases/Base-New-Orleans/General-Information/Base-Information/",
+   "coord_src": "https://www.openstreetmap.org/way/831384450",
+   "note": "Logistics base on the Industrial Canal / GIWW, not a small-boat station."
+  },
+  {
+   "name": "USCG Air Station New Orleans",
+   "type": "uscg_air",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.8221,
+   "lon": -90.0262,
+   "coord_source": "facility coordinates from OpenStreetMap way 832689000 (feature centroid)",
+   "address": null,
+   "src": "https://www.openstreetmap.org/way/832689000",
+   "coord_src": "https://www.openstreetmap.org/way/832689000",
+   "note": "INLAND: hangar at NAS JRB New Orleans (Belle Chasse). Existence/coords from OSM only (tagged 'U.S. Coast Guard Air Station', aeroway=hangar)."
+  },
+  {
+   "name": "USCG Station Gulfport",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 30.3636,
+   "lon": -89.0907,
+   "coord_source": "facility coordinates from OpenStreetMap way 543837026 (feature centroid)",
+   "address": "991 23rd Ave, Gulfport, MS (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/543837026",
+   "coord_src": "https://www.openstreetmap.org/way/543837026",
+   "census_geocode_check": {
+    "lat": 30.3647,
+    "lon": -89.0903,
+    "dist_km": 0.13,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=991%2023rd%20Ave%2C%20Gulfport%2C%20MS%2039501&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Station Pascagoula",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 30.3354,
+   "lon": -88.5748,
+   "coord_source": "facility coordinates from OpenStreetMap way 141283228 (feature centroid)",
+   "address": "104 USS Vicksburg Way, Pascagoula, MS (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/141283228",
+   "coord_src": "https://www.openstreetmap.org/way/141283228"
+  },
+  {
+   "name": "USCG Sector Mobile",
+   "type": "uscg_sector",
+   "operator": "U.S. Coast Guard",
+   "lat": 30.6499,
+   "lon": -88.0566,
+   "coord_source": "facility coordinates from OpenStreetMap way 165762763 (feature centroid)",
+   "address": "1500 15th St, Mobile, AL 36615 (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/165762763",
+   "coord_src": "https://www.openstreetmap.org/way/165762763",
+   "census_geocode_check": {
+    "lat": 30.6502,
+    "lon": -88.0609,
+    "dist_km": 0.41,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=1500%2015th%20St%2C%20Mobile%2C%20AL%2036615&benchmark=Public_AR_Current&format=json"
+   },
+   "note": "On Mobile River/Arlington pier, ~45 km up Mobile Bay from the Gulf."
+  },
+  {
+   "name": "USCG Aviation Training Center Mobile",
+   "type": "uscg_air",
+   "operator": "U.S. Coast Guard",
+   "lat": 30.6949,
+   "lon": -88.2423,
+   "coord_source": "facility coordinates from OpenStreetMap way 7868719 (feature centroid)",
+   "address": null,
+   "src": "https://www.openstreetmap.org/way/7868719",
+   "coord_src": "https://www.openstreetmap.org/way/7868719",
+   "note": "INLAND: at Mobile Regional Airport, ~20 km west of Mobile Bay. Coords from OSM."
+  },
+  {
+   "name": "USCG Gulf Strike Team (National Strike Force)",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 30.6929,
+   "lon": -88.2397,
+   "coord_source": "facility coordinates from OpenStreetMap way 539155113 (feature centroid)",
+   "address": null,
+   "src": "https://www.openstreetmap.org/way/539155113",
+   "coord_src": "https://www.openstreetmap.org/way/539155113",
+   "note": "INLAND: co-located with ATC Mobile. National Strike Force pollution-response equipment team. Coords from OSM."
+  },
+  {
+   "name": "USCG Station Dauphin Island",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 30.251,
+   "lon": -88.0789,
+   "coord_source": "facility coordinates from OpenStreetMap way 221295643 (feature centroid)",
+   "address": "251 Aquarium Dr, Dauphin Island, AL (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/221295643",
+   "coord_src": "https://www.openstreetmap.org/way/221295643",
+   "census_geocode_check": {
+    "lat": 30.2506,
+    "lon": -88.0789,
+    "dist_km": 0.04,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=251%20Aquarium%20Way%2C%20Dauphin%20Island%2C%20AL%2036528&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Station Pensacola",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 30.3451,
+   "lon": -87.2903,
+   "coord_source": "facility coordinates from OpenStreetMap way 359226713 (feature centroid)",
+   "address": "21 Slemmer Ave, Pensacola, FL (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/359226713",
+   "coord_src": "https://www.openstreetmap.org/way/359226713",
+   "census_geocode_check": {
+    "lat": 30.349,
+    "lon": -87.2921,
+    "dist_km": 0.47,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=21%20Slemmer%20Ave%2C%20Pensacola%2C%20FL%2032508&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Station Panama City",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 30.1698,
+   "lon": -85.7559,
+   "coord_source": "facility coordinates from OpenStreetMap way 830281319 (feature centroid)",
+   "address": "1700 Thomas Dr, Panama City Beach, FL (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/830281319",
+   "coord_src": "https://www.openstreetmap.org/way/830281319",
+   "census_geocode_check": {
+    "lat": 30.1682,
+    "lon": -85.7577,
+    "dist_km": 0.25,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=1700%20Thomas%20Dr%2C%20Panama%20City%20Beach%2C%20FL%2032408&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Station Yankeetown",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 29.0321,
+   "lon": -82.712,
+   "coord_source": "facility coordinates from OpenStreetMap way 829363391 (feature centroid)",
+   "address": "5800 Riverside Dr, Yankeetown, FL (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/829363391",
+   "coord_src": "https://www.openstreetmap.org/way/829363391"
+  },
+  {
+   "name": "USCG Air Station Clearwater",
+   "type": "uscg_air",
+   "operator": "U.S. Coast Guard",
+   "lat": 27.9118,
+   "lon": -82.6991,
+   "coord_source": "facility coordinates from OpenStreetMap way 829840840 (feature centroid)",
+   "address": "15100 Fairchild Dr, Clearwater, FL (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/829840840",
+   "coord_src": "https://www.openstreetmap.org/way/829840840",
+   "note": "At St. Pete-Clearwater Intl Airport on the shore of Old Tampa Bay."
+  },
+  {
+   "name": "USCG Station Sand Key",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 27.9476,
+   "lon": -82.8333,
+   "coord_source": "facility coordinates from OpenStreetMap way 829399730 (feature centroid)",
+   "address": "1375 Gulf Blvd, Clearwater, FL (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/829399730",
+   "coord_src": "https://www.openstreetmap.org/way/829399730",
+   "census_geocode_check": {
+    "lat": 27.9473,
+    "lon": -82.8339,
+    "dist_km": 0.07,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=1375%20Gulf%20Blvd%2C%20Clearwater%2C%20FL%2033767&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Sector St. Petersburg / Station St. Petersburg",
+   "type": "uscg_sector",
+   "operator": "U.S. Coast Guard",
+   "lat": 27.7613,
+   "lon": -82.6271,
+   "coord_source": "facility coordinates from OpenStreetMap way 829646781 (feature centroid)",
+   "address": "600 8th Ave SE, St. Petersburg, FL (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/829646781",
+   "coord_src": "https://www.openstreetmap.org/way/829646781",
+   "census_geocode_check": {
+    "lat": 27.7623,
+    "lon": -82.6302,
+    "dist_km": 0.32,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=600%208th%20Ave%20SE%2C%20St%20Petersburg%2C%20FL%2033701&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Station Cortez",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 27.4664,
+   "lon": -82.6868,
+   "coord_source": "facility coordinates from OpenStreetMap way 829635204 (feature centroid)",
+   "address": "4530 124th Street Ct W, Cortez/Bradenton Beach, FL (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/829635204",
+   "coord_src": "https://www.openstreetmap.org/way/829635204",
+   "census_geocode_check": {
+    "lat": 27.4674,
+    "lon": -82.687,
+    "dist_km": 0.11,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=4530%20124th%20Street%20Ct%20W%2C%20Cortez%2C%20FL%2034215&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Station Fort Myers Beach",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 26.4591,
+   "lon": -81.9542,
+   "coord_source": "facility coordinates from OpenStreetMap way 829460332 (feature centroid)",
+   "address": "719 San Carlos Dr, Fort Myers Beach, FL (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/829460332",
+   "coord_src": "https://www.openstreetmap.org/way/829460332",
+   "census_geocode_check": {
+    "lat": 26.4589,
+    "lon": -81.954,
+    "dist_km": 0.03,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=719%20San%20Carlos%20Dr%2C%20Fort%20Myers%20Beach%2C%20FL%2033931&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Station Marathon",
+   "type": "uscg_station",
+   "operator": "U.S. Coast Guard",
+   "lat": 24.7099,
+   "lon": -81.1061,
+   "coord_source": "facility coordinates from OpenStreetMap way 828588059 (feature centroid)",
+   "address": "1800 Overseas Hwy, Marathon, FL (OSM tag)",
+   "src": "https://www.openstreetmap.org/way/828588059",
+   "coord_src": "https://www.openstreetmap.org/way/828588059",
+   "census_geocode_check": {
+    "lat": 24.7088,
+    "lon": -81.1051,
+    "dist_km": 0.16,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=1800%20Overseas%20Hwy%2C%20Marathon%2C%20FL%2033050&benchmark=Public_AR_Current&format=json"
+   }
+  },
+  {
+   "name": "USCG Sector Key West / Station Key West",
+   "type": "uscg_sector",
+   "operator": "U.S. Coast Guard",
+   "lat": 24.5657,
+   "lon": -81.7989,
+   "coord_source": "facility coordinates from OpenStreetMap way 525620188 (feature centroid)",
+   "address": "100 Trumbo Road, Key West, FL 33040-6655",
+   "src": "https://www.atlanticarea.uscg.mil/Our-Organization/District-7/Units/Sector-Key-West",
+   "coord_src": "https://www.openstreetmap.org/way/525620188",
+   "census_geocode_check": {
+    "lat": 24.5645,
+    "lon": -81.7982,
+    "dist_km": 0.15,
+    "url": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=100%20Trumbo%20Rd%2C%20Key%20West%2C%20FL%2033040&benchmark=Public_AR_Current&format=json"
+   },
+   "note": "OSM way is 'Station Key West' at Trumbo Point; Sector HQ shares Trumbo Point annex (address via search-indexed USCG page)."
+  },
+  {
+   "name": "MSRC equipment site - Ingleside,TX",
+   "type": "osro_depot",
+   "operator": "Marine Spill Response Corporation (MSRC)",
+   "lat": 27.8505,
+   "lon": -97.2206,
+   "coord_source": "facility coordinates from MSRC Equipment Site Map (embedded site lat/lng; map pin, precision varies)",
+   "address": null,
+   "src": "https://www.msrc.org/equipment-capabilities/equipment/v2/site/46",
+   "coord_src": "https://www.msrc.org/equipment-capabilities/msrc-equipment-site-map",
+   "note": "Ingleside, TX (Corpus Christi Bay)."
+  },
+  {
+   "name": "MSRC equipment site - Galveston, TX",
+   "type": "osro_depot",
+   "operator": "Marine Spill Response Corporation (MSRC)",
+   "lat": 29.2873,
+   "lon": -94.8646,
+   "coord_source": "facility coordinates from MSRC Equipment Site Map (embedded site lat/lng; map pin, precision varies)",
+   "address": null,
+   "src": "https://www.msrc.org/equipment-capabilities/equipment/v2/site/43",
+   "coord_src": "https://www.msrc.org/equipment-capabilities/msrc-equipment-site-map",
+   "note": "Inventory page lists Galveston Warehouse incl. ~4,950 ft 67in curtain boom, MSRC 570 responder vessel, Ocean Defender, 108,350 gal dispersant (Maplewood Warehouse)."
+  },
+  {
+   "name": "MSRC equipment site - Houston, TX",
+   "type": "osro_depot",
+   "operator": "Marine Spill Response Corporation (MSRC)",
+   "lat": 29.9386,
+   "lon": -95.3277,
+   "coord_source": "facility coordinates from MSRC Equipment Site Map (embedded site lat/lng; map pin, precision varies)",
+   "address": null,
+   "src": "https://www.msrc.org/equipment-capabilities/equipment/v2/site/45",
+   "coord_src": "https://www.msrc.org/equipment-capabilities/msrc-equipment-site-map",
+   "note": "INLAND: north Houston, ~60 km from Galveston Bay."
+  },
+  {
+   "name": "MSRC equipment site - Lake Charles, LA",
+   "type": "osro_depot",
+   "operator": "Marine Spill Response Corporation (MSRC)",
+   "lat": 30.1103,
+   "lon": -93.2229,
+   "coord_source": "facility coordinates from MSRC Equipment Site Map (embedded site lat/lng; map pin, precision varies)",
+   "address": null,
+   "src": "https://www.msrc.org/equipment-capabilities/equipment/v2/site/48",
+   "coord_src": "https://www.msrc.org/equipment-capabilities/msrc-equipment-site-map",
+   "note": "Pin is ~12 km south of Lake Charles city near Calcasieu Ship Channel."
+  },
+  {
+   "name": "MSRC equipment site - Houma, LA",
+   "type": "osro_depot",
+   "operator": "Marine Spill Response Corporation (MSRC)",
+   "lat": 29.5459,
+   "lon": -90.6321,
+   "coord_source": "facility coordinates from MSRC Equipment Site Map (embedded site lat/lng; map pin, precision varies)",
+   "address": null,
+   "src": "https://www.msrc.org/equipment-capabilities/equipment/v2/site/107",
+   "coord_src": "https://www.msrc.org/equipment-capabilities/msrc-equipment-site-map",
+   "note": "Houma, LA; pin given to 4 decimals only."
+  },
+  {
+   "name": "MSRC equipment site - Grand Isle, LA",
+   "type": "osro_depot",
+   "operator": "Marine Spill Response Corporation (MSRC)",
+   "lat": 29.254,
+   "lon": -89.9738,
+   "coord_source": "facility coordinates from MSRC Equipment Site Map (embedded site lat/lng; map pin, precision varies)",
+   "address": null,
+   "src": "https://www.msrc.org/equipment-capabilities/equipment/v2/site/134",
+   "coord_src": "https://www.msrc.org/equipment-capabilities/msrc-equipment-site-map"
+  },
+  {
+   "name": "MSRC equipment site - Belle Chasse, LA",
+   "type": "osro_depot",
+   "operator": "Marine Spill Response Corporation (MSRC)",
+   "lat": 29.8371,
+   "lon": -90.0502,
+   "coord_source": "facility coordinates from MSRC Equipment Site Map (embedded site lat/lng; map pin, precision varies)",
+   "address": null,
+   "src": "https://www.msrc.org/equipment-capabilities/equipment/v2/site/38",
+   "coord_src": "https://www.msrc.org/equipment-capabilities/msrc-equipment-site-map",
+   "note": "Belle Chasse, LA (Mississippi River, Plaquemines Parish)."
+  },
+  {
+   "name": "MSRC equipment site - Pascagoula, MS",
+   "type": "osro_depot",
+   "operator": "Marine Spill Response Corporation (MSRC)",
+   "lat": 30.3572,
+   "lon": -88.5084,
+   "coord_source": "facility coordinates from MSRC Equipment Site Map (embedded site lat/lng; map pin, precision varies)",
+   "address": null,
+   "src": "https://www.msrc.org/equipment-capabilities/equipment/v2/site/52",
+   "coord_src": "https://www.msrc.org/equipment-capabilities/msrc-equipment-site-map"
+  },
+  {
+   "name": "MSRC equipment site - Tampa, FL",
+   "type": "osro_depot",
+   "operator": "Marine Spill Response Corporation (MSRC)",
+   "lat": 27.9124,
+   "lon": -82.3879,
+   "coord_source": "facility coordinates from MSRC Equipment Site Map (embedded site lat/lng; map pin, precision varies)",
+   "address": null,
+   "src": "https://www.msrc.org/equipment-capabilities/equipment/v2/site/55",
+   "coord_src": "https://www.msrc.org/equipment-capabilities/msrc-equipment-site-map",
+   "note": "Tampa, FL (Port of Tampa area)."
+  },
+  {
+   "name": "Clean Gulf Associates Services - Harvey (main office/base)",
+   "type": "osro_depot",
+   "operator": "Clean Gulf Associates (CGA)",
+   "lat": 29.905,
+   "lon": -90.0803,
+   "coord_source": "exact address geocode (US Census Geocoder, Public_AR_Current; address-range interpolation, matched '634 PETERS RD, HARVEY, LA, 70058')",
+   "address": "634 Peters Rd., Harvey, LA 70058",
+   "src": "https://cleangulfassoc.com/contact/",
+   "coord_src": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=634%20Peters%20Rd%2C%20Harvey%2C%20LA%2070058&benchmark=Public_AR_Current&format=json",
+   "note": "CGA site list (https://cleangulfassoc.com/site-locations/) names Harvey as a site; Harvey Canal, ~10 km from the Mississippi River at New Orleans; not on open water. Other CGA sites (Aransas Pass, Galveston, Port of Vermilion, Venice) omitted: no published addresses found."
+  },
+  {
+   "name": "Clean Gulf Associates - Leeville",
+   "type": "osro_depot",
+   "operator": "Clean Gulf Associates (CGA)",
+   "lat": 29.2183,
+   "lon": -90.218,
+   "coord_source": "exact address geocode (US Census Geocoder, Public_AR_Current; address-range interpolation, matched '25700 HWY 1, GOLDEN MEADOW, LA, 70357')",
+   "address": "25700 Old Highway 1, Leeville, LA 70357",
+   "src": "https://portfourchon.com/contact-us/directory/name/clean-gulf-associates/",
+   "coord_src": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=25700%20Old%20Highway%201%2C%20Golden%20Meadow%2C%20LA%2070357&benchmark=Public_AR_Current&format=json",
+   "note": "UNCERTAIN position: Census interpolated '25700 HWY 1, GOLDEN MEADOW'; result is ~3 km S of Leeville village along LA-1. Leeville is listed as a CGA site at https://cleangulfassoc.com/site-locations/."
+  },
+  {
+   "name": "Texas GLO Oil Spill Region 4 Field Office/Warehouse - Brownsville",
+   "type": "osro_depot",
+   "operator": "Texas General Land Office (state agency, not an OSRO)",
+   "lat": 25.9359,
+   "lon": -97.4878,
+   "coord_source": "exact address geocode (US Census Geocoder, Public_AR_Current; address-range interpolation, matched '2145 EMS DR, BROWNSVILLE, TX, 78521')",
+   "address": "2145 EMS Lane, Brownsville, TX 78521",
+   "src": "https://glo.texas.gov/sites/default/files/2026-05/PrestagedEquipmentAndStagingAreas_0.pdf",
+   "coord_src": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=2145%20EMS%20Lane%2C%20Brownsville%2C%20TX%2078521&benchmark=Public_AR_Current&format=json",
+   "note": "Near Port of Brownsville; not on open water."
+  },
+  {
+   "name": "Texas GLO Oil Spill Region 3 Warehouse - Corpus Christi",
+   "type": "osro_depot",
+   "operator": "Texas General Land Office (state agency, not an OSRO)",
+   "lat": 27.7968,
+   "lon": -97.4774,
+   "coord_source": "exact address geocode (US Census Geocoder, Public_AR_Current; address-range interpolation, matched '1830 N LEXINGTON BLVD, CORPUS CHRISTI, TX, 78409')",
+   "address": "1830 North Lexington Blvd., Corpus Christi, TX 78409",
+   "src": "https://glo.texas.gov/sites/default/files/2026-05/PrestagedEquipmentAndStagingAreas_0.pdf",
+   "coord_src": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=1830%20N%20Lexington%20Blvd%2C%20Corpus%20Christi%2C%20TX%2078409&benchmark=Public_AR_Current&format=json",
+   "note": "INLAND industrial area, ~3 km from Corpus Christi inner harbor."
+  },
+  {
+   "name": "Texas GLO Oil Spill Region 5 Field Office/Warehouse - Port Lavaca",
+   "type": "osro_depot",
+   "operator": "Texas General Land Office (state agency, not an OSRO)",
+   "lat": 28.6322,
+   "lon": -96.6323,
+   "coord_source": "exact address geocode (US Census Geocoder, Public_AR_Current; address-range interpolation, matched '414 TRAVIS ST, PORT LAVACA, TX, 77979')",
+   "address": "414 Travis St, Port Lavaca, TX 77979",
+   "src": "https://glo.texas.gov/sites/default/files/2026-05/PrestagedEquipmentAndStagingAreas_0.pdf",
+   "coord_src": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=414%20Travis%20St%2C%20Port%20Lavaca%2C%20TX%2077979&benchmark=Public_AR_Current&format=json",
+   "note": "On Lavaca Bay."
+  },
+  {
+   "name": "Texas GLO Oil Spill Region 2 Field Office/Warehouse - La Porte",
+   "type": "osro_depot",
+   "operator": "Texas General Land Office (state agency, not an OSRO)",
+   "lat": 29.6702,
+   "lon": -95.0499,
+   "coord_source": "exact address geocode (US Census Geocoder, Public_AR_Current; address-range interpolation, matched '11811 N D ST, LA PORTE, TX, 77571')",
+   "address": "11811 North D St., La Porte, TX 77571",
+   "src": "https://glo.texas.gov/sites/default/files/2026-05/PrestagedEquipmentAndStagingAreas_0.pdf",
+   "coord_src": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=11811%20North%20D%20St%2C%20La%20Porte%2C%20TX%2077571&benchmark=Public_AR_Current&format=json",
+   "note": "Near Galveston Bay / Houston Ship Channel."
+  },
+  {
+   "name": "Texas GLO Oil Spill Region 1 Field Office/Warehouse - Port Neches",
+   "type": "osro_depot",
+   "operator": "Texas General Land Office (state agency, not an OSRO)",
+   "lat": 29.9929,
+   "lon": -93.9474,
+   "coord_source": "exact address geocode (US Census Geocoder, Public_AR_Current; address-range interpolation, matched '239 GRIGSBY AVE, PORT NECHES, TX, 77651')",
+   "address": "239 Grigsby, Port Neches, TX 77651",
+   "src": "https://glo.texas.gov/sites/default/files/2026-05/PrestagedEquipmentAndStagingAreas_0.pdf",
+   "coord_src": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=239%20Grigsby%20Ave%2C%20Port%20Neches%2C%20TX%2077651&benchmark=Public_AR_Current&format=json",
+   "note": "On the Neches River, ~30 km from the Gulf."
+  },
+  {
+   "name": "Texas GLO Oil Spill Region 4 Warehouse - Port Mansfield",
+   "type": "osro_depot",
+   "operator": "Texas General Land Office (state agency, not an OSRO)",
+   "lat": 26.5527,
+   "lon": -97.4276,
+   "coord_source": "exact address point from OpenStreetMap way 21337377 (630 Laguna Drive) via Nominatim; Census geocoder had no match",
+   "address": "630 Laguna Drive, Port Mansfield, TX 78598",
+   "src": "https://glo.texas.gov/sites/default/files/2026-05/PrestagedEquipmentAndStagingAreas_0.pdf",
+   "coord_src": "https://www.openstreetmap.org/way/21337377",
+   "note": "Listed in GLO PDF as 'Port Mansfield Navigation - District Refuge, Warehouse'. On Laguna Madre."
+  }
+ ]
+}

@@ -679,8 +679,14 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
              "Spill Response Planning in Marine Environments (2010)",
              "url": "https://response.restoration.noaa.gov/oil-and-chemical-spills/oil-spills/resources/"
                     "characteristics-response-strategies.html"},
-            {"what": "Dispersant/ISB pre-authorization", "ref": "RRT 6 / RRT 4 FOSC pre-authorization plans "
-             "(>= 3 nm offshore, >= 10 m depth)", "url": "https://www.nrt.org/"},
+            {"what": "Dispersant pre-authorization", "ref": "RRT-6 FOSC Dispersant Pre-Approval Guidelines v4.0 (2001): "
+             "offshore waters from the 10 m isobath or 3 nmi, whichever is farther from shore, to 200 nmi "
+             "(RRT 4 1996 'green zone': >= 3 mi and >= 10 m)",
+             "url": "https://www.glo.texas.gov/sites/default/files/2025-07/rrt6.pdf"},
+            {"what": "In-situ burn pre-authorization", "ref": "RRT-6 In-Situ Burn Policy for the Offshore Environment "
+             "(Appendix 13, 2020): seaward of 3 miles; RRT VI ISB Plan (1994) excludes some reefs + an area off Grand Isle",
+             "url": "https://www.glo.texas.gov/sites/default/files/resources/glo/ost/spill-response-resources/rrtvi/"
+                    "RRT6_ISB_Policy_Offshore_Appendix13.pdf"},
             {"what": "Precedents", "ref": prec["source"], "url": "https://incidentnews.noaa.gov/"},
             {"what": "Place names", "ref": "US Census Bureau 2023 Gazetteer (places)",
              "url": "https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.html"},

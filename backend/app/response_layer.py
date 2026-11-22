@@ -369,8 +369,12 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
     sb = staging_bases()
     bases = (sb or {}).get("bases", [])
 
-    def nearest_bases(lon, lat, k=2):
-        ds = sorted(((_km(lon, lat, x["lon"], x["lat"]), x) for x in bases), key=lambda t: t[0])
+    # boom / skimmers come from equipment depots (OSRO, state) and USCG small-boat stations, not from offices
+    # or air stations; those stay on the map as context.
+    EQUIP = ("osro_depot", "uscg_station")
+
+    def nearest_bases(lon, lat, k=2, types=EQUIP):
+        ds = sorted(((_km(lon, lat, x["lon"], x["lat"]), x) for x in bases if x["type"] in types), key=lambda t: t[0])
         return [{"name": x["name"], "type": x["type"], "lon": x["lon"], "lat": x["lat"], "km": round(d, 1),
                  "travel_h": round(d * DETOUR / TRAVEL_KMH, 1)} for d, x in ds[:k]]
 
@@ -460,7 +464,7 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
             if j is None:
                 continue
             c = np.nanmean(pos[:, j], axis=0)
-            nb = nearest_bases(float(c[0]), float(c[1]), 1)
+            nb = nearest_bases(float(c[0]), float(c[1]), 1, ("osro_depot",))
             if nb:
                 staging_ops.append({"for": kind, "h": round(float(H[j]), 1), "lon": _r(c[0]), "lat": _r(c[1]), **{"base": nb[0]}})
 
@@ -506,6 +510,12 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
     ev.sort(key=lambda e: (e["h"], e["kind"]))
 
     sources = [
+        {"what": "Boom types, 0.7 kt failure speed", "ref": "NOAA ORR Characteristics of Response Strategies (2010) "
+         "p. 39; ITOPF TIP 03 Use of Booms (2011): boom angle 90/45/28/20 deg at 0.7/1/1.5/2 kt",
+         "url": "https://www.itopf.org/fileadmin/uploads/itopf/data/Documents/TIPS_TAPS_new/"
+                "TIP_3_Use_of_Booms_in_Oil_Pollution_Response.pdf"},
+        {"what": "Response time context", "ref": "33 CFR 155.1050 (OSRO tiers 12/36/60 h in higher volume port areas); "
+         "33 CFR 154.1045 (facility: 1,000 ft of boom within 1 h)", "url": "https://www.ecfr.gov/current/title-33/section-155.1050"},
         {"what": "Shoreline geometry", "ref": "NOAA OR&R National ESI Shoreline (GULF_ATLANTIC_ESI.gdb, 2017)",
          "url": "https://response.restoration.noaa.gov/esi_download"},
     ]
@@ -545,9 +555,13 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
             f"Dispersant zone = surface oil while the dispersant window is open (oil age, wind 4-25 kt, daylight) "
             f"AND >= {DISP_NM:.0f} nm from shore"
             + (f" AND >= {DISP_DEPTH_M:.0f} m deep (ETOPO1)" if b is not None else " (depth NOT checked: no bathymetry)")
-            + ", the RRT 6 / RRT 4 pre-authorization envelope.",
+            + ": RRT-6 pre-approval zone = from the 10 m isobath or 3 nmi, whichever is farther from shore "
+            "(RRT-6 Dispersant Pre-Approval Guidelines v4.0); RRT 4 green zone >= 3 mi and >= 10 m. Closer in needs "
+            "RRT consultation (RRT-6 2005 near-shore expedited process). The Flower Garden Banks NMS has its own RRT-6 "
+            "guidance (not mapped here).",
             f"In-situ burn zone = collectable oil (>= 0.2 % of particles per ~2 km cell) while the burn window is "
-            f"open and >= {BURN_NM:.0f} nm from shore.",
+            f"open and >= {BURN_NM:.0f} nm from shore (RRT-6 offshore ISB policy: seaward of 3 miles; the 1994 plan "
+            "excludes some reefs and an area off Grand Isle, not mapped here).",
             "Skimmer targets = the 3 densest clusters of surface particles (~6 km neighbourhood) every 3 h.",
         ],
         "notes": notes,
