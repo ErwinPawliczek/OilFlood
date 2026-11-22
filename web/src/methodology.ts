@@ -52,13 +52,21 @@ const STEPS: Step[] = [
   {
     id: 'ensemble', n: 3, title: 'Ensemble → probabilities', lede: 'One forecast is a guess. Many perturbed forecasts are a probability.',
     body: `
-      <p>We rerun the model ${T('N')} times, each member with its own draw of the uncertain inputs (windage, current error, diffusivity, release point and time). Every member ${T('k')} gives an oil mass field ${T(String.raw`m_k(c,t)`)} on a grid of cells ${T('c')}. From the members:</p>
+      <p>We rerun our model ${T('N')} times (default 20, up to 30), each member with its own draw of the inputs we are least sure of. Every member ${T('k')} gives an oil mass field ${T(String.raw`m_k(c,t)`)} on a 0.05° (≈ 5 km) grid of cells ${T('c')}, every 3 h.</p>
+      <table class="tbl"><tr><th>Perturbed input</th><th>Distribution per member</th><th>Why</th></tr>
+        <tr><td>Windage ${T(String.raw`\alpha`)}</td><td>${T(String.raw`\mathcal{U}(1\,\%,\,4\,\%)`)}</td><td class="hint">NOAA GNOME minimum-regret range</td></tr>
+        <tr><td>Wind direction</td><td>whole field rotated by ${T(String.raw`\theta \sim \mathcal{N}(0,\,20^\circ)`)}</td><td class="hint">GFS 10 m direction error at 1–3 day lead</td></tr>
+        <tr><td>Current speed</td><td>${T(String.raw`c \sim \mathcal{N}(1,\,0.2)`)}, clipped to [0.5, 1.5]</td><td class="hint">model vs drifter speed errors of 20–30 %</td></tr>
+        <tr><td>Diffusivity ${T('K')}</td><td>${T(String.raw`K \cdot e^{\mathcal{N}(0,\,\ln 2)}`)}</td><td class="hint">factor-of-2 spread, Okubo (1971) scales</td></tr>
+      </table>
+      <p>From the members:</p>
       <div class="eqgrid">
         <div><div class="eqh">Probability of oil</div>${D(String.raw`P(c,t) = \frac{1}{N}\sum_{k=1}^{N}\mathbb{1}\big[m_k(c,t) > m_{min}\big]`)}</div>
         <div><div class="eqh">Expected surface mass</div>${D(String.raw`\bar m(c,t) = \frac{1}{N}\sum_{k=1}^{N} m_k(c,t)`)}</div>
         <div><div class="eqh">Arrival time quantiles per shoreline segment</div>${D(String.raw`\mathrm{ETA}_{q} = Q_q\big\{\,t^{\,k}_{\text{first}}(s)\,\big\}_{k=1}^{N},\quad q\in\{10,50,90\}`)}</div>
         <div><div class="eqh">Probability a shoreline is oiled</div>${D(String.raw`P_{\text{oiled}}(s) = \frac{1}{N}\sum_{k}\mathbb{1}\big[t^{\,k}_{\text{first}}(s) \le H\big]`)}</div>
       </div>
+      <p class="hint">With ${T('N = 20')} the resolution of ${T('P')} is 5 % and its standard error ${T(String.raw`\sqrt{P(1-P)/N}`)} is at most 11 %.</p>
       <p>The map draws ${T('P')} as a 3D surface (height and colour), with the 50 % and 90 % contours draped on the sea, and P10 / P50 / P90 arrival times on each threatened shoreline. P10 is "plan for this": oil arrives that early in 1 of 10 members.</p>`,
   },
   {
@@ -120,6 +128,25 @@ function sepChart(rows: { lab: string; v: number[]; c: string }[]) {
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Median separation from observed oil, km">${out}</svg>`;
 }
 
+/** Grouped bars: share of the observed slick inside the ensemble P >= 10 % area vs inside the single control run. */
+function covChart(rows: any[]) {
+  const S = [{ k: 'coverage_p10_median', lab: 'Ensemble, P ≥ 10 % area', c: '#e39a32' }, { k: 'coverage_p50_median', lab: 'Ensemble, P ≥ 50 % area', c: '#b07cf0' }, { k: 'coverage_ctrl_median', lab: 'Single deterministic run', c: '#8796ad' }];
+  const W = 520, H = 170, L = 40, B = 24, gw = (W - L) / rows.length, bw = 26;
+  const y = (v: number) => 8 + (H - B - 8) * (1 - v);
+  let g = [0, 0.25, 0.5, 0.75, 1].map((v) => `<line x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(140,180,255,${v ? 0.08 : 0.25})"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" class="lb">${v * 100}%</text>`).join('');
+  rows.forEach((r, i) => {
+    const x0 = L + i * gw + (gw - S.length * (bw + 3)) / 2;
+    S.forEach((s, j) => {
+      const v = r[s.k] ?? 0, x = x0 + j * (bw + 3);
+      g += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" rx="3" fill="${s.c}"><title>${esc(s.lab)} at ${r.h} h: ${Math.round(v * 100)} %</title></rect>`;
+      if (j === 0) g += `<text x="${x + bw / 2}" y="${y(v) - 5}" text-anchor="middle" class="val">${Math.round(v * 100)}%</text>`;
+    });
+    g += `<text x="${L + i * gw + gw / 2}" y="${H - 6}" text-anchor="middle" class="ax">${r.h} h</text>`;
+  });
+  return `<div class="clegend">${S.map((s) => `<span><i class="sw" style="background:${s.c}"></i>${esc(s.lab)}</span>`).join('')}</div>
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Share of the observed slick covered">${g}</svg>`;
+}
+
 async function validationHTML(): Promise<string> {
   const [bt, models] = await Promise.all([getJSON('/api/backtest').catch(() => null), getJSON('/api/models').catch(() => null)]);
   let html = '';
@@ -134,6 +161,16 @@ async function validationHTML(): Promise<string> {
       <table class="tbl num"><tr><th></th><th>Separation 72 h (km)</th><th>Liu–Weisberg skill 72 h</th><th>FSS 72 h (25 km)</th><th>Stranded (mean)</th></tr>
       ${rows.map((r) => `<tr><td><i class="sw" style="background:${r.c}"></i>${esc(r.lab)}</td><td>${f1(r.s.sep_km_median[2])}</td><td>${f2(r.s.lw_median[2])}</td><td>${f2(r.s.fss_median[2])}</td><td>${r.s.stranded_mean ? `${Math.round(r.s.stranded_mean[2] * 100)} %` : '–'}</td></tr>`).join('')}</table>
       <p class="hint">Lower separation and higher skill are better. Honest result: in these 52 start days, "the slick stays where it is" (persistence) is a hard baseline to beat at 24–72 h. That is exactly why the app shows probabilities, not a single line.</p></div>`;
+  }
+  const cal = models?.models?.find((m: any) => m.id === 'ours')?.calibration;
+  if (cal?.summary?.length) {
+    const rows = cal.summary as any[];
+    html += `<div class="vcard"><h3>Is the probability map calibrated? ${esc(cal.members)}-member ensemble on ${rows[0].n} Deepwater Horizon days</h3>
+      <p class="hint">${esc(cal.observed)}. ${esc(cal.model)}.</p>
+      ${covChart(rows)}
+      <table class="tbl num"><tr><th>Horizon</th><th>Observed slick inside P ≥ 10 %</th><th>Inside single run</th><th>Brier: ensemble vs single run</th><th>Centroid in 90 % ellipse</th></tr>
+      ${rows.map((r) => `<tr><td>${r.h} h</td><td><b>${Math.round(r.coverage_p10_median * 100)} %</b></td><td>${Math.round(r.coverage_ctrl_median * 100)} %</td><td>${f2(r.brier_mean).replace(/^0/, '')} vs ${f2(r.brier_ctrl_mean).replace(/^0/, '')}</td><td>${Math.round(r.centroid_in90_frac * 100)} %</td></tr>`).join('')}</table>
+      <p class="hint">The P ≥ 10 % area holds about twice as much of the real slick as one deterministic run, for ~${f1(rows[rows.length - 1].area_ratio_p10_median)}× the observed area, and its Brier score is ~30 % lower. But the centroid ellipses are under-dispersive (a calibrated 90 % ellipse would hit ~90 %): the ensemble does not sample the eddy/front position errors of the current field, so read them as parameter spread, not a confidence region.</p></div>`;
   }
   const mp = bt?.cases?.find((c: any) => c.id === 'main_pass_2023');
   if (mp?.models) {
@@ -186,7 +223,7 @@ async function main() {
     ${STEPS.map((s) => `<section id="${s.id}"><div class="sh"><span class="n">${s.n}</span><h2>${esc(s.title)}</h2></div><p class="lede">${esc(s.lede)}</p>${s.body}</section>`).join('')}
     <div id="params-slot"></div>
     <section id="validation"><div class="sh"><span class="n">✓</span><h2>Validation</h2></div><p class="lede">Scored against what actually happened. Numbers below are live from the backend.</p><div id="val" class="hint">Loading…</div></section>
-    ${METHODOLOGY_MD ? `<section id="full" class="md">${renderMarkdown(METHODOLOGY_MD)}</section>` : ''}
+    ${METHODOLOGY_MD ? `<section id="full"><div class="sh"><span class="n">§</span><h2>Full technical write-up</h2></div><p class="lede">Every estimator, assumption and reference, from docs/METHODOLOGY.md.</p><details class="mdfull"><summary>Show the full methodology</summary><div class="md">${renderMarkdown(METHODOLOGY_MD)}</div></details></section>` : ''}
     <section id="limits"><div class="sh"><span class="n">!</span><h2>Limits</h2></div><ul class="lim">${LIMITS.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></section>
     <footer><a href="/">Open the globe</a> · docs: OURMODEL.md, BACKTEST.md, PROTOCOLS.md, RESPONSE.md${METHODOLOGY_MD ? ', METHODOLOGY.md' : ''}</footer>`;
   validationHTML().then((h) => { document.getElementById('val')!.outerHTML = `<div id="val">${h}</div>`; });
