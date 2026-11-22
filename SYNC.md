@@ -37,12 +37,14 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T24 | Ensemble + probability engine + custom model params + METHODOLOGY.md (backend) | Erwin | done (agent A17; merged + deployed with T25/T26) |
 | T25 | 3D probability/forces visuals + model builder + /methodology page (frontend) | Erwin | done (agent A18; merged + deployed with T24/T26) |
 | T26 | Minimal block UI: one draggable window, 5 numbered steps, flat style (no rounded corners) | Erwin | done (agent A19; merged + deployed, includes T24+T25) |
+| T27 | Black oil slick polygons + response playback on map + time-series action document/export | Erwin | in progress (agent A20, branch a20-slick) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-22 Erwin: claimed T27 (A20 a20-slick).
 - 2026-11-22 Erwin: merged T24+T25+T26 (a19-ui: ensemble + 3D viz + minimal block UI) to main and deployed to oilflood.xyz.
 - 2026-11-22 Erwin: A19 relaunched (timeout 150m; prior start failed: timeout rejected 2h30m).
 - 2026-11-22 A19 (branch a19-ui, T26, frontend only, on top of a18-viz): **minimal block UI.**
