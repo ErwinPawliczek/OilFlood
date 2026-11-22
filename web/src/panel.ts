@@ -181,7 +181,7 @@ export function responseHTML(s: CatalogSpill, open: { resp: boolean; evo: boolea
 }
 
 // ---------- backtest (P5): scores of each model against what was observed (GET /api/backtest) ----------
-const BT_ROWS: [string, string][] = [['persistence', 'Persistence'], ['openoil', 'OpenOil'], ['ours_ml', 'Ours + ML'], ['ours_noml', 'Ours, no ML']];
+const BT_ROWS: [string, string][] = [['persistence', 'Persistence'], ['openoil', 'OpenOil'], ['ours_ml', 'Ours + ML'], ['ours_noml', 'Ours, no ML'], ['ours_ml_nodwh', 'Ours + ML (held out)']];
 const f0 = (x: unknown) => (typeof x === 'number' && isFinite(x) ? x.toFixed(0) : '–');
 const f2 = (x: unknown) => (typeof x === 'number' && isFinite(x) ? x.toFixed(2) : '–');
 const pct = (x: unknown) => (typeof x === 'number' && isFinite(x) ? `${Math.round(x * 100)}%` : '–');

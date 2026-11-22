@@ -25,7 +25,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T12 | Live prediction pipeline: auto-fetch latest forecast currents + GFS, amount/type controls | Erwin | done (agent A6, branch a6-live; merged) |
 | T13 | Spill + responder-action database (geo/time + response log) | Erwin | done (agent A7, branch a7-db; merged) |
 | T14 | Our own spill model + ML drift correction, comparable to OpenOil | Erwin | done (agent A8, branch a8-model; merged) |
-| T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | in progress (agent A9, branch a9-backtest) |
+| T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | done (agent A9, branch a9-backtest; ready to merge) |
 | T16 | First-responder action outline (P6) | Erwin | in progress (agent A10, branch a10-response) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
@@ -33,6 +33,12 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-21 A9 (branch a9-backtest, T15): **backtest done, docs/BACKTEST.md.** `cd backend && python -m app.backtest` (one command, ~15 min cold with 12 workers; runs cached in backend/runs/backtest/) writes `data/backtest/results.json` (68 KB, committed); `python -m app.backtest.report` prints the tables. Models: OpenOil, ours + ML, ours no ML, and (DWH only) ours + ML retrained with the DWH window held out, plus a persistence reference.
+  - DWH: 52 start days, seed 2000 particles inside the NESDIS outline of day D, compare with D+1..D+3. Median centroid separation 24/48/72 h: persistence 23/31/39 km, OpenOil 27/36/44, ours + ML 25/36/46, ours no ML 25/33/42. LW skill 72 h: 0.34 / 0.26 / 0.27 / 0.31; FSS(25 km) 72 h 0.59 / 0.51 / 0.49 / 0.53. **No model beats persistence** (continuous wellhead release isn't modelled); ML ≈ no gain (closer than no-ML on 48 % of starts at 72 h, and in-sample there).
+  - Main Pass 2023: all go SW like observed; OpenOil and ours no ML strand 0 % (observed none); **ours + ML strands 62 % on the Mississippi Delta within 9 h**.
+  - Texas City Y: no polygons. Catalog seed strands 100 % in Galveston Bay (HYCOM land). Seeded at Bolivar Roads Mar 23: nearest floating oil to the Mar 24/25 overflight fixes OpenOil 15/8 km, ours no ML 21/17, ours + ML 21/24. Matagorda landfall (Mar 27) is after the forcing ends, not scored.
+  - API `GET /api/backtest` (`?spill=`, `&detail=true`). Panel (historical): collapsible "Backtest" under the response log with the selected spill's table (best value green), "not scored" for the others. Verified on :5209 in headless Chromium (DWH, Texas City Y, Main Pass, Mega Borg).
+  - Model code touched (backward compatible, production hashes unchanged): `sim.py` + `runner.py` accept `seed_lon/seed_lat` arrays and `record_all` (ours), `sim.py` `ml_dir`; `ml.use_dir()`; `train.py --exclude/--out-dir`.
 - 2026-11-21 Erwin (flight loop): claimed T15 backtest (A9, a9-backtest) and T16 response outline (A10, a10-response).
 - 2026-11-21 Erwin: merged T14 to main and deployed (OpenOil / Ours / Compare toggle on oilflood.xyz).
 - 2026-11-21 A8 (branch a8-model, T14): **two models to compare: OpenOil baseline + our own model with an ML drift correction.** Details in docs/OURMODEL.md.
@@ -79,6 +85,7 @@ Format: `- [open|fixed] short title — steps to reproduce — who found / who f
 - [fixed] Prediction click on land (e.g. inland Mexico, outside the frontend's coarse mask) returns `Simulation stopped within first timestep`; the UI shows the error, but the backend could return a friendlier "seed point on land" — found by A3 / fixed by A5 (400 "That spot is on land" / "in a bay ... the model treats as land"; also fixed roaring_landmask call that always said water)
 
 ## Blockers
+- A9 notes: (1) the ML correction is not supported by the oil backtest: in-sample ≈ no gain on DWH, clearly harmful at Main Pass (62 % stranded on the delta). Consider defaulting `ml=false` or labelling it experimental in the UI. (2) DWH scores need a continuous wellhead source term in both models to be fair vs persistence. (3) Backtest workers must run with OMP_NUM_THREADS=1 (the script sets it); otherwise HistGradientBoosting threads oversubscribe the pool and ML runs crawl. (4) Orphaned uvicorn on :5209 from testing can be killed.
 - [resolved] A8: merged a8-model, rebuilt web, restarted :5200 (oilflood.xyz). GDP training CSVs are in shared `data/cache/gdp/` (1.3 MB). `backend/runs` OpenOil entries stay valid; ours runs are keyed by `ourmodel/sim.py` VERSION (ours-v4).
 - A8 notes on our model: (1) ML training is a subset: drifters only exist in 3 cached windows, mostly DWH 2010 deep water. More HYCOM-TSIS windows (`data/fetch_hycom.py`) give more training data. (2) The correction was learned against reanalysis errors; in prediction mode it is applied to RTOFS with no skill claim. (3) At Main Pass 2023 (observed: moved SW, no shoreline) ours with ML drifts NE and strands 35 % while OpenOil and ours without ML go SW, so the ML can hurt; P5 backtest should score `ml=true/false`. (4) Mackay dispersion is high for thin light slicks (diesel ~90 % dispersed in 72 h vs ~44 % in OpenOil).
 - A8 saw (not caused by A8, not fixed): headless Chrome logged `deck.gl assertion failed` initializing PathLayer `currents-global` right after a scripted `map.jumpTo` during DWH playback. The page kept rendering.
