@@ -1,13 +1,16 @@
 """OilFlood backend: FastAPI on :5200. Run: uvicorn app.main:app --port 5200 (from backend/)."""
 from __future__ import annotations
 
+import gzip
 import json
 import logging
+import os
 import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+import anyio
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -27,12 +30,41 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="OilFlood", lifespan=lifespan)
-app.add_middleware(GZipMiddleware, minimum_size=2048)
+# level 6: ~3x faster than the default 9 on the 9 MB track JSONs for ~2 % more bytes
+app.add_middleware(GZipMiddleware, minimum_size=2048, compresslevel=6)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
+class _JsonFile(FileResponse):
+    """JSON file; gzip-accepting clients get a cached `<file>.gz` sidecar (written once, served with
+    Content-Encoding: gzip, so GZipMiddleware leaves it alone). Track files are ~9 MB raw / ~1.5 MB gzipped."""
+
+    async def __call__(self, scope, receive, send):
+        accept = dict(scope.get("headers") or []).get(b"accept-encoding", b"")
+        gz = await anyio.to_thread.run_sync(_gz_sidecar, Path(self.path)) if b"gzip" in accept else None
+        if gz is None:
+            return await super().__call__(scope, receive, send)
+        r = FileResponse(gz, media_type="application/json", headers={"Content-Encoding": "gzip", "Vary": "Accept-Encoding"})
+        return await r(scope, receive, send)
+
+
+def _gz_sidecar(p: Path) -> Path | None:
+    try:
+        st = p.stat()
+        if st.st_size < 4096:
+            return None
+        gz = p.with_name(p.name + ".gz")
+        if not gz.exists() or gz.stat().st_mtime < st.st_mtime:
+            tmp = gz.with_name(f"{gz.name}.{os.getpid()}.tmp")
+            tmp.write_bytes(gzip.compress(p.read_bytes(), 6))
+            os.replace(tmp, gz)
+        return gz
+    except OSError:
+        return None
+
+
 def _json_file(p: Path):
-    return FileResponse(p, media_type="application/json")
+    return _JsonFile(p, media_type="application/json")
 
 
 # --- prediction mode -----------------------------------------------------------
@@ -287,5 +319,15 @@ def health():
 
 # --- static frontend -------------------------------------------------------------
 
+class _Web(StaticFiles):
+    """web/dist: Vite's hashed /assets/* never change -> cache for a year; index.html is always revalidated."""
+
+    async def get_response(self, path, scope):
+        r = await super().get_response(path, scope)
+        r.headers["Cache-Control"] = ("public, max-age=31536000, immutable" if path.startswith("assets/")
+                                      else "no-cache")
+        return r
+
+
 if config.WEB_DIST.is_dir():
-    app.mount("/", StaticFiles(directory=config.WEB_DIST, html=True), name="web")
+    app.mount("/", _Web(directory=config.WEB_DIST, html=True), name="web")

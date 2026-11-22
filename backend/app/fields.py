@@ -93,10 +93,16 @@ def field_at(t: int, bbox=None, step: float = 0.1) -> dict | None:
         i = int(np.argmin(np.abs(ts - t)))
         d = abs(int(ts[i]) - t)
         if best is None or d < best[2]:
-            best = (path, i, d)
+            best = (path, i, d, mt)
     if best is None:
         return None
-    path, i, _ = best
+    path, i, _, mt = best
+    return _field(path, mt, i, tuple(bb), step)
+
+
+@lru_cache(maxsize=128)  # ~0.2 s to interpolate one step; the flow layer asks for the same steps over and over
+def _field(path: str, mtime: float, i: int, bb: tuple, step: float) -> dict:
+    import xarray as xr
     with xr.open_dataset(path) as ds:
         uvar, vvar = _find_var(ds, U_NAMES), _find_var(ds, V_NAMES)
         tname = next(c for c in ds.coords if np.issubdtype(ds[c].dtype, np.datetime64))
