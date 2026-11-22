@@ -27,16 +27,14 @@ from scipy.spatial import cKDTree
 NM_KM = 1.852
 KT = 1.943844
 
-# --- planning assumptions (stated in the JSON + docs/RESPONSE.md) ---------------------------------------
-DEPLOY_LEAD_H = 2.0     # boom in the water and anchored this long before the oil's predicted arrival
-LOAD_H = 1.0            # call-out + loading at the staging base before travel
-TRAVEL_KMH = 30.0       # average transit (truck on coastal roads or response vessel ~16 kt)
-DETOUR = 1.3            # straight-line distance -> route distance
-BOOM_FAIL_KT = 0.7      # boom losses start above ~0.7 kt current normal to the boom
-BOOM_MAX_KM = 8.0       # boom drawn per site (display cap; the real length comes from the GRP / survey)
-DISP_NM, DISP_DEPTH_M = 3.0, 10.0   # dispersant pre-authorization envelope (RRT 6 / RRT 4)
-BURN_NM = 3.0           # in-situ burn: >= 3 nm from shore (RRT 6 ISB pre-authorization)
-STEP_H = 3              # zones / skimmer targets every 3 h
+# --- thresholds: all from app/protocols.py (cited rule IDs, docs/PROTOCOLS.md) ----------------------------
+from . import protocols as P  # noqa: E402
+
+BOOM_MAX_KM = 8.0       # boom drawn per site (display cap only; the real length comes from the GRP / survey)
+DISP_NM, DISP_DEPTH_M = P.DISP_MIN_NM, P.DISP_MIN_DEPTH_M   # DISP-1
+BURN_NM = P.BURN_MIN_NM                                     # ISB-1
+STEP_H = 3              # zones / skimmer targets every 3 h (display step)
+ZS = 0.02               # ~2 km zone grid; a "patch" = 3x3 cells (~6 km) = what one fire-boom team can work
 ARRIVAL_BANDS = [(12, "<12 h"), (24, "12-24 h"), (48, "24-48 h"), (72, "48-72 h"), (1e9, ">72 h")]
 ISO_HOURS = (6, 12, 24, 48, 72)
 
@@ -50,6 +48,31 @@ def _band(h: float) -> int:
 
 def _r(x, n=4):
     return round(float(x), n)
+
+
+def patch_bbl(p: np.ndarray, per_bbl: float) -> tuple[float, float]:
+    """Surface oil in the densest ~6 km patch (3x3 cells of ZS deg) in bbl, and the densest cell's mean thickness
+    in mm (a lower bound: real oil is patchy). p = (n, 2) positions at one hour (NaN = not on the surface)."""
+    p = p[np.isfinite(p[:, 0])]
+    if not len(p) or per_bbl <= 0:
+        return 0.0, 0.0
+    occ: dict = {}
+    for k in zip(np.floor(p[:, 1] / ZS).astype(int).tolist(), np.floor(p[:, 0] / ZS).astype(int).tolist()):
+        occ[k] = occ.get(k, 0) + 1
+    best = max(sum(occ.get((k[0] + a, k[1] + b), 0) for a in (-1, 0, 1) for b in (-1, 0, 1)) for k in occ)
+    kmax = max(occ.values())
+    lat = float(np.mean(p[:, 1]))
+    area_m2 = (ZS * 110574) * (ZS * 111320 * math.cos(math.radians(lat)))
+    return best * per_bbl, kmax * per_bbl * 0.158987 / area_m2 * 1000
+
+
+def nearest_equipment_base(lon: float, lat: float, k: int = 1, types=("osro_depot", "uscg_station")):
+    """Nearest boom/skimmer sources (OSRO / state depots, USCG small-boat stations) from staging_bases.json."""
+    bases = (staging_bases() or {}).get("bases", [])
+    ds = sorted(((_km(lon, lat, x["lon"], x["lat"]), x) for x in bases if x["type"] in types), key=lambda t: t[0])
+    out = [{"name": x["name"], "type": x["type"], "lon": x["lon"], "lat": x["lat"], "km": round(d, 1),
+            "travel_h": round(d / (P.ROAD_MPH * 1.609344), 1)} for d, x in ds[:k]]
+    return out if k > 1 else (out[0] if out else None)
 
 
 def _km(lon1, lat1, lon2, lat2):
@@ -180,12 +203,12 @@ def _poly_coords(g) -> list:
     return out
 
 
-def _sample_current_kt(req: dict, t: np.ndarray, lon: np.ndarray, lat: np.ndarray) -> np.ndarray:
-    """Current speed (kt) from the run's own current forcing at points/times; NaN where unknown."""
+def _sample_current_uv(req: dict, t: np.ndarray, lon: np.ndarray, lat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Current vector (u east, v north; kt) from the run's own current forcing at points/times; NaN where unknown."""
     from .ourmodel.grid import Grid
-    out = np.full(len(lon), np.nan)
+    nan = np.full(len(lon), np.nan)
     if not len(lon):
-        return out
+        return nan, nan
     bb = (float(lon.min()), float(lat.min()), float(lon.max()), float(lat.max()))
     t0 = datetime.fromtimestamp(float(np.min(t)), timezone.utc).replace(tzinfo=None)
     t1 = datetime.fromtimestamp(float(np.max(t)) + 3600, timezone.utc).replace(tzinfo=None)
@@ -196,18 +219,18 @@ def _sample_current_kt(req: dict, t: np.ndarray, lon: np.ndarray, lat: np.ndarra
             g = Grid(f["path"], "current", bb, t0, t1, pad_deg=0.3)
             with np.errstate(invalid="ignore"):
                 u, v = g.sample(t, lon, lat)
-            out = np.hypot(u, v) * KT
-            break
+            return np.asarray(u) * KT, np.asarray(v) * KT
         except Exception:  # noqa: BLE001
             continue
-    return out
+    return nan, nan
 
 
 # --- main ---------------------------------------------------------------------------------------------------
 
 def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarray, end_xy: np.ndarray,
                 end_t: np.ndarray, hit: dict, stretch_cells: list[list[int]], shorelines: list[dict],
-                boom_first: list[dict], hours: list[dict], oc: dict, req: dict, port_entrances: list) -> dict:
+                boom_first: list[dict], hours: list[dict], oc: dict, req: dict, port_entrances: list,
+                members: list[dict] | None = None, lon0: float = 0.0, lat0: float = 0.0) -> dict:
     from .response import esi, _xy, _iso, PORT_ENTRANCES  # noqa: F401
     ed, elat, elon, _ = esi()
     cells = ed["cells"]
@@ -278,8 +301,30 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
         if coords:
             isochrones.append({"t_h": th, "coordinates": coords})
 
+    # ---------------- 2b. uncertainty envelope (R1): best guess + windage 1-4 % members, cumulative ------------
+    uncertainty = []
+    if members:
+        firstu = dict(first)
+        for m in members:
+            for j in range(nH):
+                p = pos[:, j]
+                p = p[np.isfinite(p[:, 0])]
+                if not len(p):
+                    continue
+                q = p + np.array([m["dx_deg"][j], m["dy_deg"][j]])
+                for iy, ix in set(zip(np.floor(q[:, 1] / STEP).astype(int).tolist(),
+                                      np.floor(q[:, 0] / STEP).astype(int).tolist())):
+                    if (iy, ix) not in firstu or H[j] < firstu[(iy, ix)]:
+                        firstu[(iy, ix)] = H[j]
+        for th in ISO_HOURS:
+            if th > H[-1] + 0.01 or th < 12:
+                continue
+            g = _cells_union({c for c, h in firstu.items() if h <= th}, STEP)
+            coords = _poly_coords(g)
+            if coords:
+                uncertainty.append({"t_h": th, "coordinates": coords})
+
     # ---------------- 3. regulatory envelope + tactic zones + skimmer targets ---------------------------------
-    ZS = 0.02  # ~2 km zone grid
     fin = np.isfinite(pos[..., 0])
     if fin.any():
         bx0, by0 = np.nanmin(pos[..., 0]) - 0.3, np.nanmin(pos[..., 1]) - 0.3
@@ -316,16 +361,33 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
     hour_by_h = {round(h["h"]): h for h in hours}
 
     def time_ok(kind: str, h: float) -> bool:
+        """hour-level gates from response.py (everything but the per-cell zone / volume / Grand Isle checks)."""
         x = hour_by_h.get(round(h))
-        if x is None or x["wind_kt"] is None:
+        if x is None:
             return False
-        if kind == "disp":
-            lim = oc["dispersant"]
-            return bool(lim and h <= lim and 4.0 <= x["wind_kt"] <= 25.0 and x["daylight"])
-        if kind == "burn":
-            lim = oc["burn"]
-            return bool(lim is not None and h <= lim and x["wind_kt"] <= 20.0 and x["daylight"])
-        return bool(oc["mechanical"] and x["wind_kt"] <= 20.0 and x["daylight"])
+        return bool(x["disp_t"] if kind == "disp" else x["burn_t"] if kind == "burn" else x["mech"])
+
+    # Census places for the ISB 3 mi population check (ISB-3); Grand Isle buffer (ISB-1)
+    from .response import places as _places
+    pl = _places()
+    gi_km = P.GRAND_ISLE_BUFFER_MI * 1.609344
+    pop_km = P.POP_BUFFER_MI * 1.609344
+
+    def burn_cell_ok(k, occ, per_bbl, wind_to_deg) -> bool:
+        lo, la = (k[1] + 0.5) * ZS, (k[0] + 0.5) * ZS
+        if sum(occ.get((k[0] + a, k[1] + b_), 0) for a in (-1, 0, 1) for b_ in (-1, 0, 1)) * per_bbl < P.BURN_MIN_BBL:
+            return False  # ISB-3: > 500 bbl per burn within the ~6 km patch around the cell
+        dgi = _km(lo, la, *P.GRAND_ISLE)
+        if dgi <= gi_km and wind_to_deg is not None:
+            # "onshore" = the wind blows from the burn toward Grand Isle
+            bx, by = (P.GRAND_ISLE[0] - lo) * math.cos(math.radians(la)), P.GRAND_ISLE[1] - la
+            if bx * math.sin(math.radians(wind_to_deg)) + by * math.cos(math.radians(wind_to_deg)) > 0:
+                return False
+        if pl is not None:
+            from .response import _xy as _xy_
+            if pl[1].query_ball_point(_xy_([lo], [la])[0], pop_km):
+                return False  # ISB-3: population centre within 3 mi (any direction: conservative)
+        return True
 
     zones = []
     skim = []
@@ -342,9 +404,9 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
             if not envelope or not time_ok(kind, h):
                 continue
             c = {k for k in occ if k in envelope[kind]}
-            # burn needs thick, collectable oil: only cells with >= 0.2 % of the particles
             if kind == "burn":
-                c = {k for k in c if occ[k] >= max(2, 0.002 * len(pos))}
+                x = hour_by_h.get(round(h)) or {}
+                c = {k for k in c if burn_cell_ok(k, occ, x.get("per_bbl", 0.0), x.get("wind_to_deg"))}
             if not c:
                 continue
             g = _cells_union(c, ZS)
@@ -373,14 +435,9 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
     sb = staging_bases()
     bases = (sb or {}).get("bases", [])
 
-    # boom / skimmers come from equipment depots (OSRO, state) and USCG small-boat stations, not from offices
-    # or air stations; those stay on the map as context.
-    EQUIP = ("osro_depot", "uscg_station")
-
-    def nearest_bases(lon, lat, k=2, types=EQUIP):
-        ds = sorted(((_km(lon, lat, x["lon"], x["lat"]), x) for x in bases if x["type"] in types), key=lambda t: t[0])
-        return [{"name": x["name"], "type": x["type"], "lon": x["lon"], "lat": x["lat"], "km": round(d, 1),
-                 "travel_h": round(d * DETOUR / TRAVEL_KMH, 1)} for d, x in ds[:k]]
+    def nearest_bases(lon, lat, k=2, types=("osro_depot", "uscg_station")):
+        r = nearest_equipment_base(lon, lat, k=max(k, 2), types=types)
+        return r[:k]
 
     strand = status == "stranded"
     s_xy = end_xy[strand]
@@ -397,12 +454,41 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
         pts = s_xy[m]
         site_lon, site_lat = bf["lon"], bf["lat"]
         eta_h = bf["eta_h"]
-        cur = _sample_current_kt(req, np.array([t0 + eta_h * 3600]), np.array([site_lon]), np.array([site_lat]))[0]
-        if not np.isfinite(cur) and len(pts):
-            cc = _sample_current_kt(req, np.full(len(pts[:50]), t0 + eta_h * 3600), pts[:50, 0], pts[:50, 1])
-            cur = float(np.nanmax(cc)) if np.isfinite(cc).any() else float("nan")
-        strong = bool(np.isfinite(cur) and cur > BOOM_FAIL_KT)
-        angle = round(math.degrees(math.asin(min(1.0, BOOM_FAIL_KT / cur)))) if strong else None
+        # current vector at the site over the arrival window (ETA -3 h .. +3 h, hourly); the strongest hour counts
+        tt = t0 + (eta_h + np.arange(-3, 4)) * 3600
+        uu, vv = _sample_current_uv(req, tt, np.full(len(tt), site_lon), np.full(len(tt), site_lat))
+        if not np.isfinite(uu).any() and len(pts):  # site on model land: use the stranding points offshore
+            q = pts[:30]
+            u2, v2 = _sample_current_uv(req, np.repeat(tt, len(q)), np.tile(q[:, 0], len(tt)), np.tile(q[:, 1], len(tt)))
+            with np.errstate(invalid="ignore"), __import__("warnings").catch_warnings():
+                __import__("warnings").simplefilter("ignore", RuntimeWarning)
+                uu, vv = np.nanmean(u2.reshape(len(tt), -1), axis=1), np.nanmean(v2.reshape(len(tt), -1), axis=1)
+        spd = np.hypot(uu, vv)
+        if np.isfinite(spd).any():
+            jm = int(np.nanargmax(spd))
+            cu, cv, cur = float(uu[jm]), float(vv[jm]), float(spd[jm])
+        else:
+            cu = cv = cur = float("nan")
+
+        def across(c):
+            """current component perpendicular to a boom laid along line c (kt); full speed if unknown."""
+            if not np.isfinite(cur):
+                return float("nan")
+            dx = (c[-1, 0] - c[0, 0]) * math.cos(math.radians(site_lat))
+            dy = c[-1, 1] - c[0, 1]
+            L_ = math.hypot(dx, dy)
+            if L_ == 0:
+                return cur
+            return abs(cu * (-dy / L_) + cv * (dx / L_))
+
+        def boom_kind(p_kt):
+            if not np.isfinite(p_kt) or p_kt <= P.BOOM_ENTRAIN_KT:
+                return "exclusion"          # MECH-1: below 0.7 kt across the boom
+            if p_kt <= P.BOOM_NOHOLD_KT:
+                return "deflection"         # R5: 0.7-1 kt -> deflection boom angled to a collection point
+            return "nohold"                 # ISB-6: > 1 kt across -> very high loss: boom will not hold
+        angle = round(math.degrees(math.asin(min(1.0, P.BOOM_ENTRAIN_KT / cur)))) if (
+            np.isfinite(cur) and cur > P.BOOM_ENTRAIN_KT) else None
         lines = []
         if len(pts) and feats:
             ptree = cKDTree(_xy(pts[:, 0], pts[:, 1]))
@@ -430,34 +516,42 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
                 if tot + L > BOOM_MAX_KM and tot > 0:
                     continue
                 tot += L
-                if rank >= 7:
-                    kind = "deflection" if strong else "exclusion"
-                else:
-                    kind = "beach"  # exposed beach / armored: booming the surf line does not work
+                pk = across(c)
+                kind = boom_kind(pk) if rank >= 7 else "beach"  # exposed beach / armored: no boom on the surf line
                 lines.append({"path": [[_r(x), _r(y)] for x, y in c], "kind": kind, "esi": code,
-                              "km": round(L, 2)})
+                              "km": round(L, 2), "across_kt": None if not np.isfinite(pk) else round(pk, 2)})
                 if tot >= BOOM_MAX_KM:
                     break
         kinds = {ln["kind"] for ln in lines}
-        main_kind = ("deflection" if "deflection" in kinds else "exclusion" if "exclusion" in kinds
-                     else "beach" if "beach" in kinds else ("deflection" if strong else "exclusion")
+        acr = [ln["across_kt"] for ln in lines if ln["kind"] != "beach" and ln["across_kt"] is not None]
+        p_site = max(acr) if acr else (cur if np.isfinite(cur) else None)  # no line orientation: full speed
+        main_kind = ("nohold" if "nohold" in kinds else "deflection" if "deflection" in kinds
+                     else "exclusion" if "exclusion" in kinds else "beach" if "beach" in kinds
+                     else boom_kind(p_site if p_site is not None else float("nan"))
                      if s["sensitivity_tier"] <= 2 else "beach")
-        deploy_by = eta_h - DEPLOY_LEAD_H
+        lt = bf.get("lead") or P.lead_time(site_lon, site_lat, None)
+        ready = lt["lead_h"]
         nb = nearest_bases(site_lon, site_lat) if bases else []
-        mob = deploy_by - (nb[0]["travel_h"] if nb else 0) - LOAD_H
+        late = bool(eta_h < ready)
         for name, plat, plon in port_entrances:
             if _km(plon, plat, site_lon, site_lat) <= 25 and not any(i["name"] == name for i in inlets):
-                inlets.append({"name": name, "lon": plon, "lat": plat, "eta_h": eta_h,
-                               "deploy_by_h": round(deploy_by, 1), "priority": bf["priority"]})
+                inlets.append({"name": name, "lon": plon, "lat": plat, "eta_h": eta_h, "deploy_by_h": round(ready, 1),
+                               "late": late, "priority": bf["priority"]})
         booms.append({
             "priority": bf["priority"], "name": bf["name"], "lon": site_lon, "lat": site_lat,
-            "eta_h": eta_h, "deploy_by_h": round(deploy_by, 1), "mobilize_by_h": round(mob, 1),
-            "late": bool(mob < 0), "kind": main_kind,
-            "current_kt": None if not np.isfinite(cur) else round(float(cur), 2), "boom_angle_deg": angle,
+            "eta_h": eta_h, "eta_earliest_h": bf.get("eta_earliest_h"),
+            "deploy_by_h": round(ready, 1), "mobilize_by_h": lt["en_route_h"], "lead": lt,
+            "late": late, "kind": main_kind,
+            "current_kt": None if not np.isfinite(cur) else round(cur, 2),
+            "across_kt": None if p_site is None else round(float(p_site), 2), "boom_angle_deg": angle,
             "km": round(sum(ln["km"] for ln in lines), 1), "lines": lines, "staging": nb,
             "esi": bf["esi"], "esi_label": bf["esi_label"],
-            "label": {"exclusion": "Exclusion boom", "deflection": f"Deflection boom ~{angle}° to current" if angle else
-                      "Deflection boom", "beach": "Beach crews + inlet boom"}[main_kind],
+            "label": {"exclusion": "Exclusion boom",
+                      "deflection": f"Deflection boom ~{angle}° to current" if angle else "Deflection boom",
+                      "nohold": "Boom won't hold (>1 kt across): shoreline crews + skimmers downstream",
+                      "beach": "Beach crews + inlet boom"}[main_kind],
+            "rule": "R5: across-boom current <= 0.7 kt exclusion; 0.7-1 kt deflection at asin(0.7/current); "
+                    "> 1 kt boom will not hold (MECH-1, ISB-6)",
         })
 
     # ---------------- 5. staging for on-water ops (slick centroid when the first window opens) -----------------
@@ -474,21 +568,24 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
 
     # ---------------- 6. timeline ----------------------------------------------------------------------------
     ev = []
+    if booms:
+        ev.append({"h": P.NOTIFY_H, "kind": "mobilize", "lon": booms[0]["lon"], "lat": booms[0]["lat"],
+                   "text": "Notify NRC / USCG COTP and authorize Tier 1 mobilization (within 30 min, MECH-6)"})
     for bm in booms:
         where = bm["name"] or "shore"
+        lt = bm["lead"]
+        src_ = bm["staging"][0]["name"] if bm["staging"] else "the nearest base"
         if bm["late"]:
             ev.append({"h": 0.0, "kind": "late", "lon": bm["lon"], "lat": bm["lat"],
-                       "text": f"{where}: oil ashore in ~{max(1, round(bm['eta_h']))} h, before boom from "
-                               f"{bm['staging'][0]['name'] if bm['staging'] else 'the nearest base'} can be in place. "
-                               "Shoreline crews; protect the next site."})
-        else:
-            ev.append({"h": max(0.0, bm["mobilize_by_h"]), "kind": "mobilize", "lon": bm["lon"], "lat": bm["lat"],
-                       "text": f"Mobilize {bm['label'].lower()} for {where}"
-                               + (f" from {bm['staging'][0]['name']} (~{bm['staging'][0]['travel_h']:.1f} h)" if bm["staging"] else "")})
-        if bm["late"] and bm["deploy_by_h"] < 0:
+                       "text": f"{where}: oil ashore in ~{max(1, round(bm['eta_h']))} h, before Tier 1 boom from "
+                               f"{src_} can be on scene (~{lt['lead_h']:.0f} h). Shoreline crews; protect the next site."})
             continue
-        ev.append({"h": max(0.0, bm["deploy_by_h"]), "kind": "deploy", "lon": bm["lon"], "lat": bm["lat"],
-                   "text": f"{bm['label']} in place at {where} ({bm['km']:.1f} km mapped, ESI {bm['esi']})"})
+        ev.append({"h": bm["mobilize_by_h"], "kind": "mobilize", "lon": bm["lon"], "lat": bm["lat"],
+                   "text": f"Tier 1 en route: {bm['label'].lower()} for {where} from {src_}"
+                           + (f" (~{bm['staging'][0]['travel_h']:.1f} h by road)" if bm["staging"] else "")})
+        ev.append({"h": bm["deploy_by_h"], "kind": "deploy", "lon": bm["lon"], "lat": bm["lat"],
+                   "text": f"{bm['label']} on scene at {where} ({bm['km']:.1f} km mapped, ESI {bm['esi']}; "
+                           f"oil at T+{bm['eta_h']:.0f} h, earliest T+{(bm['eta_earliest_h'] or bm['eta_h']):.0f} h)"})
     for s in shorelines[:8]:
         if s["impact"] == "landfall" and s["particles_pct"] >= 0.5:
             ev.append({"h": s["eta_h"], "kind": "landfall", "lon": s["lon"], "lat": s["lat"],
@@ -505,21 +602,23 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
                 if np.isfinite(c[0]):
                     ev.append({"h": round(h, 1), "kind": f"{kind}_{'open' if okk else 'close'}", "lon": _r(c[0]),
                                "lat": _r(c[1]), "text": f"{label} window {'opens' if okk else 'closes'}"
-                               + ("" if okk or kind == "mech" else " (oil too weathered, wind, dark or outside the envelope)")})
+                               + ("" if okk or kind == "mech" else
+                                  " (a protocol gate closed: see the tactic's gates in the outline)")})
                 prev = okk
     for i_ in inlets:
         ev.append({"h": max(0.0, i_["deploy_by_h"]), "kind": "inlet", "lon": i_["lon"], "lat": i_["lat"],
-                   "text": f"Exclusion boom across {i_['name']}" + (" (oil arrives before it can be in place)"
-                                                                     if i_["deploy_by_h"] < 0 else "")})
+                   "text": f"Boom across {i_['name']}" + (" (oil arrives before it can be in place)"
+                                                          if i_["late"] else "")})
     ev.sort(key=lambda e: (e["h"], e["kind"]))
 
     sources = [
-        {"what": "Boom types, 0.7 kt failure speed", "ref": "NOAA ORR Characteristics of Response Strategies (2010) "
-         "p. 39; ITOPF TIP 03 Use of Booms (2011): boom angle 90/45/28/20 deg at 0.7/1/1.5/2 kt",
-         "url": "https://www.itopf.org/fileadmin/uploads/itopf/data/Documents/TIPS_TAPS_new/"
-                "TIP_3_Use_of_Booms_in_Oil_Pollution_Response.pdf"},
-        {"what": "Response time context", "ref": "33 CFR 155.1050 (OSRO tiers 12/36/60 h in higher volume port areas); "
-         "33 CFR 154.1045 (facility: 1,000 ft of boom within 1 h)", "url": "https://www.ecfr.gov/current/title-33/section-155.1050"},
+        {"what": "Boom: 0.7 kt across the boom, > 1 kt very high loss", "ref": "NOAA/API Characteristics of Response "
+         "Strategies (2010) (MECH-1); RRT-6 ISB policy (ISB-6)", "url": P.src(["S6"])[0]["url"] if P.src(["S6"]) else ""},
+        {"what": "Lead time", "ref": "33 CFR 154.1045: notify within 30 min, Tier 1 en route within 2 h, on scene 6 h "
+         "(higher-volume port area, 154.1020) / 12 h elsewhere; App. C 35 mph road travel (MECH-6, R6)",
+         "url": "https://www.law.cornell.edu/cfr/text/33/154.1045"},
+        {"what": "Dispersant zone, burn zone, burn gates", "ref": "RRT-6 dispersant pre-approval (DISP-1/2/4/5), RRT-6 ISB "
+         "policy (ISB-1..5), 1994 RRT VI ISB plan (ISB-3)", "url": P.DOC_URL},
         {"what": "Shoreline geometry", "ref": "NOAA OR&R National ESI Shoreline (GULF_ATLANTIC_ESI.gdb, 2017)",
          "url": "https://response.restoration.noaa.gov/esi_download"},
     ]
@@ -528,12 +627,22 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
     if sb:
         sources.append({"what": "Staging bases", "ref": sb.get("source", "data/response/staging_bases.json"),
                         "url": sb.get("url", "")})
+    def circle(lon, lat, km, n=72):
+        return [[_r(lon + km / (111.32 * math.cos(math.radians(lat))) * math.cos(a)), _r(lat + km / 110.57 * math.sin(a))]
+                for a in np.linspace(0, 2 * math.pi, n)]
+    circles = [{"kind": "disp_circle", "path": circle(lon0, lat0, P.DISP_CIRCLE_NM * NM_KM),
+                "label": "10 nm dispersant planning circle (DISP-2)"}]
+    if fin.any() and _km(float(np.nanmean(pos[..., 0])), float(np.nanmean(pos[..., 1])), *P.GRAND_ISLE) < 150:
+        circles.append({"kind": "grand_isle", "path": circle(*P.GRAND_ISLE, P.GRAND_ISLE_BUFFER_MI * 1.609344),
+                        "label": "Grand Isle 7 mi ISB buffer in onshore wind (ISB-1)"})
     return {
-        "version": "layer-v1",
+        "version": "layer-v2",
         "bands": [lab for _, lab in ARRIVAL_BANDS],
         "shore_source": shore_src,
         "shore": segs,
         "isochrones": isochrones,
+        "uncertainty": uncertainty,
+        "circles": circles,
         "booms": booms,
         "inlets": inlets,
         "zones": zones,
@@ -544,28 +653,36 @@ def build_layer(*, t0: float, hrs: np.ndarray, pos: np.ndarray, status: np.ndarr
         "staging_ops": staging_ops,
         "timeline": ev,
         "assumptions": {
-            "deploy_lead_h": DEPLOY_LEAD_H, "load_h": LOAD_H, "travel_kmh": TRAVEL_KMH, "detour": DETOUR,
-            "boom_fail_kt": BOOM_FAIL_KT, "boom_max_km": BOOM_MAX_KM, "disp_nm": DISP_NM,
-            "disp_depth_m": DISP_DEPTH_M if b is not None else None, "burn_nm": BURN_NM,
+            "notify_h": P.NOTIFY_H, "en_route_h": P.NOTIFY_H + P.MOBILIZE_H, "road_mph": P.ROAD_MPH,
+            "tier1_hvp_h": P.TIER1_HVP_H, "tier1_other_h": P.TIER1_OTHER_H,
+            "boom_entrain_kt": P.BOOM_ENTRAIN_KT, "boom_nohold_kt": P.BOOM_NOHOLD_KT, "boom_max_km": BOOM_MAX_KM,
+            "disp_nm": DISP_NM, "disp_depth_m": DISP_DEPTH_M if b is not None else None, "burn_nm": BURN_NM,
+            "burn_min_bbl": P.BURN_MIN_BBL,
         },
         "rules": [
-            f"Deploy-by = predicted arrival minus {DEPLOY_LEAD_H:.0f} h (boom anchored and tended before oil arrives); "
-            f"mobilize-by = deploy-by minus travel from the nearest staging base ({DETOUR}x straight line at "
-            f"{TRAVEL_KMH:.0f} km/h) minus {LOAD_H:.0f} h loading.",
-            "Boom type by shoreline: ESI 7-10 (flats, sheltered shores, marsh) -> exclusion boom; if the forecast "
-            f"current at the site exceeds ~{BOOM_FAIL_KT} kt -> deflection boom angled to the current "
-            f"(angle = asin({BOOM_FAIL_KT} / current) so the normal component stays below ~{BOOM_FAIL_KT} kt); "
-            "ESI 1-6 exposed beaches -> no boom on the surf line, beach crews + exclusion boom across nearby inlets.",
-            f"Dispersant zone = surface oil while the dispersant window is open (oil age, wind 4-25 kt, daylight) "
-            f"AND >= {DISP_NM:.0f} nm from shore"
-            + (f" AND >= {DISP_DEPTH_M:.0f} m deep (ETOPO1)" if b is not None else " (depth NOT checked: no bathymetry)")
-            + ": RRT-6 pre-approval zone = from the 10 m isobath or 3 nmi, whichever is farther from shore "
-            "(RRT-6 Dispersant Pre-Approval Guidelines v4.0); RRT 4 green zone >= 3 mi and >= 10 m. Closer in needs "
-            "RRT consultation (RRT-6 2005 near-shore expedited process). The Flower Garden Banks NMS has its own RRT-6 "
-            "guidance (not mapped here).",
-            f"In-situ burn zone = collectable oil (>= 0.2 % of particles per ~2 km cell) while the burn window is "
-            f"open and >= {BURN_NM:.0f} nm from shore (RRT-6 offshore ISB policy: seaward of 3 miles; the 1994 plan "
-            "excludes some reefs and an area off Grand Isle, not mapped here).",
+            "Boom on scene = notify 0.5 h + Tier 1 en route by 2.5 h + road travel from the nearest equipment base at "
+            f"{P.ROAD_MPH:.0f} mph, never sooner than the USCG Tier 1 time: {P.TIER1_HVP_H:.0f} h in a higher-volume port "
+            f"area (33 CFR 154.1020: Galveston Bay/Houston Ship Channel, Sabine-Neches, Lake Charles, Corpus Christi, "
+            f"Mississippi River SW Pass-Baton Rouge, LOOP, Pascagoula), {P.TIER1_OTHER_H:.0f} h elsewhere (R6, MECH-6). "
+            "If the oil arrives first: shoreline crews and protect the next site (WIN-3).",
+            "Boom type from the forecast current ACROSS each boom line (component perpendicular to the ESI shoreline "
+            f"segment, strongest hour within +/-3 h of arrival): <= {P.BOOM_ENTRAIN_KT} kt exclusion boom (MECH-1; "
+            f"{P.BOOM_ENTRAIN_KT_RRT6} kt in RRT-6, ISB-6); {P.BOOM_ENTRAIN_KT}-{P.BOOM_NOHOLD_KT:.0f} kt deflection boom "
+            f"at asin({P.BOOM_ENTRAIN_KT}/current) to a collection point; > {P.BOOM_NOHOLD_KT:.0f} kt boom will not "
+            "hold (ISB-6: very high loss rate): shoreline crews + skimmers downstream (R5). ESI 1-6 exposed beaches: no "
+            "boom on the surf line, beach crews + boom across nearby inlets.",
+            f"Dispersant zone = surface oil while every hour-level gate passes (API 17-45 and pour point below sea "
+            f"temperature DISP-5; emulsion <= 25 % WIN-4; wind <= 25 kt and daylight DISP-4) AND >= {DISP_NM:.0f} nm "
+            f"from shore" + (f" AND >= {DISP_DEPTH_M:.0f} m deep (ETOPO1)" if b is not None else
+                               " (depth NOT checked: no bathymetry)")
+            + " (DISP-1, 'whichever is farthest'). Closer in: RRT-6 concurrence case by case (DISP-3). The 10 nm circle "
+            "around the source is RRT-6's planning circle (DISP-2). Visibility/ceiling are not forecast: check.",
+            f"In-situ burn zone = ~2 km cells >= {BURN_NM:.0f} nm offshore (ISB-1) with > {P.BURN_MIN_BBL:.0f} bbl of "
+            "surface oil in the ~6 km patch around them (ISB-3), outside the Grand Isle 7 mi buffer when the wind blows "
+            "toward it (ISB-1) and > 3 mi from any Census place (ISB-3), while emulsion <= 25 %, wind <= 21.7 kt, "
+            "current <= 0.75 kt and sun > 15° (ISB-2/4/5). Reef/bank exclusion areas are not in our data.",
+            "Uncertainty outline (dashed) = where oil could be if the wind drift were 1 % or 4 % instead of the "
+            "model's value (GNOME windage range, FCST-4): best guess + uncertainty, like NOAA's minimum-regret area.",
             "Skimmer targets = the 3 densest clusters of surface particles (~6 km neighbourhood) every 3 h.",
         ],
         "notes": notes,

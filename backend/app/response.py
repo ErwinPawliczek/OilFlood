@@ -22,7 +22,8 @@ from scipy.spatial import cKDTree
 
 from . import config, oils
 
-VERSION = "resp-v2"  # v2: + "layer" (map geometry, T21); windows use ETOPO1 depth + coast distance
+VERSION = "resp-v3"  # v3 (T23): real protocol gates (PROTOCOLS.md R1-R10), uncertainty envelope, Tier 1 lead time
+# v2: + "layer" (map geometry, T21); windows use ETOPO1 depth + coast distance
 KT = 1.943844  # m/s -> knots
 NM_KM = 1.852
 
@@ -32,37 +33,33 @@ DISCLAIMER = ("Planning aid generated automatically from one model forecast. Not
 
 # --- rule tables (sources: docs/RESPONSE.md) -----------------------------------------------------------
 
-# Oil groups, roughly ITOPF/NOAA persistence groups. Windows are typical upper bounds after release.
+# Oil groups, roughly ITOPF/NOAA persistence groups. No age limits any more (T23, GAP-2): dispersant / burn
+# feasibility comes from the oil's ADIOS API gravity, pour point and the slick's modelled emulsion water content
+# (app/protocols.py). `light_product`: gasoline / condensate / jet evaporate within hours and are a fire/explosion
+# hazard, so containment, skimming and burning are not planned for them (CRS S6, gasoline note).
 OIL_CLASSES = {
     "gasoline": {"label": "gasoline (non-persistent, flammable)", "group": 1, "persistent": False,
-                 "dispersant": None, "burn": None, "mechanical": False},
+                 "light_product": True, "mechanical": False},
     "condensate": {"label": "condensate (non-persistent)", "group": 1, "persistent": False,
-                   "dispersant": None, "burn": None, "mechanical": False},
+                   "light_product": True, "mechanical": False},
     "jet": {"label": "jet fuel (light refined, non-persistent)", "group": 1, "persistent": False,
-            "dispersant": None, "burn": None, "mechanical": False},
+            "light_product": True, "mechanical": False},
     "diesel": {"label": "diesel / marine gas oil (light refined)", "group": 2, "persistent": False,
-               "dispersant": None, "burn": 24, "mechanical": True},
-    "crude_light": {"label": "light crude", "group": 2, "persistent": True,
-                    "dispersant": 48, "burn": 48, "mechanical": True},
-    "crude_medium": {"label": "medium crude", "group": 3, "persistent": True,
-                     "dispersant": 36, "burn": 36, "mechanical": True},
-    "crude_heavy": {"label": "heavy crude", "group": 4, "persistent": True,
-                    "dispersant": 12, "burn": 24, "mechanical": True},
-    "heavy_fuel": {"label": "heavy fuel oil (IFO / No. 6)", "group": 4, "persistent": True,
-                   "dispersant": 0, "burn": 12, "mechanical": True},
+               "light_product": False, "mechanical": True},
+    "crude_light": {"label": "light crude", "group": 2, "persistent": True, "light_product": False, "mechanical": True},
+    "crude_medium": {"label": "medium crude", "group": 3, "persistent": True, "light_product": False, "mechanical": True},
+    "crude_heavy": {"label": "heavy crude", "group": 4, "persistent": True, "light_product": False, "mechanical": True},
+    "heavy_fuel": {"label": "heavy fuel oil (IFO / No. 6)", "group": 4, "persistent": True, "light_product": False,
+                   "mechanical": True},
 }
 OIL_ID_CLASS = {"crude_light": "crude_light", "crude_medium": "crude_medium", "crude_heavy": "crude_heavy",
                 "ifo380": "heavy_fuel", "fuel_no6": "heavy_fuel", "diesel": "diesel", "jet": "jet",
                 "gasoline": "gasoline", "condensate": "condensate"}
 
-# Operating limits (kt / ft / nm), NOAA ORR + USCG/RRT guidance (docs/RESPONSE.md).
-WIND_DISP_MIN, WIND_DISP_MAX = 4.0, 25.0
-WIND_BURN_MAX = 20.0
-WIND_MECH_MAX = 20.0
-BOOM_CURRENT_KT = 0.75  # containment boom entrains oil above ~0.7-1 kt relative current
-PREAUTH_NM = 3.0        # RRT 4/6 dispersant pre-authorization: >= 3 nm from shore and >= 10 m depth
-PREAUTH_DEPTH_M = 10.0  # checked against ETOPO1 (data/cache/bathy) when cached
-STAGE_H = 6.0           # assumed hours to get boom on site after notification (planning assumption)
+# Operating limits: all cited, see app/protocols.py (rule IDs -> docs/PROTOCOLS.md / data/response/protocols.json).
+from . import protocols as P  # noqa: E402
+
+T_WATER_C = 25.0        # sea-surface temperature for the pour-point check = our model's Gulf default (OURMODEL.md)
 LANDFALL_KM = 6.0       # stranded particle -> ESI cell match radius
 APPROACH_KM = 10.0      # oil within this distance of a shoreline cell = "threatened"
 STRETCH_KM = 30.0       # shoreline stretches reported as one priority item
@@ -455,14 +452,22 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
     first_land = min(landfalls, key=lambda s: s["eta_h"]) if landfalls else None
     first_threat = min(shorelines, key=lambda s: s["eta_h"]) if shorelines else None
 
-    # --- environment + windows --------------------------------------------------------------------------
+    # --- environment + gates (T23: docs/PROTOCOLS.md R3/R4/R5, app/protocols.py) --------------------------
     env = _env_series(req, hrs, cen)
-    evap = []
-    if bud and m0 > 0:
-        bt = np.array([b["t"] for b in bud], float)
-        ev = np.array([b.get("evaporated", 0) / m0 for b in bud])
-        evap = np.interp(hrs, bt, ev)
     from . import response_layer as rl
+    props = P.oil_props(meta.get("oil_type") or oil_name, ocls)
+    # continuous release: the run's own point source (backtest), or a catalog blowout (DWH, Ixtoc)
+    cat_rel = next((str(c.get("release") or "") for c in _catalog() if spill_id and c.get("id") == spill_id), "")
+    continuous = bool(req.get("source")) or "blowout" in cat_rel.lower()
+    # fraction evaporated of the oil released so far (continuous releases: m0 grows), surface volume per hour
+    evap, surf_bbl = np.zeros(len(hrs)), np.zeros(len(hrs))
+    if bud:
+        bt = np.array([b["t"] for b in bud], float)
+        tot = np.array([sum(b.get(k, 0) for k in ("surface", "evaporated", "dispersed", "stranded")) for b in bud])
+        ev = np.array([b.get("evaporated", 0) for b in bud]) / np.maximum(tot, 1e-9)
+        evap = np.interp(hrs, bt, ev)
+        surf_bbl = np.interp(hrs, bt, np.array([b.get("surface", 0) for b in bud], float)) / props["density"] / 0.158987
+    emul = P.emulsion_series(props, env["wind_ms"], list(evap))
     okc = np.isfinite(cen[:, 0])
     sk = np.full(len(cen), np.nan)
     dep = np.full(len(cen), np.nan)
@@ -473,92 +478,226 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
             dep[okc] = d_
     nearest_shore_km = [None if not np.isfinite(x) else round(float(x), 1) for x in sk]
     depth_c = [None if not np.isfinite(x) else round(float(x)) for x in dep]
+    have_bathy = rl.bathy() is not None
+    ab = P.api_band(props["api"])
+    pour_ok = None if props["pour_point_c"] is None else props["pour_point_c"] < T_WATER_C
     hours = []
+    n_alive = np.isfinite(pos[..., 0]).sum(axis=0)
     for i, t in enumerate(hrs):
         h = (t - t0) / 3600
         w = env["wind_ms"][i]
         wk = None if w is None else w * KT
         cur = env["current_ms"][i]
-        day = bool(np.isfinite(cen[i, 0]) and sun_elevation(t, cen[i, 1], cen[i, 0]) > 0)
-        off_nm = None if nearest_shore_km[i] is None else nearest_shore_km[i] / NM_KM
+        ck = None if cur is None else cur * KT
         has_surface = bool(np.isfinite(cen[i, 0]))
-        disp_ok = (oc["dispersant"] is not None and oc["dispersant"] > 0 and h <= oc["dispersant"] and has_surface
-                   and wk is not None and WIND_DISP_MIN <= wk <= WIND_DISP_MAX and day
-                   and off_nm is not None and off_nm >= PREAUTH_NM
-                   and (depth_c[i] is None or depth_c[i] >= PREAUTH_DEPTH_M))
-        burn_ok = (oc["burn"] is not None and h <= oc["burn"] and has_surface and wk is not None
-                   and wk <= WIND_BURN_MAX and day and off_nm is not None and off_nm >= PREAUTH_NM)
-        mech_ok = oc["mechanical"] and has_surface and wk is not None and wk <= WIND_MECH_MAX and day
+        sun = sun_elevation(t, cen[i, 1], cen[i, 0]) if has_surface else -90.0
+        off_nm = None if nearest_shore_km[i] is None else nearest_shore_km[i] / NM_KM
+        y = 0.0 if continuous else emul[i]  # continuous release: the freshest oil at the source (GAP-2)
+        per_bbl = surf_bbl[i] / n_alive[i] if n_alive[i] else 0.0
+        patch = rl.patch_bbl(pos[:, i], per_bbl) if has_surface else (0.0, 0.0)
+        zone_d = (None if off_nm is None else False if off_nm < P.DISP_MIN_NM
+                  else None if depth_c[i] is None else depth_c[i] >= P.DISP_MIN_DEPTH_M)
+        g_disp = [
+            P.gate("api", "Oil dispersibility (API gravity)", ab["ok"], ab["text"], "17-45", ("DISP-5",)),
+            P.gate("pour", "Pour point below sea temperature", pour_ok,
+                   None if props["pour_point_c"] is None else f"{props['pour_point_c']:.0f} °C vs {T_WATER_C:.0f} °C",
+                   "pour point < water temp", ("DISP-5",)),
+            P.gate("emulsion", "Emulsion water content", y <= P.EMULSION_MAX, f"{100 * y:.0f} %", "<= 25 %",
+                   ("WIN-4",)),
+            P.gate("zone", "Pre-approval zone (>= 3 nm AND >= 10 m)", zone_d,
+                   None if off_nm is None else f"{off_nm:.1f} nm, " + (f"{depth_c[i]} m" if depth_c[i] is not None
+                                                                        else "depth n/a"),
+                   ">= 3 nm and >= 10 m", ("DISP-1", "DISP-3")),
+            P.gate("wind", "Wind (aerial)", None if wk is None else wk <= P.DISP_WIND_MAX_KT,
+                   None if wk is None else f"{wk:.0f} kt", "<= 25 kt", ("DISP-4",)),
+            P.gate("mixing", "Mixing energy", None if wk is None else wk >= P.DISP_WIND_SOFT_MIN_KT,
+                   None if wk is None else f"{wk:.0f} kt", "a few knots (~4 kt)", ("DISP-8",), soft=True),
+            P.gate("daylight", "Daylight", sun > 0, f"sun {sun:.0f}°", "daylight only", ("DISP-4",)),
+            P.gate("vis", "Visibility >= 3 nm, ceiling >= 1,000 ft", None, "not in forecast", "check", ("DISP-4",)),
+        ]
+        gi_km = P._km(cen[i, 0], cen[i, 1], *P.GRAND_ISLE) if has_surface else 1e9
+        g_burn = [
+            P.gate("emulsion", "Emulsion water content", y <= P.EMULSION_MAX, f"{100 * y:.0f} %",
+                   "<= 25 % (50 % with test burn)", ("ISB-2", "WIN-4")),
+            P.gate("volume", "Oil to burn in one patch (~6 km)", patch[0] >= P.BURN_MIN_BBL, f"{patch[0]:.0f} bbl",
+                   "> 500 bbl per burn", ("ISB-3",)),
+            P.gate("zone", "Seaward of 3 nm", None if off_nm is None else off_nm >= P.BURN_MIN_NM,
+                   None if off_nm is None else f"{off_nm:.1f} nm", ">= 3 nm", ("ISB-1",)),
+            P.gate("grand_isle", "Outside Grand Isle 7 mi buffer", gi_km > P.GRAND_ISLE_BUFFER_MI * 1.609344,
+                   f"{gi_km / 1.609344:.0f} mi", "> 7 mi in onshore wind", ("ISB-1",)),
+            P.gate("wind", "Wind", None if wk is None else wk <= P.BURN_WIND_MAX_KT,
+                   None if wk is None else f"{wk:.0f} kt", "<= 21.7 kt (25 mph)", ("ISB-4",)),
+            P.gate("wind_pref", "Wind preferred", None if wk is None else wk <= P.BURN_WIND_PREF_KT,
+                   None if wk is None else f"{wk:.0f} kt", "< 17.4 kt (20 mph)", ("ISB-4",), soft=True),
+            P.gate("current", "Current", None if ck is None else ck <= P.BURN_CURRENT_MAX_KT,
+                   None if ck is None else f"{ck:.2f} kt", "<= 0.75 kt", ("ISB-2",)),
+            P.gate("sun", "Sun > 15° (no night/dawn/dusk)", sun > P.BURN_SUN_MIN_DEG, f"sun {sun:.0f}°", "> 15°",
+                   ("ISB-5",)),
+            P.gate("thickness", "Collected to >= 2-3 mm in fire boom", None,
+                   f"model cell mean {patch[1]:.3f} mm", "field check (overflight)", ("ISB-2",)),
+            P.gate("waves", "Waves <= 3 ft", None, "not in forecast", "check", ("ISB-2",)),
+        ]
+        g_mech = [
+            P.gate("daylight", "Daylight (spotting)", sun > 0, f"sun {sun:.0f}°", "daylight", ("ISB-5",), soft=False),
+            P.gate("waves", "Short-period waves <= 2-3 ft", None, "not in forecast", "check", ("MECH-2",)),
+        ]
+
+        def ok_all(gs):  # every hard gate passes or is unknown (unknown = "check" in the panel)
+            return all(g["ok"] is not False for g in gs if not g["soft"])
+        disp_ok = (has_surface and not oc["light_product"] and ab["ok"] is not False and ok_all(g_disp))
+        burn_ok = (has_surface and not oc["light_product"] and ok_all(g_burn))
+        mech_ok = bool(oc["mechanical"] and has_surface and ok_all(g_mech))
+        # time-only gates (everything except the zone): the map layer applies the zone per ~2 km cell
+        disp_t = has_surface and not oc["light_product"] and ab["ok"] is not False and all(
+            g["ok"] is not False for g in g_disp if not g["soft"] and g["key"] != "zone")
+        burn_t = has_surface and not oc["light_product"] and all(
+            g["ok"] is not False for g in g_burn if not g["soft"] and g["key"] not in ("zone", "volume", "grand_isle"))
         hours.append({"t": t, "h": round(h, 1), "wind_kt": None if wk is None else round(wk, 1),
                       "wind_to": None if env["wind_dir_to"][i] is None else _compass(env["wind_dir_to"][i]),
-                      "current_kt": None if cur is None else round(cur * KT, 2), "daylight": day,
+                      "wind_to_deg": env["wind_dir_to"][i],
+                      "current_kt": None if ck is None else round(ck, 2), "daylight": sun > 0,
+                      "sun_deg": round(sun, 1),
                       "offshore_nm": None if off_nm is None else round(off_nm, 1), "depth_m": depth_c[i],
-                      "evaporated_pct": round(100 * float(evap[i]), 1) if len(evap) else None,
-                      "disp": bool(disp_ok), "burn": bool(burn_ok), "mech": bool(mech_ok)})
+                      "evaporated_pct": round(100 * float(evap[i]), 1),
+                      "emulsion_pct": round(100 * y, 1), "surface_bbl": round(float(surf_bbl[i])),
+                      "patch_bbl": round(patch[0]), "per_bbl": per_bbl,
+                      "disp": bool(disp_ok), "burn": bool(burn_ok), "mech": bool(mech_ok),
+                      "disp_t": bool(disp_t), "burn_t": bool(burn_t), "surface": has_surface,
+                      "gates": {"disp": g_disp, "burn": g_burn, "mech": g_mech}})
 
     winds = [h["wind_kt"] for h in hours if h["wind_kt"] is not None]
     curs = [h["current_kt"] for h in hours if h["current_kt"] is not None]
 
     def _why_not(kind):
         if kind == "disp":
-            if oc["dispersant"] is None:
-                return f"Not recommended for {oc['label']}: it evaporates/disperses naturally within hours to days."
-            if oc["dispersant"] == 0:
-                return (f"{oc['label'].capitalize()} is generally too viscous for dispersants to work; only after a "
-                        "successful test application, and only if approved by the RRT.")
-        if kind == "burn" and oc["burn"] is None:
-            return f"In-situ burning is not used for {oc['label']} (fire/vapour hazard, or slick too thin)."
+            if oc["light_product"] or ab.get("no_need"):
+                return (f"Not needed for {oc['label']}: {ab['text']} (RRT-6 oil table, DISP-5); it evaporates and "
+                        "disperses naturally.")
+            if ab["ok"] is False:
+                return (f"{ab['text']} (RRT-6 oil table, DISP-5): only after a successful test application, with "
+                        "RRT concurrence.")
+        if kind == "burn" and oc["light_product"]:
+            return (f"In-situ burning is not planned for {oc['label']}: it evaporates within hours and is a "
+                    "fire/explosion hazard (CRS, S6).")
         if kind == "mech" and not oc["mechanical"]:
             return (f"{oc['label'].capitalize()} spreads too thin and evaporates too fast for booms and skimmers; "
-                    "keep responders out of the vapour cloud (monitor LEL), let it evaporate, protect intakes.")
+                    "keep responders out of the vapour cloud (monitor LEL), let it evaporate, protect intakes (CRS, S6).")
         return None
 
-    def _tactic(kind, title, conds, extra):
+    def _gate_summary(kind):
+        """per gate: hours passed / failed / unknown over hours with surface oil (what blocks the window)."""
+        out = []
+        hs = [h for h in hours if h["surface"]]
+        for gi, g0 in enumerate(hs[0]["gates"][kind] if hs else []):
+            vals = [h["gates"][kind][gi]["ok"] for h in hs]
+            first_fail = next((h for h in hs if h["gates"][kind][gi]["ok"] is False), None)
+            out.append({**{k: g0[k] for k in ("key", "label", "limit", "rules", "sources", "soft")},
+                        "pass_h": sum(v is True for v in vals), "fail_h": sum(v is False for v in vals),
+                        "unknown_h": sum(v is None for v in vals),
+                        "first_value": g0["value"], "first_fail": None if first_fail is None else {
+                            "h": first_fail["h"], "value": first_fail["gates"][kind][gi]["value"]}})
+        return out
+
+    def _tactic(kind, title, extra, prec_key):
         wins = _windows(hours, kind)
         return {"tactic": title, "feasible": bool(wins), "windows": wins,
                 "total_hours": round(sum(w["hours"] for w in wins), 1),
-                "not_applicable": _why_not(kind), "conditions": conds, "notes": extra}
+                "not_applicable": _why_not(kind), "gates": _gate_summary(kind),
+                "conditions": [f"{g['label']}: {g['limit']} [{', '.join(g['rules'])}]" for g in
+                               (hours[0]["gates"][kind] if hours else [])],
+                "notes": extra, "precedents": P.precedents_for(prec_key)}
 
     disp = _tactic("disp", "Dispersants (aerial / vessel)",
-                   [f"oil still fresh: within ~{oc['dispersant'] or 0} h for {oc['label']} (before emulsification "
-                    "raises viscosity)",
-                    f"wind {WIND_DISP_MIN:.0f}-{WIND_DISP_MAX:.0f} kt (some mixing energy, safe flight ops)",
-                    "daylight (spotter aircraft)",
-                    f">= {PREAUTH_NM:.0f} nm from shore and >= {PREAUTH_DEPTH_M:.0f} m deep (RRT 4/6 pre-authorization "
-                    "zone; depth from ETOPO1 at the slick centroid" + ("" if rl.bathy() is not None else
-                                                                        ", NOT checked: no bathymetry cached") + ")"],
-                   ["Requires FOSC decision and RRT concurrence outside pre-authorized zones; SMART monitoring."])
+                   ["FOSC decides under RRT-6 pre-approval; RRT notified, results to RRT within 24 h; spray contractor "
+                    "under contract before the spill (AUTH-1, DISP-6).",
+                    "SMART monitoring for every application (Tier I visual minimum; positive feedback to continue; birds "
+                    "1,000 ft clear) (DISP-7).",
+                    "Outside the pre-approval zone (< 3 nm or < 10 m): RRT-6 concurrence case by case (DISP-3)."
+                    + ("" if have_bathy else " Depth NOT checked: no bathymetry cached.")]
+                   + (["Diesel: not excluded by the RRT-6 table but evaporates/disperses naturally fast; "
+                       "dispersing it is a judgment call (GAP-14)."] if ocls == "diesel" else []),
+                   "dispersant")
     burn = _tactic("burn", "In-situ burning (fire boom)",
-                   [f"within ~{oc['burn'] or 0} h for {oc['label']} (ignitable, < ~25 % water in emulsion)",
-                    "slick collected to >= 2-3 mm in fire-resistant boom",
-                    f"wind <= {WIND_BURN_MAX:.0f} kt, waves < ~3 ft (waves not modelled)",
-                    "daylight; >= 3 nm offshore; smoke plume away from populated areas"],
-                   ["Smoke drifts toward the wind direction listed per hour; check nearby communities downwind."])
+                   ["FOSC decides after consulting RRT-6 (EPA minimum) with the ISB checklist, smoke-plume model and "
+                    "weather (AUTH-2).",
+                    "SMART PM10 monitoring: level of concern 150 µg/m³ (1 h) (ISB-7). No plume toward a population centre "
+                    "within 3 mi (ISB-3).",
+                    "Reef / bank / hard-bottom exclusion areas of the RRT-6 ISB plan are not in OilFlood's data: check "
+                    "the ACP maps (GAP-5)."], "in_situ_burn")
     mech = _tactic("mech", "Containment boom + skimmers (on water)",
-                   [f"wind <= {WIND_MECH_MAX:.0f} kt, waves < ~1 m (not modelled)",
-                    f"relative current < ~{BOOM_CURRENT_KT} kt for containment boom (else deflection angles)",
-                    "daylight for most skimming operations"],
-                   [f"Mean current along the slick {np.mean(curs):.2f} kt (max {max(curs):.2f} kt)." if curs else
-                    "No current data along the slick."])
+                   ["On open water the boom drifts with the slick: the limit is tow speed / current across the boom, "
+                    f"{P.BOOM_ENTRAIN_KT} kt (MECH-1), not the ocean current itself.",
+                    "Expect a fraction: DWH skimmed ~3 %, Texas City Y recovered ~18 % as liquid (MON-2, R7).",
+                    f"Mean current along the slick {np.mean(curs):.2f} kt (max {max(curs):.2f} kt)." if curs else
+                    "No current data along the slick."], "skimming")
 
-    # --- boom-first list ----------------------------------------------------------------------------------
+    # --- uncertainty envelope (R1, FCST-2/FCST-4): windage 1-4 % instead of the model's own value ---------------
+    wd_model = float(req.get("wind_drift_factor") or (0.03 if (meta.get("model") or req.get("model")) == "ours"
+                                                    else 0.02))
+    uw = np.array([0.0 if h["wind_kt"] is None or h["wind_to_deg"] is None else
+                   h["wind_kt"] / KT * math.sin(math.radians(h["wind_to_deg"])) for h in hours])
+    vw = np.array([0.0 if h["wind_kt"] is None or h["wind_to_deg"] is None else
+                   h["wind_kt"] / KT * math.cos(math.radians(h["wind_to_deg"])) for h in hours])
+    cum_u, cum_v = np.concatenate([[0], np.cumsum(uw)[:-1]]) * 3600, np.concatenate([[0], np.cumsum(vw)[:-1]]) * 3600
+    members = []
+    for wd in P.WINDAGE_RANGE:
+        dw = wd - wd_model
+        members.append({"windage": wd, "dx_deg": dw * cum_u / (111320 * math.cos(math.radians(lat0))),
+                        "dy_deg": dw * cum_v / 110574})
+    # earliest plausible arrival per ESI cell over the members (oil within APPROACH_KM of the cell)
+    early: dict[int, float] = {}
+    for m in members:
+        sh = pos.copy()
+        sh[..., 0] += m["dx_deg"][None, :]
+        sh[..., 1] += m["dy_deg"][None, :]
+        f2 = sh.reshape(-1, 2)
+        fin2 = np.isfinite(f2[:, 0])
+        if not fin2.any():
+            continue
+        tt2 = np.broadcast_to(hrs, (n, len(hrs))).reshape(-1)[fin2]
+        dd2, nr2 = etree.query(_xy(f2[fin2, 0], f2[fin2, 1]), distance_upper_bound=APPROACH_KM)
+        for j in np.nonzero(np.isfinite(dd2))[0]:
+            c = int(nr2[j])
+            if c not in early or tt2[j] < early[c]:
+                early[c] = tt2[j]
+    for s in shorelines:
+        e = [early[k] for k in s["_cells"] if k in early]
+        best = s["eta_h"]
+        s["eta_earliest_h"] = round(min([best] + [(x - t0) / 3600 for x in e]), 1)
+    known = {k for s in shorelines for k in s["_cells"]}
+    extra_cells = [k for k in early if k not in known]
+    envelope_only = {"cells": len(extra_cells), "shoreline_km": round(sum(cells[k][2] for k in extra_cells), 1),
+                     "earliest_h": round(min((early[k] - t0) / 3600 for k in extra_cells), 1) if extra_cells else None,
+                     "places": sorted({place_name(float(elon[k]), float(elat[k])) or "" for k in
+                                       sorted(extra_cells, key=lambda k: early[k])[:6]} - {""})}
+
+    # --- boom-first list with real lead times (R6) ---------------------------------------------------------------
     boom_first = []
     for s in shorelines:
         if s["impact"] != "landfall" or s["particles_pct"] < 0.5:
             continue
-        in_time = s["eta_h"] >= STAGE_H
+        base = rl.nearest_equipment_base(s["lon"], s["lat"])
+        lt = P.lead_time(s["lon"], s["lat"], base)
+        in_time = s["eta_h"] >= lt["lead_h"]
+        early_ok = s["eta_earliest_h"] >= lt["lead_h"]
+        marsh = s["sensitivity_tier"] == 1
         boom_first.append({
             "priority": s["priority"], "name": s["name"], "lat": s["lat"], "lon": s["lon"], "eta_h": s["eta_h"],
+            "eta_earliest_h": s["eta_earliest_h"],
             "esi": s["esi_most_sensitive"], "esi_label": s["esi_most_sensitive_label"],
             "action": ("Exclusion boom across inlets/marsh openings; deflection boom to collection points"
                        if s["sensitivity_tier"] == 1 else
                        "Boom sheltered shoreline / structures; stage skimmers at the leading edge"
                        if s["sensitivity_tier"] == 2 else
                        "Protect inlets behind the beach; stage beach cleanup crews"),
-            "lead_time_ok": in_time,
-            "note": (f"Oil expected in {s['eta_h']:.0f} h: deploy before then." if in_time else
-                     f"Oil expected in {s['eta_h']:.0f} h, likely before boom can be staged (~{STAGE_H:.0f} h): "
-                     "go straight to shoreline protection/cleanup crews and protect the next stretch."),
+            "lead": lt, "lead_time_ok": in_time, "lead_time_ok_earliest": early_ok,
+            "note": ((f"Oil expected in {s['eta_h']:.0f} h (earliest {s['eta_earliest_h']:.0f} h); boom on scene in "
+                      f"~{lt['lead_h']:.0f} h (Tier 1 {lt['tier1_h']:.0f} h): deploy before then.") if in_time else
+                     (f"Oil expected in {s['eta_h']:.0f} h, before Tier 1 boom can be on scene (~{lt['lead_h']:.0f} h"
+                      f"{', higher-volume port area' if lt['hvp'] else ''}): go straight to shoreline crews and "
+                      "protect the next site (R6).")) + (
+                f" Marsh-wide protective booming takes {P.MARSH_BOOM_DAYS[0]}-{P.MARSH_BOOM_DAYS[1]} days (Galveston "
+                "Bay ACP, MECH-7): pre-position." if marsh else ""),
         })
         if len(boom_first) >= 5:
             break
@@ -578,7 +717,8 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
     if ext:
         closures.append({"type": "safety_zone",
                          "what": "USCG safety zone / vessel exclusion over the slick (and around burn/dispersant ops)",
-                         "extent_bbox": ext, "who": "USCG Captain of the Port"})
+                         "extent_bbox": ext, "who": "USCG Captain of the Port",
+                         "basis": "Responder safety (R9, IncidentNews safety-zone practice)"})
     allp = flat[fin]
     tt_all = np.broadcast_to(hrs, (n, len(hrs))).reshape(-1)[fin]
     for name, plat, plon in PORT_ENTRANCES:
@@ -589,7 +729,9 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
         if m.any():
             closures.append({"type": "waterway", "what": f"{name}: consider traffic restriction / boom across "
                                                          "the entrance", "eta_h": round((tt_all[m].min() - t0) / 3600, 1),
-                             "eta": _iso(tt_all[m].min()), "who": "USCG Captain of the Port (Sector)"})
+                             "eta": _iso(tt_all[m].min()), "who": "USCG Captain of the Port (Sector)",
+                             "basis": "Planning assumption (15 km trigger is OilFlood's, GAP-15); precedent: Texas City Y "
+                                      "2014, COTP closed the Houston Ship Channel to stop wakes pushing oil ashore"})
     states = sorted({s["state"] for s in shorelines if s["impact"] == "landfall"}) or \
         sorted({s["state"] for s in shorelines})
     if oc["persistent"] or landfalls:
@@ -635,7 +777,8 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
     try:
         layer = rl.build_layer(t0=t0, hrs=hrs, pos=pos, status=status, end_xy=end_xy, end_t=end_t, hit=hit,
                                stretch_cells=[s["_cells"] for s in shorelines], shorelines=shorelines,
-                               boom_first=boom_first, hours=hours, oc=oc, req=req, port_entrances=PORT_ENTRANCES)
+                               boom_first=boom_first, hours=hours, oc=oc, req=req, port_entrances=PORT_ENTRANCES,
+                               members=members, lon0=lon0, lat0=lat0)
     except Exception as e:  # noqa: BLE001 - the text outline must still work
         import traceback
         traceback.print_exc()
@@ -662,12 +805,40 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
         "priority_shorelines": shorelines[:12],
         "shorelines_total": len(shorelines),
         "boom_first": boom_first,
+        "boom_precedents": P.precedents_for("boom"),
+        "shoreline_precedents": P.precedents_for("shoreline"),
+        "closure_precedents": P.precedents_for("closure"),
+        "uncertainty": {
+            "label": "Best guess + uncertainty",
+            "method": (f"Best guess = this model run (windage {100 * wd_model:.0f} %). Uncertainty = the same particles "
+                       f"re-drifted with windage {100 * P.WINDAGE_RANGE[0]:.0f} % and {100 * P.WINDAGE_RANGE[1]:.0f} % "
+                       "(GNOME's 1-4 % range, FCST-4) using the forecast wind at the slick. Like NOAA's 'minimum "
+                       "regret' area (FCST-2): areas that could be hit if the wind drift differs, not the extent of oil. "
+                       "Wind-direction and current uncertainty are not included."),
+            "windage_model": wd_model, "windage_range": list(P.WINDAGE_RANGE),
+            "envelope_only_shoreline": envelope_only,
+            "skill": "NOAA: a 48 h trajectory is within 1-2 miles only if winds, currents and windage are right; "
+                     "re-run at least daily and re-tune to overflights (FCST-3). OilFlood DWH backtest: 72 h median "
+                     "centroid error 39-46 km (docs/BACKTEST.md).",
+            "sources": P.src(["S7", "S8"]),
+        },
+        "oil": {**{k: props[k] for k in ("adios", "api", "pour_point_c", "ymax", "source")},
+                "api_band": ab["text"], "continuous_release": continuous,
+                "emulsion_pct": {str(hh): round(100 * (0.0 if continuous else emul[min(hh, len(emul) - 1)]))
+                                 for hh in (6, 12, 24, 48, 72) if hh <= dur_h + 0.01},
+                "window_note": "Most oils become hard to recover, burn or disperse within 24-48 h on open water (WIN-2)"
+                               + ("; with a continuous release fresh oil keeps surfacing near the source, so the gates "
+                                  "are evaluated for the freshest oil (DWH burned and dispersed for ~11-13 weeks)."
+                                  if continuous else ".")},
+        "protocol": _protocol_steps(shorelines, boom_first, disp, burn, mech, P),
+        "model_vs_reality": P.model_vs_reality(),
         "tactics": {"dispersant": disp, "in_situ_burn": burn, "mechanical": mech},
         "conditions": {
             "wind_kt": {"min": min(winds), "mean": round(float(np.mean(winds)), 1), "max": max(winds)} if winds else None,
             "current_kt": {"mean": round(float(np.mean(curs)), 2), "max": max(curs)} if curs else None,
-            "hourly": [{k: h[k] for k in ("h", "wind_kt", "wind_to", "current_kt", "daylight", "offshore_nm",
-                                          "depth_m", "evaporated_pct")} for h in hours[::3]],
+            "hourly": [{k: h[k] for k in ("h", "wind_kt", "wind_to", "current_kt", "daylight", "sun_deg", "offshore_nm",
+                                          "depth_m", "evaporated_pct", "emulsion_pct", "surface_bbl", "patch_bbl",
+                                          "disp", "burn", "mech")} for h in hours[::3]],
             "source": env["source"] or None,
         },
         "closures": closures,
@@ -687,23 +858,67 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
              "(Appendix 13, 2020): seaward of 3 miles; RRT VI ISB Plan (1994) excludes some reefs + an area off Grand Isle",
              "url": "https://www.glo.texas.gov/sites/default/files/resources/glo/ost/spill-response-resources/rrtvi/"
                     "RRT6_ISB_Policy_Offshore_Appendix13.pdf"},
+            {"what": "Response protocols (all thresholds, rule IDs)", "ref": "OilFlood docs/PROTOCOLS.md + "
+             "data/response/protocols.json (RRT-6, NOAA, USCG/CFR, NTSB sources S1-S27)", "url": P.DOC_URL},
+            {"what": "Tier 1 response times", "ref": "33 CFR 154.1045 (Tier 1 6 h higher-volume port area, 12 h "
+             "elsewhere; en route within 2 h) + 154.1020 (higher-volume port areas)",
+             "url": "https://www.law.cornell.edu/cfr/text/33/154.1045"},
+            {"what": "Oil properties (API, pour point, emulsion)", "ref": props["source"] + f": {props['adios']}",
+             "url": "https://adios.orr.noaa.gov/"},
             {"what": "Precedents", "ref": prec["source"], "url": "https://incidentnews.noaa.gov/"},
             {"what": "Place names", "ref": "US Census Bureau 2023 Gazetteer (places)",
              "url": "https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.html"},
         ],
         "limits": [
-            "One deterministic forecast run; real oil can go elsewhere. Re-run as forecasts update.",
+            "One forecast run plus a windage-only uncertainty envelope; real oil can go elsewhere. Re-run as forecasts "
+            "update (NOAA re-runs at least daily, FCST-3).",
             "Stranding happens on the model coastline (GSHHG / ocean-model land, ~1-4 km); ESI matching uses "
             f"{LANDFALL_KM:.0f} km, so bay-interior shorelines are not resolved.",
-            "Waves, slick thickness and emulsion water content are not modelled: windows use wind, daylight, distance "
-            "from shore, water depth (dispersants; ETOPO1" + ("" if rl.bathy() is not None else ", NOT available here")
-            + ") and oil-type time limits only.",
-            f"Boom staging time is assumed ~{STAGE_H:.0f} h in the text outline; the map layer uses the nearest real "
-            "staging base instead (layer.rules).",
+            "Waves, visibility and cloud ceiling are not in the run's forcing: those gates show 'check' (RRT-6 needs "
+            "visibility >= 3 nm / ceiling >= 1,000 ft for aerial dispersant; ISB and skimming need waves <= 2-3 ft).",
+            "Emulsion water content is Mackay's formula on the forecast wind and the run's evaporation (same as our "
+            "model); slick thickness is a cell mean (a lower bound), so the 2-3 mm burn thickness stays a field check.",
+            "Water depth for the 10 m dispersant rule: ETOPO1" + ("" if rl.bathy() is not None else
+                                                                 " NOT available here (depth not checked)") + ".",
+            "Lead time = 0.5 h notify + 2 h mobilize + road travel at 35 mph from the nearest equipment base, floored at "
+            "the USCG Tier 1 time (6 h higher-volume port areas, 12 h elsewhere). Real fleets can be faster (Texas City "
+            "Y: first responders within 2 h) or slower.",
+            "Boom-site current comes from the ocean model grid (HYCOM ~4-9 km); tidal passes and inlets are not "
+            "resolved, so the across-boom current there is usually stronger than shown (DWH: pilings defeated by pass "
+            "currents).",
+            "Reef / bank ISB exclusion zones and ACP/GRP priority protection areas are not loaded: shoreline priority "
+            "is ESI-only, defer to the ACP/GRP site list (R8).",
             "Map boom sites follow a generic ESI rule, not the official Geographic Response Plans (TX GLO, LA ACP).",
         ],
     }
     return json.loads(json.dumps(out, default=_plain))
+
+
+def _protocol_steps(shorelines, boom_first, disp, burn, mech, P) -> dict:
+    """'How we go from model to action' (docs/PROTOCOLS.md section 1), filled in with this run's numbers."""
+    land = [s for s in shorelines if s["impact"] == "landfall"]
+    late = [b for b in boom_first if not b["lead_time_ok"]]
+    nwin = {k: t["total_hours"] for k, t in (("dispersant", disp), ("burn", burn), ("skimming", mech))}
+    return {"doc_url": P.DOC_URL, "steps": [
+        {"step": "Forecast", "text": "Trajectory best guess + uncertainty envelope, like NOAA's GNOME best estimate "
+         "and minimum regret (R1).", "this_run": f"{len(land)} shoreline stretches oiled, {len(shorelines)} reached "
+         "or threatened", "rules": ["FCST-2", "FCST-4"]},
+        {"step": "Priority sites (ICS-232 style)", "text": "Rank the threatened shoreline: ESI 10 > 9 > 8 > 7 > rest, "
+         "then arrival time; the ACP/GRP site list overrides (R8).",
+         "this_run": f"top site: {shorelines[0]['name']} (ESI {shorelines[0]['esi_most_sensitive']})" if shorelines
+         else "no shoreline reached", "rules": ["ESI-1", "ESI-3"]},
+        {"step": "Tactic gates", "text": "Go/no-go per hour: dispersant (RRT-6 zone, API, wind, daylight), in-situ burn "
+         "(emulsion, 500 bbl, wind, current, sun > 15°), boom (current across the boom) (R3-R5).",
+         "this_run": ", ".join(f"{k} {v:.0f} h" for k, v in nwin.items()) + " open in this forecast",
+         "rules": ["DISP-1", "DISP-4", "DISP-5", "ISB-2", "ISB-3", "ISB-5", "MECH-1"]},
+        {"step": "Lead time vs arrival", "text": "Boom on scene = notify 0.5 h + en route 2 h + travel, at least the "
+         "USCG Tier 1 time (6 h higher-volume port, 12 h elsewhere); if oil arrives first, switch to shoreline crews "
+         "and the next site (R6).", "this_run": f"{len(boom_first) - len(late)} of {len(boom_first)} boom sites "
+         "reachable before the oil", "rules": ["MECH-6", "MECH-7", "WIN-3"]},
+        {"step": "Assignments (ICS-204 style)", "text": "Dated actions: notify, mobilize, boom in place, windows "
+         "open/close, landfall. The FOSC / Unified Command approves (R10).",
+         "this_run": "see Next actions", "rules": ["ICS-1", "AUTH-1", "AUTH-2"]},
+    ]}
 
 
 def _plain(o):
