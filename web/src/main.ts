@@ -32,10 +32,13 @@ import { ON_SURFACE, type CatalogSpill, type Tracks, type Footprint } from './ty
 })();
 
 // ---------------------------------------------------------------- map
+// Demo default (T17): open on the whole globe, then fly to Houston/Galveston; prediction suggests a spill offshore Galveston.
+const HOME = { center: [-94.0, 28.2] as [number, number], zoom: 6.0 };
+const DEMO_SPILL = { lon: -94.55, lat: 29.05 }; // ~30 km SE of Galveston, open water in RTOFS and HYCOM
 const map = new maplibregl.Map({
   container: 'map',
-  center: [-90, 24.5],
-  zoom: 0.9,
+  center: [-93, 26],
+  zoom: 1.4,
   maxPitch: 70,
   attributionControl: { compact: true },
   canvasContextAttributes: { antialias: true },
@@ -183,7 +186,6 @@ function useGlobal(g: GlobalCurrents | null) {
 }
 
 let globalTick = 0, globalDt = 0;
-let globalLayer: ReturnType<FlowField['layer']> | null = null;
 function currentLayers(s: Scene, tUnix: number, dt: number): Layer[] {
   const out: Layer[] = [];
   const z = map.getZoom();
@@ -191,16 +193,14 @@ function currentLayers(s: Scene, tUnix: number, dt: number): Layer[] {
   if (hasGlobal) {
     const c = map.getCenter();
     s.global!.prefetch(tUnix);
-    // advance/re-upload the big global layer at half rate (deck re-tessellates paths on every update)
+    // advance/re-upload the big global layer at half rate (deck re-tessellates paths on every update);
+    // in between, layer() returns a new instance on the same data (re-pushing an old instance can hit a finalized one)
     globalDt += dt;
-    if (++globalTick % 2 === 0 || !globalLayer) {
+    if (++globalTick % 2 === 0) {
       globalFlow!.step(view, z, tUnix, globalDt * 60, [c.lng, c.lat]);
       globalDt = 0;
-      globalLayer = globalFlow!.layer(state.showCurrents);
-    } else if (globalLayer.props.visible !== state.showCurrents) {
-      globalLayer = globalFlow!.layer(state.showCurrents);
     }
-    out.push(globalLayer as any);
+    out.push(globalFlow!.layer(state.showCurrents) as any);
   }
   if (flow && s.currents && flow.source === s.currents) {
     s.currents.prefetch(tUnix);
@@ -451,7 +451,8 @@ function renderContent() {
   } else {
     const j = state.job;
     if (!j) {
-      html += `<div class="hint">Click the ocean (Gulf of Mexico) to release ${fmtBbl(PRED.volumeBbl)} of ${esc(oilLabel(PRED.oilId).toLowerCase())} now and forecast its drift with the live forecast above.</div>`;
+      html += `<div class="hint">Click the ocean (Gulf of Mexico) to release ${fmtBbl(PRED.volumeBbl)} of ${esc(oilLabel(PRED.oilId).toLowerCase())} now and forecast its drift with the live forecast above.</div>
+        <button class="demo-spill" id="demo-spill" title="${DEMO_SPILL.lat.toFixed(2)}°N ${(-DEMO_SPILL.lon).toFixed(2)}°W, the pulsing ring on the map">Release it off Galveston</button>`;
     } else {
       html += `<div class="sec"><h2>Spill prediction</h2><div class="sub">${j.lat.toFixed(3)}°, ${j.lon.toFixed(3)}°${j.volume_bbl ? ` · ${fmtBbl(j.volume_bbl)}` : ''}${j.oil_type ? ` · ${esc(j.oil_type)}` : ''}</div>`;
       if (j.note) html += `<div class="warn">${esc(j.note)}</div>`;
@@ -757,6 +758,20 @@ function modelNoteHTML(s: Scene) {
   return html + '</div>';
 }
 
+content.addEventListener('click', (e) => {
+  if (!(e.target as HTMLElement).closest('#demo-spill')) return;
+  map.flyTo({ ...HOME, offset: panelOffset(), duration: 1500, essential: true });
+  startSpill(DEMO_SPILL.lon, DEMO_SPILL.lat);
+});
+/** Shift the camera target right of the panel so the area of interest isn't hidden behind it. */
+function panelOffset(): [number, number] {
+  const r = panel.getBoundingClientRect();
+  if (panel.classList.contains('collapsed') || innerWidth < 900) return [0, 0];
+  if (r.right < innerWidth / 2) return [Math.round(r.right / 2), 0]; // panel on the left
+  if (r.left > innerWidth / 2) return [-Math.round((innerWidth - r.left) / 2), 0]; // panel on the right (default)
+  return [0, 0];
+}
+
 map.on('click', (e) => {
   if (state.mode !== 'prediction') { message('Switch to Prediction to release a spill.', 2500); return; }
   const { lng, lat } = e.lngLat;
@@ -802,8 +817,24 @@ function syncPins() {
 }
 
 function markerLayer(): Layer[] {
-  if (state.mode !== 'prediction' || !state.job) return [];
+  if (state.mode !== 'prediction') return [];
   const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
+  if (!state.job) { // suggested demo spill point: a soft ring the user can click (or use the panel button)
+    return [new ScatterplotLayer({
+      id: 'spill-suggest',
+      data: [DEMO_SPILL],
+      getPosition: (d: any) => [d.lon, d.lat],
+      getRadius: 6 + 4 * pulse,
+      radiusUnits: 'pixels',
+      filled: false,
+      stroked: true,
+      getLineColor: [255, 181, 71, 110 + 100 * pulse],
+      lineWidthUnits: 'pixels',
+      getLineWidth: 1.5,
+      updateTriggers: { getRadius: pulse, getLineColor: pulse },
+      parameters: ON_SURFACE,
+    })];
+  }
   const running = state.job.status !== 'done' && state.job.status !== 'error';
   return [
     new ScatterplotLayer({
@@ -849,9 +880,9 @@ function frame(now: number) {
 
 map.on('load', async () => {
   updateView();
-  // zoom so the whole globe floats in view (globe radius ~= 512 * 2^z / 2pi px)
-  const fitZoom = Math.log2((0.47 * Math.min(innerWidth, innerHeight) * 2 * Math.PI) / 512);
-  map.easeTo({ zoom: Math.max(1.6, fitZoom), duration: 2600, easing: (t) => 1 - Math.pow(1 - t, 3) });
+  const q = new URLSearchParams(location.search);
+  // demo default: a short fly from the globe down to Houston/Galveston (a ?spill= link flies to that spill instead)
+  if (!q.get('spill')) map.flyTo({ ...HOME, offset: panelOffset(), duration: 3500, curve: 1.5, essential: true });
   try {
     state.catalog = await getCatalog();
   } catch (e) {
@@ -859,7 +890,6 @@ map.on('load', async () => {
   }
   initPredForm();
   getModels().then((ms) => { state.models = ms; renderContent(); }).catch(() => { /* note only */ });
-  const q = new URLSearchParams(location.search);
   const qm = q.get('model');
   setModel(qm === 'ours' || qm === 'openoil' || qm === 'compare' ? qm : state.model);
   setMode(q.get('mode') === 'prediction' ? 'prediction' : 'historical');

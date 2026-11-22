@@ -63,6 +63,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .spills button.on { background: rgba(255, 181, 71, 0.13); color: var(--accent); }
 .spills button small { color: var(--muted); }
 .hint { color: var(--muted); font-size: 12px; }
+.demo-spill { margin-top: 8px; width: 100%; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(255, 181, 71, 0.45); background: rgba(255, 181, 71, 0.12); color: var(--accent); font-weight: 500; }
+.demo-spill:hover { background: rgba(255, 181, 71, 0.22); }
 .progress { height: 4px; background: rgba(255, 255, 255, 0.08); border-radius: 4px; overflow: hidden; margin-top: 6px; }
 .progress > div { height: 100%; background: var(--accent); transition: width 0.3s; }
 .warn { color: #ffd38a; font-size: 12px; margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: rgba(255, 181, 71, 0.08); border: 1px solid rgba(255, 181, 71, 0.22); }

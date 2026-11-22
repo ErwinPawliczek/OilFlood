@@ -10,6 +10,7 @@ const TRAIL = 14;
 const CAP_DEG = 80; // spawn / keep radius around the view centre on a whole-globe view
 const CAP_COS = Math.cos(((CAP_DEG + 2) * Math.PI) / 180);
 const SEG = TRAIL - 1;
+const MIN_VIS = 0.25; // m/s: minimum drawn streak speed
 const TAIL = Float32Array.from({ length: TRAIL }, (_, s) => (s / SEG) ** 1.4); // alpha along a streak
 const RGB_TMP = new Uint8Array(3);
 
@@ -119,7 +120,7 @@ export class FlowField {
     };
     const visible = box.minLon < box.maxLon && box.minLat < box.maxLat;
     // degrees moved per frame for 1 m/s, scaled so streak length on screen is roughly zoom-independent
-    const k = 0.012 * Math.pow(2, 4.5 - zoom) * dtFrames;
+    const k = 0.026 * Math.pow(2, 4.5 - zoom) * dtFrames; // T17: ~2x longer streaks so slow shelf currents read on the demo view
     const { hist, head } = this;
     for (let p = 0; p < N; p++) {
       if (!visible || p >= active) { this.alive[p] = 0; continue; }
@@ -139,8 +140,10 @@ export class FlowField {
       const s = Math.hypot(v[0], v[1]);
       this.speed[p] = s;
       const nh = (h + 1) % TRAIL;
-      hist[base + 2 * nh] = lon + (v[0] * k) / Math.cos((lat * Math.PI) / 180);
-      hist[base + 2 * nh + 1] = lat + v[1] * k;
+      // slow (shelf) currents would be sub-pixel dots: draw them at least MIN_VIS m/s long; colour still shows the real speed
+      const kk = s > 1e-6 && s < MIN_VIS ? (k * MIN_VIS) / s : k;
+      hist[base + 2 * nh] = lon + (v[0] * kk) / Math.cos((lat * Math.PI) / 180);
+      hist[base + 2 * nh + 1] = lat + v[1] * kk;
       head[p] = nh;
       this.age[p] += dtFrames;
     }
@@ -178,19 +181,28 @@ export class FlowField {
   }
 
 
+  private dataKey = -1;
+  private data: any = null;
+
+  /** A fresh layer instance every call (deck.gl cannot reuse a finalized one, e.g. after the layer was dropped
+   * for a frame), but the same `data` object until the next step(), so deck skips re-tessellating the paths. */
   layer(visible: boolean) {
-    const { pos, col } = this.bufs[this.cur];
-    return new PathLayer({
-      id: this.id,
-      visible,
-      data: {
+    if (this.dataKey !== this.version) {
+      const { pos, col } = this.bufs[this.cur];
+      this.dataKey = this.version;
+      this.data = {
         length: this.n,
         startIndices: this.starts,
         attributes: {
           getPath: { value: pos, size: 2 },
           getColor: { value: col, size: 4, normalized: true },
         },
-      } as any,
+      };
+    }
+    return new PathLayer({
+      id: this.id,
+      visible,
+      data: this.data,
       _pathType: 'open',
       getWidth: this.width,
       widthUnits: 'pixels',
