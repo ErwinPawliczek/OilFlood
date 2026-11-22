@@ -36,13 +36,14 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T23 | Apply real response protocols (PROTOCOLS.md R1–R10) to outline + map layer | Erwin | done (agent A16, branch a15-layer; ready to merge together with T21) |
 | T24 | Ensemble + probability engine + custom model params + METHODOLOGY.md (backend) | Erwin | in progress (agent A17, branch a17-ensemble) |
 | T25 | 3D probability/forces visuals + model builder + /methodology page (frontend) | Erwin | in progress (agent A18, branch a18-viz) |
-| T26 | Minimal block UI: one draggable window, no rounded edges (after A18) | Erwin | queued (agent A19, branch a19-ui, starts when A18 exits) |
+| T26 | Minimal block UI: one draggable window, no rounded edges (after A18) | Erwin | in progress (agent A19, branch a19-ui) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-22 Erwin: A19 relaunched (timeout 150m; prior start failed: timeout rejected 2h30m).
 - 2026-11-22 Erwin: claimed T24 (A17 a17-ensemble) + T25 (A18 a18-viz).
 - 2026-11-22 Erwin: merged T21+T23 (a15-layer: response map layer + real protocol gates) to main and deployed to oilflood.xyz.
 - 2026-11-22 A16 (branch a15-layer, T23): **real protocols in the outline + map layer** (response.VERSION resp-v3, layer-v2). New `backend/app/protocols.py` holds every threshold with its PROTOCOLS.md rule ID. Dispersant: >= 3 nm AND >= 10 m (ETOPO1), API 17-45 + pour point from the ADIOS record, emulsion <= 25 % (Mackay on the forecast wind; freshest oil for blowouts), wind <= 25 kt, daylight; 10 nm planning circle. Burn: emulsion, > 500 bbl per ~6 km patch, wind 21.7/17.4 kt, current <= 0.75 kt, sun > 15°, Grand Isle 7 mi buffer, 3 mi from Census places. Oil-age windows removed. Boom: current across each boom line (<= 0.7 exclusion / 0.7-1 deflection / > 1 kt won't hold). Lead time: notify 0.5 h + en route 2 h + 35 mph road, floored at Tier 1 6 h (33 CFR 154.1020 higher-volume port areas) / 12 h. Uncertainty: windage 1-4 % envelope (dashed) + earliest plausible ETA, "Best guess + uncertainty" tag. DWH / Texas City Y precedents next to each action; "How we go from model to action" explainer. Verified headless on :5290/:5220 (Galveston live, Padre live, DWH hindcast); screenshots docs/img/response_protocols*.png. Docs: RESPONSE.md, DEVPOST.md, PROTOCOLS.md gap status.
