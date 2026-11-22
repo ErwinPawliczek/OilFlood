@@ -35,8 +35,8 @@ The UI is one draggable, minimizable window that you work through from top to bo
 | **Model → Advanced (build your model):** every parameter from `GET /api/model/params` with units, defaults and a cited tooltip, ensemble size, compare with OpenOil, shareable link. | **/methodology:** Data → Model → Ensemble → Protocol gates → Action plan, with equations (KaTeX), the parameter table and live validation numbers. |
 
 ## Features
-- **Prediction mode (live).** Click anywhere in the Gulf of Mexico (or use the suggested point off Galveston). Pick the amount
-  (bbl) and oil type (9 ADIOS oils). The run starts at the current hour on the newest **NOAA RTOFS** currents and **NCEP GFS**
+- **Prediction mode (live).** Type latitude/longitude or click **Pick on map** and click in the Gulf (or use the suggested point off Galveston). Set the amount
+  in **bbl** or **tons** and the oil type (9 ADIOS oils), then press **Run forecast**. The run starts at the current hour on the newest **NOAA RTOFS** currents and **NCEP GFS**
   winds, which a systemd timer refreshes 4× a day. The panel shows which forecast run it used and how far ahead it is valid. A
   72 h run with 2000 particles takes ~15–25 s.
 - **Two models, side by side.** *OpenOil* (OpenDrift, NOAA-style weathering) is the baseline. *Ours* is a numpy Lagrangian model;

@@ -48,7 +48,7 @@ Judging criteria: **I** = impact, **T** = technical execution, **C** = creativit
 - If time is short, cut the 0:45 Compare block to 10 s.
 
 ### 1:30 – 1:50 · Response outline (I, C)
-- **Screen (T27):** switch the 3D/P(oil) surface **Off** so the black slick shows, press **Response** in step 3 and play: boom
+- **Screen (T27):** the black slick is shown by default (P(oil) is Off), press **Response** in step 3 and play: boom
   chips go PENDING → EN ROUTE → DEPLOYED, crews move, the coast flashes before the oil arrives. In step 5 open **Action
   timeline**, click the "Deadline: boom in place" row (the clock jumps), then **Print** for the one-page document.
 - **Screen:** scroll the panel to **Response outline** and expand it. Show the disclaimer line, the headline (first landfall),
