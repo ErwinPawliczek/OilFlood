@@ -18,6 +18,8 @@ python3 -m venv .venv
 | Step | Command | Time | Output |
 |---|---|---|---|
 | Spill catalog | `.venv/bin/python build_catalog.py` | 5 s | `spills/catalog.json` (committed) |
+| Bathymetry | NOAA NCEI **ETOPO1** 1 arc-min (ice surface) via NOAA CoastWatch ERDDAP `etopo180`, box 17–31.5N 98.5–79.5W | static | Dispersant >= 10 m depth rule + distance to shore in the response layer. Without it the backend falls back to distance-from-shore only and says so. |
+| Staging bases | `response/staging_bases.json` (committed, 54 entries): USCG units (OpenStreetMap footprints, Census Geocoder checks), MSRC equipment sites, Clean Gulf Associates, Texas GLO warehouses; each with `src` + `coord_src` | 2026-11-22 | See docs/RESPONSE.md |
 | DWH outlines | `.venv/bin/python fetch_dwh_footprints.py` | 1 min | `spills/dwh/footprints/dwh_YYYYMMDD.geojson` (94 days, 3.7 MB, committed) |
 | Texas City Y hindcast | `.venv/bin/python fetch_hycom.py --window texas_city_y` | ~5 min | `cache/forcing/texas_city_y/{currents,winds}.nc` |
 | All catalog hindcasts | `.venv/bin/python fetch_hycom.py --catalog` (or `--only dwh,mc209_2017`) | DWH ~30–60 min, others ~5 min each | `cache/forcing/<spill_id>/{currents,winds}.nc` |
@@ -25,6 +27,7 @@ python3 -m venv .venv
 | Frontend fields | `.venv/bin/python export_fields.py --all` | ~10 s per window | `cache/fields/<window>/` |
 | Global live (RTOFS) | `.venv/bin/python fetch_global.py live` | ~1.5 min | `cache/fields/global/live/` |
 | Global hindcasts (HYCOM) | `.venv/bin/python fetch_global.py --catalog` (or `--only dwh,texas_city_y`) | ~1–3 min per spill, DWH ~3 min | `cache/fields/global/<spill_id>/` |
+| Bathymetry (response layer, T21) | `python -I fetch_bathy.py` (needs xarray, e.g. the backend env) | ~10 s, 2 MB | `cache/bathy/etopo1_gulf.npz` (1.2 MB) |
 
 Custom hindcast window: `fetch_hycom.py --window my_case --start 2012-06-01 --end 2012-06-04 --stride-h 3`.
 

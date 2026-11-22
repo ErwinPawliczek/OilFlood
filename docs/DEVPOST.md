@@ -41,8 +41,9 @@ panel says which forecast run was used and how far ahead it is valid. A 72 h run
 the slick plays back on the globe: drift, evaporation, dispersion, emulsification and oil stranding on the coast, with an oil
 budget (surface / evaporated / dispersed / stranded).
 
-**Two models side by side.** "OpenOil" is the established baseline (OpenDrift OpenOil). "Ours" is our own particle model with a
-an optional machine-learned drift correction (experimental, off by default after our backtest). "Compare" draws both at once (OpenOil amber, ours cyan) with separate budgets, so you can see
+**Two models side by side.** "OpenOil" is the established baseline (OpenDrift OpenOil). "Ours" is our own particle model with an
+optional machine-learned drift correction: **experimental and OFF by default** (our backtest found no gain on Deepwater Horizon
+and false stranding at Main Pass 2023), switched on only with the "[EXPERIMENTAL]" checkbox. "Compare" draws both at once (OpenOil amber, ours cyan) with separate budgets, so you can see
 where they disagree.
 
 **Response outline.** From the forecast, OilFlood builds a first-responder outline:
@@ -54,6 +55,19 @@ where they disagree.
   from shore,
 - closures to consider (safety zone, channel entrances, fisheries),
 - precedents: what responders actually did at similar past Gulf spills, each with a verbatim quote and the NOAA IncidentNews link.
+
+**Response map layer.** The same outline is drawn on the globe for whichever run is on screen (live prediction or historical
+hindcast, OpenOil or ours) and follows the time slider:
+- the threatened coastline itself (real NOAA ESI shoreline lines) coloured by predicted oil arrival (< 12 h red, 12–24 h orange,
+  24–48 h yellow, 48–72 h pale) and brightening when the oil gets there, plus offshore arrival outlines at T+6/12/24/48/72 h;
+- a boom plan on the actual shoreline where the oil comes ashore: exclusion boom on marsh / sheltered shores, deflection boom
+  angled to the current where the forecast current is above ~0.7 kt (ITOPF angle table), beach crews on exposed beaches, boom
+  across nearby channel entrances, each with a "deploy by" time (arrival minus 2 h) and a "mobilize by" time from the nearest
+  real staging base (USCG stations, MSRC / Clean Gulf / Texas GLO equipment depots, cited);
+- dispersant and in-situ burn zones every 3 h, only where the oil is still fresh enough, the wind and daylight allow it, and it is
+  inside the RRT-6 pre-approval zone (10 m depth line or 3 nmi from shore, whichever is farther; real ETOPO1 bathymetry), and
+  skimmer targets on the densest patches of surface oil;
+- a "Next actions" list in the panel (T+ hours, click to fly there) and a Response layer on/off toggle with a legend.
 
 It is labelled as a planning aid, not operational guidance. An optional LLM summary can be added on top (see below).
 
@@ -101,6 +115,8 @@ HistGradientBoosting regressors (east and north) to predict that error: target =
   48 h 38.0 → 34.5 km.
 - For oil we average the drogued and undrogued predictions so the oil's 3 % windage is not counted twice, and apply the correction
   only inside the area the training drifters covered.
+- In the app the correction is **OFF by default and labelled experimental** (`ml=false` in the API; a checkbox turns it on),
+  because the oil backtest below shows no gain.
 
 **Backtest** (`python -m app.backtest`, results in docs/BACKTEST.md). OpenOil vs ours (ML on and off) vs observed, on the same
 reanalysis forcing. Metrics: centroid separation and Liu–Weisberg skill at 24/48/72 h, IoU and fractions skill score against the
@@ -111,7 +127,11 @@ Also Texas City "Y" (overflight positions) and Main Pass 2023 (reported directio
 surface oil within 10 km of shore counts as threatened. Shore stretches are ranked landfall > threatened, then ESI tier
 (9–10 marshes and sheltered flats first), then arrival time. Tactic windows use oil-age limits by oil type from NOAA/ITOPF
 guidance, the run's own forecast wind, solar elevation for daylight, and the 3 nm offshore line from the RRT 4/6 pre-authorization
-zones. Precedents are past catalog spills scored by oil group, size and distance.
+zones (plus the 10 m depth rule from ETOPO1 bathymetry). Precedents are past catalog spills scored by oil group, size and distance.
+The map layer (`backend/app/response_layer.py`) reads the real ESI shoreline geometry for the oiled stretches, intersects the
+particle positions with the regulatory envelope on a ~2 km grid every 3 h, and uses a cited list of 54 Gulf staging bases
+(`data/response/staging_bases.json`); the rules and their sources (RRT-6/RRT-4 pre-authorization, NOAA ORR, ITOPF TIP 3, 33 CFR
+155/154) are in docs/RESPONSE.md and docs/RESPONSE_RULES_SOURCES.md.
 
 **Optional LLM briefing** (`backend/app/briefing.py`). The compacted outline JSON is sent to an LLM (Anthropic, OpenAI or xAI,
 whichever key is set) with the instruction to use only those facts, ≤ 170 words, most urgent first. Without a key it is skipped
@@ -177,7 +197,8 @@ machine behind a Cloudflare tunnel at oilflood.xyz.
   deep water; ensembles instead of a single run.
 - **Bays and nearshore**: higher-resolution coastal models (e.g. NOAA's operational coastal forecast systems) so spills inside
   Galveston Bay don't strand immediately.
-- **Waves and depth** in the response windows (in-situ burn and dispersant limits depend on both).
+- **Waves** in the response windows (in-situ burn and boom limits depend on them; depth is now checked, waves are not), and
+  the real Geographic Response Plan boom sites (Texas GLO / Louisiana ACP) instead of our generic boom rule.
 - **Beyond the Gulf**: the global current layer already works; the forcing for predictions is only cached for the Gulf.
 - Testing with actual responders before anyone uses the outline for planning.
 

@@ -695,9 +695,12 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
             "One deterministic forecast run; real oil can go elsewhere. Re-run as forecasts update.",
             "Stranding happens on the model coastline (GSHHG / ocean-model land, ~1-4 km); ESI matching uses "
             f"{LANDFALL_KM:.0f} km, so bay-interior shorelines are not resolved.",
-            "Waves, water depth, slick thickness and emulsion water content are not modelled: windows use wind, "
-            "daylight, distance from shore and oil-type time limits only.",
-            f"Boom staging time is assumed ~{STAGE_H:.0f} h.",
+            "Waves, slick thickness and emulsion water content are not modelled: windows use wind, daylight, distance "
+            "from shore, water depth (dispersants; ETOPO1" + ("" if rl.bathy() is not None else ", NOT available here")
+            + ") and oil-type time limits only.",
+            f"Boom staging time is assumed ~{STAGE_H:.0f} h in the text outline; the map layer uses the nearest real "
+            "staging base instead (layer.rules).",
+            "Map boom sites follow a generic ESI rule, not the official Geographic Response Plans (TX GLO, LA ACP).",
         ],
     }
     return json.loads(json.dumps(out, default=_plain))

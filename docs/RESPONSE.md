@@ -23,8 +23,11 @@ release + UTC, `not_applicable`, `conditions[]`), `conditions` (wind/current alo
 `closures[]`, `precedents` (`similar_spills[]`, `by_tactic.{category: [{spill, date, action, quote, src}]}`),
 `sources[]`, `limits[]`, `briefing` (`text` or `null` + `note`).
 
-Code: `backend/app/response.py` (rules), `backend/app/briefing.py` (LLM), `web/src/outline.ts` (panel section +
-numbered shoreline markers on the globe).
+`layer` (since `resp-v2`, T21) holds the map geometry, see [Response map layer](#response-map-layer-t21).
+
+Code: `backend/app/response.py` (rules), `backend/app/response_layer.py` (map geometry), `backend/app/briefing.py` (LLM),
+`web/src/outline.ts` (panel section + numbered shoreline markers), `web/src/responseLayer.ts` (deck.gl layers, labels,
+Next actions).
 
 ## Inputs (all real)
 | Input | Source |
@@ -71,7 +74,7 @@ diesel, light / medium / heavy crude, heavy fuel oil (IFO 380, No. 6).
 
 | Tactic | Oil-age limit by type | Weather / other limits |
 |---|---|---|
-| Dispersant | light crude ≤ 48 h, medium ≤ 36 h, heavy crude ≤ 12 h; not for gasoline/condensate/jet/diesel (evaporate/disperse naturally); heavy fuel oil: generally too viscous (test first, RRT approval) | wind 4–25 kt, daylight, ≥ 3 nm from shore (RRT 4/6 pre-authorization zone, which also needs ≥ 10 m depth – depth is not checked) |
+| Dispersant | light crude ≤ 48 h, medium ≤ 36 h, heavy crude ≤ 12 h; not for gasoline/condensate/jet/diesel (evaporate/disperse naturally); heavy fuel oil: generally too viscous (test first, RRT approval) | wind 4–25 kt, daylight, ≥ 3 nm from shore and ≥ 10 m deep at the slick centroid (RRT 4/6 pre-authorization zone; depth from ETOPO1 since resp-v2) |
 | In-situ burn | light crude ≤ 48 h, medium ≤ 36 h, heavy crude ≤ 24 h, heavy fuel ≤ 12 h, diesel ≤ 24 h; not for gasoline/condensate/jet | wind ≤ 20 kt, daylight, ≥ 3 nm offshore; needs fire boom to ≥ 2–3 mm, < ~25 % water in emulsion, waves < ~3 ft (not modelled) |
 | Boom + skimmers | all but gasoline/condensate/jet | wind ≤ 20 kt, daylight; containment boom loses oil above ~0.75 kt relative current (mean/max current reported) |
 
@@ -95,6 +98,68 @@ Catalog spills are scored by oil-group match (+2 same group, +1 neighbouring), s
 of volumes) and distance (+≤1 within 400 km). For each recommended tactic the earliest matching action of the best
 spills is cited with its date, verbatim quote and IncidentNews URL.
 
+## Response map layer (T21)
+![Response layer, Padre Island prediction](img/response_layer.png)
+![Response layer, Deepwater Horizon hindcast](img/response_layer_dwh.png)
+
+The outline of the run on screen (live prediction or historical hindcast; OpenOil or ours; in Compare the first finished
+model, as for the text outline) is drawn on the globe and follows the time slider. Panel: **Response layer** checkbox
+(on by default after a run, remembered in localStorage `oilflood.resp.v1`), legend, and **Next actions**: the next 6 timeline
+events with T+ hours and "in N h", click = fly there. The disclaimer stays at the top of the section.
+
+| Map element | What it is | Clock behaviour |
+|---|---|---|
+| Shoreline arrival | real NOAA ESI shoreline lines (GULF_ATLANTIC_ESI.gdb, bbox read per stretch, simplified ~30 m) in every oiled / threatened 0.05° cell, coloured by that cell's ETA: < 12 h red, 12–24 orange, 24–48 yellow, 48–72 pale, > 72 grey; ESI 9–10 drawn slightly wider | faint before the ETA, bright + wider once oil arrives |
+| Offshore arrival outlines | union of 0.05° cells that surface oil has entered by T+6/12/24/48/72 h | outline brightens when passed |
+| Boom plan | for each `boom_first` site: ESI lines within 2 km of where particles strand, clipped to ~2 km around the stranding points, capped at 8 km per site (display; the real length comes from the Geographic Response Plan / survey). Type by line: ESI 7–10 → **exclusion** boom (white); if the forecast current at the site at the ETA > 0.7 kt → **deflection** boom (magenta) at angle asin(0.7 / current) to the current; ESI 1–6 → **beach crews** (tan, no boom on the surf line). Channel entrances (`PORT_ENTRANCES`) within 25 km → **exclusion boom across the entrance** (white ring). Label: "deploy by T+x h · from <base> ~y h" | faint (planned) until deploy-by, then bright; "too late for boom" if mobilize-by < 0 |
+| Dispersant zone (blue) | ~2 km cells holding surface oil while the dispersant window is open at that hour (oil age, wind 4–25 kt, daylight) AND inside the pre-authorization envelope: ≥ 3 nm from shore AND ≥ 10 m deep | per 3 h step; disappears when the window closes |
+| In-situ burn zone (orange) | cells with ≥ 0.2 % of the particles (collectable oil) while the burn window is open (oil age, wind ≤ 20 kt, daylight) AND ≥ 3 nm from shore | per 3 h step |
+| 3 nm / 10 m line (thin blue) | seaward edge of the dispersant envelope around the slick | static |
+| Skimmer targets (green rings) | 3 densest surface-oil clusters (3×3 cells ≈ 6 km, ≥ 1 % of particles, ≥ 12 km apart); dim when the skimming window is closed (wind > 20 kt / night) | per 3 h step |
+| Staging | all 54 bases as dots (USCG white, depots light blue); a line from the nearest equipment base (OSRO / state depot or USCG small-boat station; offices and air stations are not used for boom) to each boom site | line bright between mobilize-by and deploy-by |
+
+Timeline (`layer.timeline[]`, sorted): mobilize-by and deploy-by per boom site (or "too late"), boom across inlets, landfall per
+priority stretch (≥ 0.5 % of particles), dispersant / burn / skimming window opens and closes (dispersant/burn only when a zone
+exists in the envelope at that time).
+
+### Rules and sources
+- **Deploy-by** = predicted arrival − 2 h (boom anchored and tended before the oil arrives). **Mobilize-by** = deploy-by − travel
+  from the nearest equipment base (straight line × 1.3 at 30 km/h) − 1 h loading. These are stated planning assumptions; for
+  context, OSRO response-time tiers are 12/36/60 h in higher volume port areas (33 CFR 155.1050) and facilities must have
+  1,000 ft of boom on scene within 1 h (33 CFR 154.1045).
+- **Boom types**: containment / deflection / exclusion as defined in NOAA ORR *Characteristics of Response Strategies* (2010,
+  p. 39); boom failure above ~0.7 kt normal current (NOAA ORR; ITOPF TIP 03 says ~1 kt); deflection angle from ITOPF TIP 03
+  (*Use of Booms in Oil Pollution Response*): 90° at 0.7 kt, 45° at 1 kt, 28° at 1.5 kt, 20° at 2 kt = asin(0.7 / U).
+- **Dispersant pre-authorization**: RRT-6 (TX, LA) *FOSC Dispersant Pre-Approval Guidelines and Checklist v4.0* (2001; still
+  referenced by the 2015 RRT6 playbook): "offshore waters from the ten-meter isobath or three nautical miles, whichever is
+  farthest from the shore, to 200 nautical miles"
+  (https://www.glo.texas.gov/sites/default/files/2025-07/rrt6.pdf). Closer in: RRT-6 2005 *Near Shore Environment Dispersant
+  Expedited Approval* (not a pre-authorization). RRT-4 (MS, AL, FL) 1996 policy "green zone": ≥ 3 mi from shore and ≥ 10 m
+  deep (a newer RRT-4 policy could not be verified). The Flower Garden Banks NMS has its own RRT-6 guidance (Appendix 43) and is
+  not mapped. We apply "≥ 3 nm AND ≥ 10 m" everywhere in the Gulf (US rules; Mexican/Cuban waters are outside both RRTs).
+- **In-situ burn**: RRT-6 *In-Situ Burn Policy for the Offshore Environment* (Appendix 13, 2020): "seaward beginning three
+  miles offshore"; the 1994 RRT VI plan excludes areas near certain reefs and off Grand Isle (not mapped). RRT-4 1995 "A zone":
+  ≥ 3 mi seaward, federal waters.
+- **Depth and distance to shore**: NOAA NCEI ETOPO1 (1 arc-min) via CoastWatch ERDDAP (`data/fetch_bathy.py` →
+  `data/cache/bathy/etopo1_gulf.npz`, gitignored). Distance = nearer of the ETOPO1 coastline pixels and the ESI shoreline cells.
+  The hourly dispersant window now also requires ≥ 10 m at the slick centroid. If the bathymetry is missing, depth is not
+  checked and the JSON + legend say so.
+- **Staging bases** (`data/response/staging_bases.json`, committed, 37 KB): 37 USCG units (positions = OpenStreetMap facility
+  footprints, cross-checked with the US Census Geocoder where an address exists), 9 MSRC equipment sites (MSRC Equipment Site Map),
+  2 Clean Gulf Associates bases, 6 Texas GLO oil-spill warehouses (GLO *Prestaged Equipment and Staging Areas*). Every entry has
+  `src` + `coord_src`; inland offices are flagged in `note`. It is not a list of available equipment.
+- Verbatim quotes, page numbers and URLs for all of the above: docs/RESPONSE_RULES_SOURCES.md.
+
+### Limits of the layer
+- One deterministic run: zones, boom sites and times move with every new forecast.
+- Boom sites follow our generic rule, not the official Geographic Response Plans (TX GLO, LA ACP) that pre-define boom
+  strategies per inlet; responders would use those.
+- Raw ESI geometry comes from `data/raw/esi_x` (237 MB download, gitignored). Without it the arrival map falls back to 5 km
+  ESI cell dots and no boom lines are drawn (the JSON says so in `layer.notes`).
+- Travel times are straight-line estimates; no road/waterway routing, no traffic, no vessel availability.
+- Waves are not modelled (burn and boom limits depend on them); slick thickness is approximated by particle density.
+- ETOPO1 (~1.8 km) blurs the nearshore 10 m line; bays the ocean model treats as land are not resolved.
+
 ## LLM briefing (optional)
 `briefing.py` sends the compacted outline JSON (no hourly series) to an LLM with instructions to use only the facts in
 it, ≤ 170 words, most urgent first, ending "Planning aid only, not operational guidance." Key from the environment
@@ -107,8 +172,8 @@ No key → `briefing.text = null` and the panel shows the rule-based outline onl
   update.
 - Stranding happens on the model coastline (GSHHG / ocean-model land at ~1–4 km). Bays the ocean model treats as land
   (Galveston Bay, Barataria, Mobile Bay interiors) are not resolved; 6 km/10 km matching radii pick the outer coast.
-- Waves, water depth, slick thickness and emulsion water content are not modelled; windows use wind, daylight,
-  distance from shore and oil-age limits only. Wind/current are sampled at the slick centroid, not per patch.
+- Waves, slick thickness and emulsion water content are not modelled; windows use wind, daylight, distance from shore,
+  water depth (dispersants, ETOPO1) and oil-age limits only. Wind/current are sampled at the slick centroid, not per patch.
 - `shoreline_km` is mapped ESI shoreline length inside the stretch's cells (convoluted marsh edges make it large), not
   the length oiled.
 - Boom staging time (6 h), stretch size (30 km) and port proximity (15 km) are planning assumptions.
