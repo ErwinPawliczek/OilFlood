@@ -13,6 +13,7 @@ import { FlowField } from './flow';
 import { getGlobalCurrents, type GlobalCurrents } from './globalCurrents';
 import { OilView, footprintLayer, footprintAt, budgetAt, PALETTES } from './oil';
 import { SlickView } from './slick';
+import { actionsHTML, fetchActions, markActions, resetActionMarks, type Actions } from './actions';
 import { initPanel, legendHTML, RATES_H, autoRateIdx, rateLabel, responseHTML, backtestHTML } from './panel';
 import { fetchOutline, outlineHTML, type Outline } from './outline';
 import { ResponseMap, nextActionsHTML } from './responseLayer';
@@ -151,6 +152,8 @@ const state = {
   jobToken: 0,
   /** first-responder response outline for the run on screen (GET .../response) */
   outline: { key: '', url: '', data: null as Outline | null, loading: null as string | null, error: null as string | null },
+  /** T27: time-series action document for the same run (GET .../actions) */
+  acts: { key: '', url: '', data: null as Actions | null, loading: null as string | null, error: null as string | null },
   tH: 0,
   playing: false,
   rateIdx: autoRateIdx(72),
@@ -377,7 +380,7 @@ addEventListener('keydown', (e) => {
 // Response timeline (historical): open state survives re-renders; a date click moves the clock there.
 // Every collapsible section (incl. the nested Precedents / Sources & limits) carries data-k so its open state
 // survives the panel re-rendering while a run progresses.
-const respOpen: Record<string, boolean> & { resp: boolean; evo: boolean } = { resp: true, evo: false, bt: false, outline: true, prec: false, srcs: false, rules: false, how: true, mvr: false, chg: true };
+const respOpen: Record<string, boolean> & { resp: boolean; evo: boolean } = { resp: true, evo: false, bt: false, outline: true, acts: true, prec: false, srcs: false, rules: false, how: true, mvr: false, chg: true };
 pbody.addEventListener('toggle', (e) => {
   const d = e.target as HTMLDetailsElement;
   if (d.dataset?.k && d.dataset.k in respOpen) respOpen[d.dataset.k] = d.open;
@@ -388,6 +391,21 @@ pbody.addEventListener('change', (e) => {
   setShowResponse(t.checked);
 });
 pbody.addEventListener('click', (e) => {
+  const ar = (e.target as HTMLElement).closest<HTMLElement>('.act-row');
+  if (ar && state.acts.data) {
+    // jump the clock to the row (outline hours are relative to that run's release) and show where it happens
+    const r = state.acts.data.rows[Number(ar.dataset.i)];
+    const s = scene();
+    const st = Date.parse(state.acts.data.spill.start.replace(/Z?$/, 'Z')) / 1000;
+    const off = Number.isFinite(st) ? (st - s.t0) / 3600 : 0;
+    state.tH = Math.min(s.durationH, Math.max(0, r.h + off));
+    state.playing = false;
+    renderTime(true);
+    if (!['start', 'notify', 'reforecast', 'tier', 'end', 'safety', 'mobilize', 'tactic_open', 'tactic_close', 'overflight'].includes(r.kind)) {
+      map.flyTo({ center: [r.lon, r.lat], zoom: Math.max(map.getZoom(), 8), duration: 1200, essential: true });
+    }
+    return;
+  }
   const sh = (e.target as HTMLElement).closest<HTMLElement>('.ol-shore');
   if (sh) {
     map.flyTo({ center: [Number(sh.dataset.lon), Number(sh.dataset.lat)], zoom: Math.max(map.getZoom(), 8.5), duration: 1500, essential: true });
@@ -515,6 +533,7 @@ let lastDyn = '';
 let lastNext = '';
 function renderDyn() {
   markPast();
+  markActions(pbody, state.acts.data, respTH());
   renderEnsNow();
   const html = notesHTML() + budgetHTML();
   if (html !== lastDyn) { lastDyn = html; $('dyn').innerHTML = html; }
@@ -559,8 +578,14 @@ function ensureOutline() {
   const o = state.outline;
   if (key === o.key) return;
   Object.assign(o, { key, url, data: null, error: null, loading: key ? 'Building the response outline (ESI shorelines, windows, precedents)…' : null });
+  const aurl = url.replace('/response', '/actions');
+  const A = state.acts;
+  Object.assign(A, { key, url: aurl, data: null, error: null, loading: key ? 'Building the action timeline…' : null });
   syncOutlineMarkers();
   if (!key) return;
+  fetchActions(aurl)
+    .then((d) => { if (d && state.acts.key === key) { A.data = d; A.loading = null; renderContent(); } })
+    .catch((e) => { if (state.acts.key === key) { A.error = String((e as Error).message ?? e); A.loading = null; renderContent(); } });
   fetchOutline(url, () => state.outline.key !== key)
     .then((d) => { if (d && state.outline.key === key) { o.data = d; o.loading = null; renderContent(); } })
     .catch((e) => { if (state.outline.key === key) { o.error = String((e as Error).message ?? e); o.loading = null; renderContent(); } });
@@ -643,7 +668,7 @@ function renderContent() {
       html += responseHTML(sel, respOpen);
       html += backtestHTML(sel.id, state.backtest, respOpen.bt);
       if (sel.source_urls?.length) html += `<details class="links"><summary>Sources</summary>${sel.source_urls.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\//, ''))}</a>`).join('<br>')}</details>`;
-      if (state.outline.key) plan += outlineHTML(state.outline.data, state.outline, respOpen, state.showResponse);
+      if (state.outline.key) plan += actionsHTML(state.acts.data, state.acts.url, state.acts, respOpen.acts) + outlineHTML(state.outline.data, state.outline, respOpen, state.showResponse);
     } else {
       run += `<div class="hint">Pick a spill in step 1.</div>`;
     }
@@ -683,7 +708,7 @@ function renderContent() {
         if (m.seed_moved_km > 0) html += `<div class="hint">Seeded ${m.seed_moved_km} km away, at the nearest model water cell.</div>`;
       }
       html += ensembleHTML();
-      if (state.outline.key) plan += outlineHTML(state.outline.data, state.outline, respOpen, state.showResponse);
+      if (state.outline.key) plan += actionsHTML(state.acts.data, state.acts.url, state.acts, respOpen.acts) + outlineHTML(state.outline.data, state.outline, respOpen, state.showResponse);
     }
     html += errorsHTML(s.errors);
   }
@@ -696,6 +721,7 @@ function renderContent() {
   const tls = () => [...pbody.querySelectorAll<HTMLElement>('.resp .tl')];
   const scrolls = tls().map((el) => el.scrollTop);
   setHTML('content', html);
+  if ($('plan').innerHTML !== plan) resetActionMarks();
   setHTML('plan', plan);
   tls().forEach((el, i) => { el.scrollTop = scrolls[i] ?? 0; });
   setText('st-place', stPlace);
@@ -1411,7 +1437,7 @@ function frame(now: number) {
   if (respMap) {
     const on = state.showResponse;
     if (respMap.syncMarkers(map, respTH(), on)) declutterSoon();
-    if (on) layers.push(...respMap.layers(respTH()));
+    if (on) layers.push(...respMap.layers(respTH(), (Math.sin(now / 160) + 1) / 2));
   }
   const ens = ensembleLayers();
   const surf = state.mode === 'prediction' && !!state.ens.prob && state.view.surface !== 'off';

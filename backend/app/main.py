@@ -14,10 +14,10 @@ import anyio
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import briefing, config, ensemble, fields, forcing, global_fields, jobs, oils, response
+from . import actions, briefing, config, ensemble, fields, forcing, global_fields, jobs, oils, response
 from .jobs import SpillRequest
 
 logging.basicConfig(level=logging.INFO)
@@ -157,6 +157,28 @@ def get_spill_response(run_id: str, brief: bool = True):
     windows, closures, cited precedents. `briefing.text` = optional LLM plain-English summary (null if no key).
     202 + status while the run is still going."""
     return _response_for(run_id, brief)
+
+
+def _actions_response(out, fmt: str, name: str):
+    """JSON action timeline, or a download (md / csv) / print-friendly HTML page."""
+    if isinstance(out, JSONResponse):  # 202 while running / 409 failed
+        return out
+    a = actions.build(out)
+    if fmt == "json":
+        return a
+    if fmt == "html":
+        return HTMLResponse(actions.to_html(a))
+    body, mt = (actions.to_markdown(a), "text/markdown") if fmt == "md" else (actions.to_csv(a), "text/csv")
+    return Response(body, media_type=f"{mt}; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="oilflood_actions_{name}.{fmt}"'})
+
+
+@app.get("/api/spill/{run_id}/actions")
+def get_spill_actions(run_id: str, format: str = Query("json", pattern="^(json|md|csv|html)$")):
+    """Time-series action document for a prediction run (T27): rows by time (T+h, UTC, local) with action, where,
+    why (forecast quantity + protocol rule ID) and confidence (ensemble P / gate pass share). ?format=md|csv|html
+    for downloads. 202 while the run computes. Planning aid, not operational guidance."""
+    return _actions_response(_response_for(run_id, False), format, run_id)
 
 
 def _finished_dir(run_id: str):
@@ -403,6 +425,15 @@ def get_spill_hindcast_response(spill_id: str, n_particles: int = 2000, duration
     except ValueError as e:
         raise HTTPException(400, str(e))
     return _response_for(sub["id"], brief, spill_id=spill_id)
+
+
+@app.get("/api/spills/{spill_id}/actions")
+def get_spill_hindcast_actions(spill_id: str, n_particles: int = 2000, duration_h: float = 72,
+                               model: str = Query("openoil", pattern="^(openoil|ours)$"), ml: bool = False,
+                               format: str = Query("json", pattern="^(json|md|csv|html)$")):
+    """Action timeline for a catalog spill's hindcast (same shape as /api/spill/{id}/actions)."""
+    out = get_spill_hindcast_response(spill_id, n_particles, duration_h, model, ml, brief=False)
+    return _actions_response(out, format, f"{spill_id}_{model}")
 
 
 # --- currents (flow layer) ----------------------------------------------------

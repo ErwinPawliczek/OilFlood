@@ -75,6 +75,7 @@ def main():
 
         code, r2 = call(a.base, "/api/spill", body)
         assert r2["id"] == sid and r2["status"] == "done", f"cache miss: {r2}"
+        actions_test(a.base, sid)
     print("cache hit OK")
     if a.ensemble:
         ensemble_test(a)
@@ -91,6 +92,28 @@ def wait(base, sid, limit=900):
         assert st["status"] != "error", f"run failed: {st.get('error')}"
         assert time.time() - t0 < limit, "timeout"
         time.sleep(2)
+
+
+def raw(base, path):
+    with urllib.request.urlopen(base + path, timeout=120) as r:
+        return r.status, r.headers.get("Content-Type", ""), r.read().decode()
+
+
+def actions_test(base, sid):
+    """T27: time-series action document (JSON + md / csv / html exports, disclaimer on every one)."""
+    code, ac = call(base, f"/api/spill/{sid}/actions")
+    assert code == 200 and ac["rows"] and "not operational guidance" in ac["disclaimer"].lower(), (code, ac.get("detail"))
+    hs = [r["h"] for r in ac["rows"]]
+    assert hs == sorted(hs) and hs[0] == 0, hs[:5]
+    for r in ac["rows"]:
+        assert {"tplus", "t_utc", "t_local", "action", "where", "why", "rules", "confidence"} <= set(r), r
+    kinds = {r["kind"] for r in ac["rows"]}
+    assert {"start", "notify", "reforecast", "end"} <= kinds, kinds
+    for fmt in ("md", "csv", "html"):
+        code, ct, body = raw(base, f"/api/spill/{sid}/actions?format={fmt}")
+        assert code == 200 and "NOT operational guidance" in body, (fmt, code, body[:200])
+    print(f"  actions: {len(ac['rows'])} rows, kinds {sorted(kinds)}")
+    return ac
 
 
 def ensemble_test(a):
@@ -134,6 +157,8 @@ def ensemble_test(a):
     for s in rs["priority_shorelines"]:
         assert "p_oiled_72h" in s and "priority_score" in s
     print("  headline", rs["headline"][0])
+    ac = actions_test(a.base, sid)
+    assert any(r["p"] is not None for r in ac["rows"]), "ensemble actions must carry probabilities"
     code, r2 = call(a.base, "/api/spill", body)
     assert r2["id"] == sid and r2["status"] == "done", f"ensemble cache miss: {r2}"
     print("ensemble OK")
