@@ -1,0 +1,11 @@
+# Agent A10: first-responder action outline (PLAN P6, task T16)
+Repo: OilFlood. Read SYNC.md, docs/PLAN.md, docs/ARCHITECTURE.md, data/spills/catalog.json (response logs) first. Follow SYNC.md rules: small commits, push often to YOUR branch `a10-response`, never force-push, never commit secrets (.env stays gitignored) or large data. Deadline Sun Nov 22 12:00 PM PST, so ship something working within ~3 h.
+Do NOT touch production port 5200. Test on port 5210 (web dev 5280). data/cache and data/raw are already symlinked to shared real data. Keep the single-panel UI. REAL DATA ONLY: no mocks.
+
+Goal (step B of the product): after a prediction run, generate an action outline for first responders.
+- Inputs: the predicted particle tracks (time-to-shore, landfall points/lengths of coastline hit, mass on surface/evaporated/stranded over time), shoreline sensitivity from NOAA ESI (Environmental Sensitivity Index) for the Gulf coast (download the real public ESI data or a simplified real derivative; cache under data/cache, commit only small derived files), the live forecast winds/currents, oil type and volume, and precedents from the spill response logs in catalog.json (cite them).
+- Rule-based core following NOAA/USCG guidance (e.g. NOAA ORR "Characteristics of Response Strategies", dispersant/in-situ-burn windows by oil type, weathering state and wind/sea state; booming priorities by ESI rank and ETA). Output structured JSON: ETA to first landfall, priority shorelines ranked (ESI + arrival time), where to boom first, skimmer/dispersant/burn windows, closures, plus cited precedents.
+- LLM summary: optional layer that turns the JSON into a short plain-English briefing. Use an API key only from an environment variable if one exists (e.g. XAI_API_KEY or OPENAI_API_KEY in backend/.env, never committed); if none is set, show the rule-based outline only, no fake text.
+- API: GET /api/spill/{id}/response. Panel: collapsible "Response outline" in prediction mode (and for historical spills if easy).
+- Write docs/RESPONSE.md (rules, sources, limits). Not operational guidance disclaimer in the UI.
+Update SYNC.md (Done log, Blockers; mark T16 done) when finished, commit and push. End with a short summary of what is ready to merge.

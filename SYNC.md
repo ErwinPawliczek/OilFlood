@@ -25,12 +25,15 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T12 | Live prediction pipeline: auto-fetch latest forecast currents + GFS, amount/type controls | Erwin | done (agent A6, branch a6-live; merged) |
 | T13 | Spill + responder-action database (geo/time + response log) | Erwin | done (agent A7, branch a7-db; merged) |
 | T14 | Our own spill model + ML drift correction, comparable to OpenOil | Erwin | done (agent A8, branch a8-model; merged) |
+| T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | in progress (agent A9, branch a9-backtest) |
+| T16 | First-responder action outline (P6) | Erwin | in progress (agent A10, branch a10-response) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-21 Erwin (flight loop): claimed T15 backtest (A9, a9-backtest) and T16 response outline (A10, a10-response).
 - 2026-11-21 Erwin: merged T14 to main and deployed (OpenOil / Ours / Compare toggle on oilflood.xyz).
 - 2026-11-21 A8 (branch a8-model, T14): **two models to compare: OpenOil baseline + our own model with an ML drift correction.** Details in docs/OURMODEL.md.
   - `backend/app/ourmodel/`: numpy Lagrangian particles on the same forcing files, oil record (ADIOS), seed and output format as OpenOil. Physics: RK2 advection (current + ML correction + 3 % wind), random walk K = 10 m²/s + Fay spreading as an equivalent diffusivity, Fingas evaporation (ln / sqrt law from ADIOS distillation cuts), Mackay emulsification + natural dispersion, beaching on GSHHG or ocean-model land (coast-aware bilinear sampling). 72 h, 2000 particles in ~12–17 s (OpenOil ~21–26 s).
