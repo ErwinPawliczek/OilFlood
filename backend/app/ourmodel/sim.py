@@ -112,6 +112,7 @@ def run(run_dir: Path, p: dict, status) -> dict:
 
     oil_name = p["_oil_resolved"]
     op = oil_props(oil_name)
+    ml.use_dir(p.get("ml_dir"))  # backtest only (held-out ML variant); default = shipped model
     use_ml = bool(p.get("ml", True)) and ml.load() is not None
     windage = WINDAGE
 

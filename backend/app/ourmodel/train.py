@@ -176,11 +176,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--refetch", action="store_true")
     ap.add_argument("--folds", type=int, default=5)
+    ap.add_argument("--exclude", default="", help="comma-separated forcing windows to leave out (e.g. dwh)")
+    ap.add_argument("--out-dir", default=None, help="write the model files here instead of next to the code")
     a = ap.parse_args()
+    excl = {x for x in a.exclude.split(",") if x}
+    if a.out_dir:
+        Path(a.out_dir).mkdir(parents=True, exist_ok=True)
+        ml.use_dir(a.out_dir)
     t_wall = time.time()
 
     frames, grids = [], {}
-    for w in windows():
+    for w in [w for w in windows() if w["name"] not in excl]:
         cur = Grid(w["cur"], "current")
         wind = Grid(w["wind"], "wind")
         t0 = datetime.fromtimestamp(cur.t[0], timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

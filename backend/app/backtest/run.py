@@ -44,6 +44,12 @@ MODELS = {
     "ours_ml": {"label": "Ours + ML", "model": "ours", "ml": True},
     "ours_noml": {"label": "Ours (no ML)", "model": "ours", "ml": False},
 }
+# DWH only: the shipped ML was trained on drifters that are 88 % from the DWH window, so it is not out of sample
+# there. This variant retrains it with the DWH window left out (MC 209 2017 + Eugene Island 2009 drifters only).
+ML_NODWH_DIR = RUNS / "ml_nodwh"
+DWH_EXTRA = {"ours_ml_nodwh": {"label": "Ours + ML (DWH drifters held out)", "model": "ours", "ml": True,
+                               "ml_dir": str(ML_NODWH_DIR)}}
+ALL_MODELS = {**MODELS, **DWH_EXTRA}
 HORIZONS = (24, 48, 72)
 N_PART = 2000
 CELL = 0.05           # raster cell (deg) for IoU / FSS (~5 km)
@@ -202,14 +208,24 @@ def positions(tracks: dict, t: int):
 
 # --- runs ------------------------------------------------------------------------------------------------------
 
+_PLAN_CACHE: dict = {}
+
+
 def plan_run(lat, lon, start: datetime, hours: float, oil: str, volume_bbl: float, model_key: str,
              seed_fn=None) -> dict:
-    m = MODELS[model_key]
-    req = jobs.SpillRequest(lat=lat, lon=lon, start_time=start, duration_h=hours, volume_bbl=volume_bbl,
-                            oil_type=oil, n_particles=N_PART, model=m["model"], ml=m.get("ml", True))
-    p = jobs.plan(jobs._normalize(req), config.SNAP_KM_HINDCAST)
+    m = ALL_MODELS[model_key]
+    key = (lat, lon, start, hours, oil, volume_bbl)
+    if key not in _PLAN_CACHE:  # jobs.plan opens the forcing (~5 s); same for every model
+        req = jobs.SpillRequest(lat=lat, lon=lon, start_time=start, duration_h=hours, volume_bbl=volume_bbl,
+                                oil_type=oil, n_particles=N_PART)
+        _PLAN_CACHE[key] = jobs.plan(jobs._normalize(req), config.SNAP_KM_HINDCAST)
+    p = json.loads(json.dumps(_PLAN_CACHE[key]))
+    if m["model"] == "ours":  # what jobs._normalize adds for our model
+        p.update(model="ours", ml=bool(m.get("ml", True)))
     if m["model"] == "ours":
         p["record_all"] = True
+    if m.get("ml_dir"):
+        p["ml_dir"] = m["ml_dir"]
     if seed_fn is not None:
         slo, sla = seed_fn(p)
         p["seed_lon"], p["seed_lat"] = [round(float(x), 5) for x in slo], [round(float(x), 5) for x in sla]
@@ -313,7 +329,7 @@ def case_dwh(workers: int, max_starts: int | None) -> dict:
             if "s" not in seeds:  # same seed points for all three models
                 seeds["s"] = sample_in(g0, N_PART, np.random.default_rng(rng_seed), water_fn(p))
             return seeds["s"]
-        for mk in MODELS:
+        for mk in ALL_MODELS:
             plans.append(plan_run(cla, clo, start, 72, cat["oil_type"], DWH_SEED_BBL, mk, seed_fn))
             meta.append((d, mk))
     tracks = execute(plans, workers)
@@ -339,7 +355,7 @@ def case_dwh(workers: int, max_starts: int | None) -> dict:
             pers["fss"].append(round(fss(a, b), 3))
         pers["lw"] = [round(lw_skill(pers["sep_km"][:k], cum[:k]), 3) for k in (1, 2, 3)]
         row["models"]["persistence"] = pers
-        for mk in MODELS:
+        for mk in ALL_MODELS:
             p, tr = by[(d, mk)]
             if "error" in tr:
                 row["models"][mk] = {"error": tr["error"]}
@@ -362,7 +378,7 @@ def case_dwh(workers: int, max_starts: int | None) -> dict:
             row["models"][mk] = r
         per_start.append(row)
 
-    names = ["persistence", *MODELS]
+    names = ["persistence", *ALL_MODELS]
     summary = {}
     for mk in names:
         rows = [r["models"][mk] for r in per_start if "error" not in r["models"].get(mk, {"error": 1})]
@@ -376,16 +392,17 @@ def case_dwh(workers: int, max_starts: int | None) -> dict:
                            if "error" not in r["models"].get(mk, {"error": 1})])
             s["beats_persistence_sep"] = [round(float(x), 3) for x in (np.array([r["sep_km"] for r in rows]) < pr).mean(0)]
             s["stranded_mean"] = [round(float(x), 3) for x in np.array([r["stranded"] for r in rows]).mean(0)]
-            if mk == "ours_ml":
+            if mk.startswith("ours_ml"):
                 s["ml_coverage_mean"] = round(float(np.mean([r.get("ml_coverage", 0) for r in rows])), 3)
         summary[mk] = s
-    # paired: ML vs no ML separation
-    pairs = [(r["models"]["ours_ml"]["sep_km"], r["models"]["ours_noml"]["sep_km"]) for r in per_start
-             if "error" not in r["models"]["ours_ml"] and "error" not in r["models"]["ours_noml"]]
-    if pairs:
-        a = np.array([x for x, _ in pairs])
-        b = np.array([y for _, y in pairs])
-        summary["ml_closer_share"] = [round(float(x), 3) for x in (a < b).mean(0)]
+    # paired: ML vs no ML separation (share of start days where the ML run's centroid ends closer)
+    for mk, key in (("ours_ml", "ml_closer_share"), ("ours_ml_nodwh", "ml_nodwh_closer_share")):
+        pairs = [(r["models"][mk]["sep_km"], r["models"]["ours_noml"]["sep_km"]) for r in per_start
+                 if "error" not in r["models"][mk] and "error" not in r["models"]["ours_noml"]]
+        if pairs:
+            a = np.array([x for x, _ in pairs])
+            b = np.array([y for _, y in pairs])
+            summary[key] = [round(float(x), 3) for x in (a < b).mean(0)]
     return {
         "id": "dwh", "name": cat["name"], "kind": "outlines",
         "observed": "NOAA/NESDIS daily satellite oil outlines (data/spills/dwh/footprints)",
@@ -507,6 +524,12 @@ def case_main_pass(workers: int) -> dict:
             ax = np.linalg.svd(X - X.mean(0), full_matrices=False)[2][0]
             proj = X @ ax
             r["length_24h_km"] = round(float(np.percentile(proj, 98) - np.percentile(proj, 2)), 1)
+        lo, la, st = positions(tr, tr["times"][-1])
+        if st.any():
+            r["stranded_centroid"] = [round(float(lo[st].mean()), 3), round(float(la[st].mean()), 3)]
+        first = [positions(tr, t)[2].mean() for t in tr["times"]]
+        hit = next((i for i, f in enumerate(first) if f > 0.01), None)
+        r["first_stranding_h"] = None if hit is None else round((tr["times"][hit] - t0) / 3600, 1)
         r["ml_coverage"] = tr.get("meta", {}).get("ml_coverage_fraction")
         res[mk] = r
     return {
@@ -530,6 +553,11 @@ def main():
     cases = {c["id"]: c for c in old.get("cases", [])}
     t0 = time.time()
     if a.only in (None, "dwh"):
+        if not (ML_NODWH_DIR / "drift_model.joblib").exists():
+            import subprocess
+            print("training the held-out ML (DWH window excluded) ...", file=sys.stderr)
+            subprocess.run([sys.executable, "-m", "app.ourmodel.train", "--exclude", "dwh",
+                            "--out-dir", str(ML_NODWH_DIR)], check=True, cwd=config.BACKEND_DIR)
         cases["dwh"] = case_dwh(a.workers, a.max_starts)
     if a.only in (None, "texas_city_y"):
         cases["texas_city_y"] = case_texas(a.workers)
@@ -538,7 +566,7 @@ def main():
     out = {
         "version": VERSION,
         "generated_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "models": {k: v["label"] for k, v in MODELS.items()} | {"persistence": "Persistence (observed outline D)"},
+        "models": {k: v["label"] for k, v in ALL_MODELS.items()} | {"persistence": "Persistence (observed outline D)"},
         "model_versions": {"openoil": jobs.MODEL_VERSION, "ours": jobs.OURS_VERSION},
         "n_particles": N_PART, "cell_deg": CELL, "fss_window_cells": FSS_WIN,
         "cases": [cases[k] for k in ("dwh", "texas_city_y", "main_pass_2023") if k in cases],

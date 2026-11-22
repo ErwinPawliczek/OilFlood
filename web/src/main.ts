@@ -6,13 +6,13 @@ import { ScatterplotLayer } from '@deck.gl/layers';
 import type { Layer } from '@deck.gl/core';
 import {
   getCatalog, getHistoricalTracks, getFootprints, getCurrents, postSpill, pollSpill, getSpillTracks, getLive, getOils,
-  getModels, toUnix, PRED, GULF_BBOX, MODELS, type CurrentsSource, type SpillJob, type LiveForecast, type OilOption,
+  getModels, getBacktest, toUnix, PRED, GULF_BBOX, MODELS, type CurrentsSource, type SpillJob, type LiveForecast, type OilOption,
   type RunSummary, type ModelId, type ModelInfo,
 } from './api';
 import { FlowField } from './flow';
 import { getGlobalCurrents, type GlobalCurrents } from './globalCurrents';
 import { OilView, footprintLayer, footprintAt, budgetAt, PALETTES } from './oil';
-import { initPanel, legendHTML, RATES_H, autoRateIdx, rateLabel, responseHTML } from './panel';
+import { initPanel, legendHTML, RATES_H, autoRateIdx, rateLabel, responseHTML, backtestHTML } from './panel';
 import { ON_SURFACE, type CatalogSpill, type Tracks, type Footprint } from './types';
 
 // ---------------------------------------------------------------- starfield
@@ -120,6 +120,8 @@ const state = {
   jobRuns: {} as Partial<Record<ModelId, { id: string; status: string; progress: number; error?: string }>>,
   catalog: [] as CatalogSpill[],
   catalogError: null as string | null,
+  /** precomputed P5 backtest scores (GET /api/backtest) */
+  backtest: null as any,
   selected: null as CatalogSpill | null,
   hist: emptyScene(nowHour(), 72),
   pred: emptyScene(nowHour(), PRED.durationH),
@@ -267,10 +269,10 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space' && !(e.target instanceof HTMLElement && e.target.closest('input[type=text], input[type=number], select'))) { e.preventDefault(); togglePlay(); }
 });
 // Response timeline (historical): open state survives re-renders; a date click moves the clock there.
-const respOpen = { resp: true, evo: false };
+const respOpen = { resp: true, evo: false, bt: false };
 content.addEventListener('toggle', (e) => {
   const d = e.target as HTMLDetailsElement;
-  if (d.dataset?.k === 'resp' || d.dataset?.k === 'evo') respOpen[d.dataset.k as 'resp' | 'evo'] = d.open;
+  if (d.dataset?.k === 'resp' || d.dataset?.k === 'evo' || d.dataset?.k === 'bt') respOpen[d.dataset.k as 'resp' | 'evo' | 'bt'] = d.open;
 }, true);
 content.addEventListener('click', (e) => {
   const d = (e.target as HTMLElement).closest<HTMLElement>('.resp .ev .d');
@@ -443,6 +445,7 @@ function renderContent() {
         <span>Position</span><span>${sel.lat.toFixed(3)}°, ${sel.lon.toFixed(3)}°</span>
       </div>${modelNoteHTML(s)}${errorsHTML(s.errors)}`;
       html += responseHTML(sel, respOpen);
+      html += backtestHTML(sel.id, state.backtest, respOpen.bt);
       if (sel.source_urls?.length) html += `<details class="links"><summary>Sources</summary>${sel.source_urls.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\//, ''))}</a>`).join('<br>')}</details>`;
       html += `</div>`;
     } else {
@@ -859,6 +862,7 @@ map.on('load', async () => {
   }
   initPredForm();
   getModels().then((ms) => { state.models = ms; renderContent(); }).catch(() => { /* note only */ });
+  getBacktest().then((b) => { state.backtest = b; renderContent(); });
   const q = new URLSearchParams(location.search);
   const qm = q.get('model');
   setModel(qm === 'ours' || qm === 'openoil' || qm === 'compare' ? qm : state.model);
