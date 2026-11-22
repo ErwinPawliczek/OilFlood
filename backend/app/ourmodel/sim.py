@@ -27,7 +27,7 @@ from .grid import Grid
 MODEL_ID = "ours"
 MODEL_LABEL = "OilFlood model (Lagrangian + Fay + Fingas/Mackay)"
 MODEL_LABEL_ML = MODEL_LABEL[:-1] + " + experimental ML drift correction)"
-VERSION = "ours-v4"
+VERSION = "ours-v4"  # unchanged by T24: default params give the same runs (custom params hash separately)
 
 G = 9.81
 RHO_W = 1025.0
@@ -35,6 +35,7 @@ NU_W = 1.0e-6         # sea water kinematic viscosity, m2/s
 T_WATER_C = 25.0      # no SST in the forcing: Gulf of Mexico surface default (see OURMODEL.md)
 K_H = 10.0            # horizontal diffusivity m2/s (same as the OpenOil baseline)
 WINDAGE = 0.03        # classic 3 % wind drift of surface oil (includes wave/Stokes drift; no wave model)
+STOKES_FACTOR = 0.013  # optional Stokes drift = 1.3 % U10 downwind (Ardhuin et al. 2009), off by default
 C4_VISC = 5.0         # Mackay viscosity increase with evaporation: mu = mu0 exp(C4 Fe)
 K_EM = 2.0e-6         # Mackay emulsification rate constant (1/s)
 M_LAT = 110574.0
@@ -105,7 +106,8 @@ def run(run_dir: Path, p: dict, status) -> dict:
     from .. import config
 
     t_wall = time.time()
-    rng = np.random.default_rng(int(abs(hash((p["lon"], p["lat"], p["start_time"]))) % 2**32))
+    rng = (np.random.default_rng(int(p["rng_seed"])) if p.get("rng_seed") is not None else
+           np.random.default_rng(int(abs(hash((p["lon"], p["lat"], p["start_time"]))) % 2**32)))
     start = datetime.fromisoformat(p["start_time"])
     dur_s = float(p["duration_h"]) * 3600
     dt = config.TIME_STEP_MIN * 60.0
@@ -126,6 +128,28 @@ def run(run_dir: Path, p: dict, status) -> dict:
     ml.use_dir(p.get("ml_dir"))  # backtest only (held-out ML variant); default = shipped model
     use_ml = bool(p.get("ml", False)) and ml.load() is not None
     windage = WINDAGE
+    # T24 "build your own model" + ensemble perturbations (app/ourmodel/params.py). Absent keys = the defaults above,
+    # so a run without model_params is bit-for-bit the previous model.
+    mp = p.get("model_params") or {}
+    if "windage_pct" in mp:
+        windage = float(mp["windage_pct"]) / 100.0
+    k_h = float(mp.get("diffusivity_m2s", K_H))
+    cfac = float(mp.get("current_factor", 1.0))
+    rot = math.radians(float(mp.get("wind_rot_deg", 0.0)))  # wind field rotated clockwise (ensemble members)
+    cos_r, sin_r = math.cos(rot), math.sin(rot)
+    a_st = STOKES_FACTOR if mp.get("stokes", False) else 0.0
+    do_evap = bool(mp.get("evaporation", True))
+    do_emul = bool(mp.get("emulsification", True))
+    do_disp = bool(mp.get("dispersion", True))
+    do_beach = bool(mp.get("beaching", True))
+    compact = bool(p.get("compact"))  # ensemble member: hourly arrays instead of per-particle paths
+
+    def wsample(t, lo, la):
+        uw_, vw_ = wind.sample(t, lo, la)
+        uw_, vw_ = np.nan_to_num(uw_), np.nan_to_num(vw_)
+        if rot:
+            uw_, vw_ = uw_ * cos_r + vw_ * sin_r, -uw_ * sin_r + vw_ * cos_r
+        return uw_, vw_
 
     n = int(p["n_particles"])
     v0 = float(p["volume_m3"])
@@ -190,7 +214,7 @@ def run(run_dir: Path, p: dict, status) -> dict:
 
     def record(k_out: int):
         tt = times[k_out]
-        for i in np.nonzero(visible)[0]:
+        for i in (() if compact else np.nonzero(visible)[0]):
             paths[i].append([round(float(lon[i]), 4), round(float(lat[i]), 4)])
             stamps[i].append(tt)
         budget.append({"t": tt, "surface": round(float(mass[state != 1].sum()), 2),
@@ -199,11 +223,38 @@ def run(run_dir: Path, p: dict, status) -> dict:
 
     def velocity(t, lo, la, corr):
         uc, vc = cur.sample(t, lo, la)
-        uw, vw = wind.sample(t, lo, la)
-        uw, vw = np.nan_to_num(uw), np.nan_to_num(vw)
-        return uc + corr[0] + windage * uw, vc + corr[1] + windage * vw, uc, vc, uw, vw
+        uw, vw = wsample(t, lo, la)
+        if cfac != 1.0:
+            uc, vc = uc * cfac, vc * cfac
+        aw = windage + a_st
+        return uc + corr[0] + aw * uw, vc + corr[1] + aw * vw, uc, vc, uw, vw
+
+    # Forces (GET /api/spill/{id}/forces): mean drift terms over active particles, per 3 h window.
+    F_STEP = 3 * 3600.0
+    n_fw = max(1, int(math.ceil(dur_s / F_STEP - 1e-9)))
+    fsum = np.zeros((n_fw, 10))   # cur u,v | wind drift u,v | stokes u,v | ml u,v | wind10 u,v
+    fcnt = np.zeros(n_fw)
+    ksum = np.zeros(n_fw)
+    k_int = 0.0                   # integral of K dt (m2)
+    k_int_w = np.zeros(n_fw)
+    # Compact hourly snapshots (ensemble members).
+    hr_steps = max(1, int(round(3600.0 / dt)))
+    n_hr = int(dur_s // 3600) + 1
+    if compact:
+        snap_lon = np.full((n_hr, n), np.nan, np.float32)
+        snap_lat = np.full((n_hr, n), np.nan, np.float32)
+        snap_m = np.zeros((n_hr, n), np.float32)
+        snap_s = np.zeros((n_hr, n), np.int8)
+        strand_t = np.full(n, np.nan)
+
+        def snap(j):
+            snap_lon[j], snap_lat[j] = lon, lat
+            snap_m[j] = np.where(state == 1, 0.0, mass)
+            snap_s[j] = np.where((state == 0) & ~visible, 4, state)  # 4 = weathered away
 
     record(0)
+    if compact:
+        snap(0)
     n_steps = int(round(dur_s / dt))
     steps_per_out = max(1, int(round(out_dt / dt)))
     fe_prev = 0.0
@@ -221,8 +272,7 @@ def run(run_dir: Path, p: dict, status) -> dict:
         if len(idx):
             lo, la = lon[idx], lat[idx]
             uc, vc = cur.sample(t, lo, la)
-            uw, vw = wind.sample(t, lo, la)
-            uw, vw = np.nan_to_num(uw), np.nan_to_num(vw)
+            uw, vw = wsample(t, lo, la)
             if use_ml:
                 vo, dv = cur.gradients(t, lo, la)
                 cu_, cv_, wcov = ml.oil_correction(np.nan_to_num(uc), np.nan_to_num(vc), uw, vw, vo, dv, lo, la)
@@ -232,8 +282,13 @@ def run(run_dir: Path, p: dict, status) -> dict:
             else:
                 corr = (np.zeros(len(idx)), np.zeros(len(idx)))
             # RK2 midpoint
-            u1 = np.nan_to_num(uc) + corr[0] + windage * uw
-            v1 = np.nan_to_num(vc) + corr[1] + windage * vw
+            ucf, vcf = np.nan_to_num(uc) * cfac, np.nan_to_num(vc) * cfac
+            u1 = ucf + corr[0] + (windage + a_st) * uw
+            v1 = vcf + corr[1] + (windage + a_st) * vw
+            fw = min(int(age // F_STEP), n_fw - 1)
+            fsum[fw] += (ucf.mean(), vcf.mean(), windage * uw.mean(), windage * vw.mean(), a_st * uw.mean(),
+                         a_st * vw.mean(), float(np.mean(corr[0])), float(np.mean(corr[1])), uw.mean(), vw.mean())
+            fcnt[fw] += 1
             lo_m = lo + 0.5 * dt * u1 / (M_LON * np.cos(np.radians(la)))
             la_m = la + 0.5 * dt * v1 / M_LAT
             u2, v2, *_ = velocity(t + 0.5 * dt, lo_m, la_m, corr)
@@ -244,9 +299,12 @@ def run(run_dir: Path, p: dict, status) -> dict:
             v_surf = mass[:n_seed][state[:n_seed] != 1].sum() / op["density"]
             h = v_surf / (math.pi * r_a ** 2)
             k_fay = (r_b ** 2 - r_a ** 2) / (8 * dt) if h > op["h_terminal"] else 0.0
-            sig = math.sqrt(2 * (K_H + k_fay) * dt)
+            sig = math.sqrt(2 * (k_h + k_fay) * dt)
+            ksum[fw] += k_h + k_fay
+            k_int += (k_h + k_fay) * dt
+            k_int_w[fw] = k_int
             if birth is not None:  # source particles: background diffusion only
-                sig = np.where(idx < n_seed, sig, math.sqrt(2 * K_H * dt))
+                sig = np.where(idx < n_seed, sig, math.sqrt(2 * k_h * dt))
             dx = u2 * dt + sig * rng.standard_normal(len(idx))
             dy = v2 * dt + sig * rng.standard_normal(len(idx))
             nlo = lo + dx / (M_LON * np.cos(np.radians(la)))
@@ -261,7 +319,10 @@ def run(run_dir: Path, p: dict, status) -> dict:
                 on_land[ins] |= ~np.isfinite(cu)  # ocean-model coastline (e.g. bays HYCOM treats as land)
             moved = ~outside & ~on_land
             lon[idx[moved]], lat[idx[moved]] = nlo[moved], nla[moved]
-            sidx = idx[on_land]
+            # beaching off: a particle that would hit the coast stays at its last water position, afloat
+            sidx = idx[on_land] if do_beach else idx[:0]
+            if compact:
+                strand_t[sidx] = t + dt
             state[sidx] = 1
             strd[sidx] += mass[sidx]
             mass[sidx] = 0.0  # stranded mass leaves the surface budget
@@ -269,7 +330,7 @@ def run(run_dir: Path, p: dict, status) -> dict:
 
             # --- weathering of surface oil (active + out-of-domain particles keep weathering) -----
             wsp = np.hypot(uw, vw)
-            fe = fingas_fraction(op, age + dt)
+            fe = fingas_fraction(op, age + dt) if do_evap else 0.0
             if birth is None:
                 surf = np.nonzero(state != 1)[0]
                 if fe > fe_prev and fe_prev < 1:
@@ -278,7 +339,7 @@ def run(run_dir: Path, p: dict, status) -> dict:
                     evap[surf] += de
             else:  # per-particle oil age
                 surf = np.nonzero((state != 1) & (state != 3))[0]
-                fe_i = fingas_fraction_arr(op, t + dt - birth[surf])
+                fe_i = fingas_fraction_arr(op, t + dt - birth[surf]) if do_evap else np.zeros(len(surf))
                 fp = fe_prev_arr[surf]
                 de = np.where((fe_i > fp) & (fp < 1), mass[surf] * (fe_i - fp) / np.maximum(1 - fp, 1e-9), 0.0)
                 mass[surf] -= de
@@ -291,13 +352,13 @@ def run(run_dir: Path, p: dict, status) -> dict:
             w_all[idx] = wsp
             ws = w_all[surf]
             if birth is None:
-                if op["ymax"] > 0 and fe >= op["emul_onset"]:
+                if do_emul and op["ymax"] > 0 and fe >= op["emul_onset"]:
                     water[surf] += dt * K_EM * (ws + 1) ** 2 * (1 - water[surf] / op["ymax"])
                     water[surf] = np.minimum(water[surf], op["ymax"])
                 y = water[surf]
                 mu = op["mu_cp"] * math.exp(C4_VISC * fe) * np.exp(2.5 * y / (1 - 0.654 * y))
             else:
-                if op["ymax"] > 0:
+                if do_emul and op["ymax"] > 0:
                     on = fe >= op["emul_onset"]
                     w_ = water[surf]
                     w_ = np.where(on, np.minimum(w_ + dt * K_EM * (ws + 1) ** 2 * (1 - w_ / op["ymax"]), op["ymax"]), w_)
@@ -306,7 +367,7 @@ def run(run_dir: Path, p: dict, status) -> dict:
                 mu = op["mu_cp"] * np.exp(C4_VISC * fe) * np.exp(2.5 * y / (1 - 0.654 * y))
             h_cm = max(h, op["h_terminal"]) * 100.0
             frac_h = 0.11 * (ws + 1) ** 2 / (1 + 50 * np.sqrt(mu) * h_cm * op["surface_tension"])
-            dd = mass[surf] * np.minimum(frac_h * dt / 3600.0, 1.0)
+            dd = mass[surf] * np.minimum(frac_h * dt / 3600.0, 1.0) if do_disp else np.zeros(len(surf))
             mass[surf] -= dd
             disp[surf] += dd
 
@@ -321,10 +382,35 @@ def run(run_dir: Path, p: dict, status) -> dict:
 
         if k % steps_per_out == 0:
             record(k // steps_per_out)
+        if compact and k % hr_steps == 0 and k // hr_steps < n_hr:
+            snap(k // hr_steps)
         now = time.time()
         if now - last_status > 0.5:
             last_status = now
             status(progress=round(min(k / n_steps, 0.99), 3))
+
+    forces = []
+    for w in range(n_fw):
+        c = max(fcnt[w], 1)
+        f = fsum[w] / c
+        kk = ksum[w] / c if fcnt[w] else (k_h if w == 0 else forces[-1]["k_m2s"])
+        forces.append({"h": round(min((w + 1) * F_STEP, dur_s) / 3600, 2), "n": int(fcnt[w]),
+                       "current": [round(float(f[0]), 4), round(float(f[1]), 4)],
+                       "wind": [round(float(f[2]), 4), round(float(f[3]), 4)],
+                       "stokes": [round(float(f[4]), 4), round(float(f[5]), 4)],
+                       "ml": [round(float(f[6]), 4), round(float(f[7]), 4)],
+                       "wind10": [round(float(f[8]), 3), round(float(f[9]), 3)],
+                       "k_m2s": round(float(kk), 3),
+                       "spread_km": round(math.sqrt(4 * max(k_int_w[w] if fcnt[w] else k_int, 0)) / 1000, 3)})
+    extra = {"model_params": {"windage_pct": round(100 * windage, 3), "diffusivity_m2s": k_h, "current_factor": cfac,
+                              "wind_rot_deg": round(math.degrees(rot), 2), "stokes": bool(a_st),
+                              "evaporation": do_evap, "emulsification": do_emul, "dispersion": do_disp,
+                              "beaching": do_beach},
+             "forces": forces}
+    if compact:
+        return {"times": times, "budget": budget, "m0": m0.astype(np.float32), "density": op["density"],
+                "lon": snap_lon, "lat": snap_lat, "mass": snap_m, "state": snap_s, "strand_t": strand_t,
+                "t0": t0, **extra, "runtime_s": round(time.time() - t_wall, 1)}
 
     particles = []
     for i in range(n):
@@ -354,6 +440,7 @@ def run(run_dir: Path, p: dict, status) -> dict:
             "water_temp_c": T_WATER_C,
             "emulsion_water_fraction_end": round(float(np.mean(water)), 3),
             "runtime_s": round(time.time() - t_wall, 1),
+            **extra,
             **({"source_particles": n - n_seed} if birth is not None else {}),
         },
     }
