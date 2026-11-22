@@ -29,13 +29,18 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T16 | First-responder action outline (P6) | Erwin | done (merged + deployed to oilflood.xyz 2026-11-21) |
 | T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | done (merged + deployed to oilflood.xyz 2026-11-21) |
 | T18 | Post-merge QA, ML default off/experimental label, README screenshots | Erwin | in progress (agent A12, branch a12-qa) |
-| T19 | Devpost write-up + demo video script (docs/DEVPOST.md, docs/DEMO.md) | Erwin | in progress (agent A13, branch a13-devpost) |
+| T19 | Devpost write-up + demo video script (docs/DEVPOST.md, docs/DEMO.md) | Erwin | done (agent A13, branch a13-devpost; ready to merge, docs only) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-22 A13 (branch a13-devpost, T19): **Devpost write-up + demo script.** Docs only (no code/README touched).
+  - `docs/DEVPOST.md`: tagline (168 chars), Inspiration, What it does, How we built it (data, OpenOil baseline, our model, ML drift correction with hold-out numbers, backtest, response outline, optional LLM), Challenges (incl. no model beats persistence on DWH, ML hurts at Main Pass), Accomplishments, What we learned, What's next, Built with tags + a criteria checklist. All numbers from README/OURMODEL/BACKTEST/RESPONSE/SYNC or the live API (`/api/live`, `/api/models`, `/api/oils`, `/api/spills`).
+  - `docs/DEMO.md`: 2:30 script in 6 timed blocks (~340 spoken words) with what to click on oilflood.xyz, `[read: ...]` slots for live-forecast numbers (they change each run), criteria coverage table, recording checklist (1080p, GPU Chrome, preload the Galveston IFO 380 / 4000 bbl run + Compare + DWH, check `/api/live` and record within one forecast cycle).
+  - Checked on the live site: Texas City "Y" OpenOil hindcast outline says "First landfall in ~1 h near Bayou Vista, TX (ESI 10A)" (backup shot if the live run has no landfall).
+  - Open items for Erwin: (1) DEVPOST says the LLM briefing is not live (no key on the tower); update if a key gets set. (2) If A12 makes ML default-off/"experimental", the 0:45 narration should say "experimental" (noted in DEMO.md). (3) Add the video link + gallery stills on Devpost after recording.
 - 2026-11-21 A11 (branch a11-polish, T17): **demo polish.**
   - `README.md` rewritten for judges: what it is, live site, screenshot placeholder list, features, the AI part (OpenOil baseline + our ML drift correction with hold-out numbers + optional LLM briefing), architecture, data sources with links + licences, clean-machine setup. Verified by following it in a fresh clone with a **new** conda env (env builds in ~1–4 min, backend starts, `smoke_test.py` passes, `npm ci && npm run build` served by the backend; data cache shared, not re-downloaded; sizes documented).
   - Setup bug fixed: `backend/environment.yml` was missing **scikit-learn (pinned 1.9, the joblib model was saved with 1.9.1), joblib, pillow** (backend imports them) and pyshp/pyproj (data scripts). requirements.txt too.
