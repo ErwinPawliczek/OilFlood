@@ -27,6 +27,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T14 | Our own spill model + ML drift correction, comparable to OpenOil | Erwin | done (agent A8, branch a8-model; merged) |
 | T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | in progress (agent A9, branch a9-backtest) |
 | T16 | First-responder action outline (P6) | Erwin | done (agent A10, branch a10-response; ready to merge) |
+| T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | in progress (agent A11, branch a11-polish) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
@@ -39,6 +40,7 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
   - API: `GET /api/spill/{id}/response` (202 while running) and `GET /api/spills/{id}/response?model=` for hindcasts; cached as runs/<id>/response.json. `?brief=0` skips the LLM.
   - LLM: `backend/app/briefing.py` uses XAI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY from the env or backend/.env (gitignored), `OILFLOOD_LLM_MODEL` override; prompt = use only JSON facts. **No key exists on the tower now**, so `briefing.text` is null and the panel shows the rule-based outline only (not tested against a live LLM).
   - Panel: collapsible "Response outline" (disclaimer, headline, first landfall, wind/current, priority shorelines (click = fly to), boom first, windows, closures, precedents, sources & limits) in prediction mode and for historical spills with a hindcast; numbered priority-shoreline markers on the globe. Verified on :5210 in headless Chrome (live prediction at 28.9N 94.3W; Texas City Y hindcast: landfall 1 h near Bayou Vista, ESI 10A) and via curl (DWH hindcast, Galveston prediction).
+- 2026-11-21 Erwin (flight loop): claimed T17 polish (A11, a11-polish).
 - 2026-11-21 Erwin (flight loop): claimed T15 backtest (A9, a9-backtest) and T16 response outline (A10, a10-response).
 - 2026-11-21 Erwin: merged T14 to main and deployed (OpenOil / Ours / Compare toggle on oilflood.xyz).
 - 2026-11-21 A8 (branch a8-model, T14): **two models to compare: OpenOil baseline + our own model with an ML drift correction.** Details in docs/OURMODEL.md.
