@@ -5,6 +5,7 @@
 // Globe gotcha (A3): LineLayer/TextLayer misrender on the MapLibre globe -> PathLayer/GeoJsonLayer + HTML labels.
 
 import { PathLayer, ScatterplotLayer, GeoJsonLayer } from '@deck.gl/layers';
+import { PathStyleExtension } from '@deck.gl/extensions';
 import type { Layer } from '@deck.gl/core';
 import maplibregl from 'maplibre-gl';
 import { ON_SURFACE } from './types';
@@ -18,8 +19,11 @@ export interface RespLayer {
   shore_source: 'lines' | 'cells';
   shore: { path?: [number, number][]; point?: [number, number]; eta_h: number; band: number; impact: string; esi: string; tier: number }[];
   isochrones: { t_h: number; coordinates: MultiPoly }[];
+  /** best guess + uncertainty (T23): cumulative reach with windage 1-4 % (GNOME range) */
+  uncertainty?: { t_h: number; coordinates: MultiPoly }[];
+  circles?: { kind: string; path: [number, number][]; label: string }[];
   booms: Boom[];
-  inlets: { name: string; lon: number; lat: number; eta_h: number; deploy_by_h: number; priority: number }[];
+  inlets: { name: string; lon: number; lat: number; eta_h: number; deploy_by_h: number; priority: number; late?: boolean }[];
   zones: { kind: 'disp' | 'burn'; h: number; pct: number; coordinates: MultiPoly }[];
   zone_step_h: number;
   dispersant_line?: [number, number][][];
@@ -34,16 +38,22 @@ export interface RespLayer {
   error?: string;
 }
 interface Staging { name: string; type: string; lon: number; lat: number; km: number; travel_h: number }
+export interface Lead { lead_h: number; tier1_h: number; hvp: string | null; calc_h: number; travel_h: number | null; en_route_h: number; base: string | null; rule: string }
+type BoomKind = 'exclusion' | 'deflection' | 'nohold' | 'beach';
 export interface Boom {
-  priority: number; name: string | null; lon: number; lat: number; eta_h: number; deploy_by_h: number; mobilize_by_h: number;
-  late: boolean; kind: 'exclusion' | 'deflection' | 'beach'; current_kt: number | null; boom_angle_deg: number | null; km: number;
-  lines: { path: [number, number][]; kind: 'exclusion' | 'deflection' | 'beach'; esi: string; km: number }[];
-  staging: Staging[]; esi: string; esi_label: string; label: string;
+  priority: number; name: string | null; lon: number; lat: number; eta_h: number; eta_earliest_h?: number | null; deploy_by_h: number; mobilize_by_h: number;
+  late: boolean; kind: BoomKind; current_kt: number | null; across_kt?: number | null; boom_angle_deg: number | null; km: number;
+  lines: { path: [number, number][]; kind: BoomKind; esi: string; km: number; across_kt?: number | null }[];
+  staging: Staging[]; esi: string; esi_label: string; label: string; lead?: Lead; rule?: string;
 }
 
 /** Arrival bands <12, 12-24, 24-48, 48-72, >72 h: red, orange, yellow, pale yellow, grey-blue. */
 export const BAND_COL: RGBA[] = [[255, 59, 48, 255], [255, 149, 0, 255], [255, 214, 10, 255], [255, 240, 170, 255], [150, 170, 200, 255]];
-export const BOOM_COL: Record<string, RGBA> = { exclusion: [255, 255, 255, 255], deflection: [255, 64, 200, 255], beach: [196, 160, 110, 255] };
+export const BOOM_COL: Record<string, RGBA> = { exclusion: [255, 255, 255, 255], deflection: [255, 64, 200, 255], nohold: [255, 70, 70, 255], beach: [196, 160, 110, 255] };
+const UNC_COL: RGBA = [200, 170, 255, 200];
+const dash = new PathStyleExtension({ dash: true });
+/** MultiPolygon -> outer/inner rings as paths (for dashed outlines) */
+const rings = (coordinates: MultiPoly) => coordinates.flatMap((poly) => poly);
 const DISP_COL: RGBA = [64, 156, 255, 80];
 const BURN_COL: RGBA = [255, 96, 32, 90];
 const SKIM_COL: RGBA = [110, 240, 140, 255];
@@ -57,6 +67,7 @@ export const tplus = (h: number) => `T+${h < 10 && h % 1 ? h.toFixed(1) : Math.r
 
 export class ResponseMap {
   private iso: any;
+  private unc: { t_h: number; path: number[][] }[] = [];
   private zonesBySteps = new Map<number, { disp: any; burn: any }>();
   private shoreLines: RespLayer['shore'];
   private shorePts: RespLayer['shore'];
@@ -68,6 +79,7 @@ export class ResponseMap {
 
   constructor(public L: RespLayer, public key: string) {
     this.iso = fc(L.isochrones.map((i) => mp(i.coordinates, { t_h: i.t_h })));
+    for (const u of L.uncertainty ?? []) for (const r of rings(u.coordinates)) this.unc.push({ t_h: u.t_h, path: r });
     for (const z of L.zones) {
       const k = Math.round(z.h);
       const e = this.zonesBySteps.get(k) ?? { disp: fc([]), burn: fc([]) };
@@ -97,6 +109,23 @@ export class ResponseMap {
       lineWidthUnits: 'pixels', getLineWidth: (f: any) => (f.properties.t_h === 6 ? 0.8 : 1.3),
       updateTriggers: { getLineColor: tq }, parameters: ON_SURFACE,
     }) as any);
+    if (this.unc.length) {
+      // only the latest envelope reached by the clock (or the first one before that), dashed
+      const hs = [...new Set(this.unc.map((u) => u.t_h))].sort((a, b) => a - b);
+      const cur = hs.filter((h) => h <= Math.max(tH, hs[0])).pop() ?? hs[0];
+      out.push(new PathLayer({
+        id: 'resp-unc', data: this.unc.filter((u) => u.t_h === cur), getPath: (d: any) => d.path, getColor: UNC_COL,
+        getWidth: 1.6, widthUnits: 'pixels', extensions: [dash], getDashArray: [5, 4], dashJustified: true,
+        updateTriggers: { data: cur }, parameters: ON_SURFACE,
+      } as any) as any);
+    }
+    if (L.circles?.length) {
+      out.push(new PathLayer({
+        id: 'resp-circles', data: L.circles, getPath: (d: any) => d.path,
+        getColor: (d: any) => (d.kind === 'grand_isle' ? [255, 140, 80, 170] : [120, 190, 255, 150]),
+        getWidth: 1.2, widthUnits: 'pixels', extensions: [dash], getDashArray: [2, 4], parameters: ON_SURFACE,
+      } as any) as any);
+    }
     if (L.dispersant_line?.length) {
       out.push(new PathLayer({
         id: 'resp-disp-line', data: L.dispersant_line, getPath: (d: any) => d, getColor: [120, 190, 255, 150],
@@ -166,11 +195,15 @@ export class ResponseMap {
         el.className = 'rlbl';
         const c = css(BOOM_COL[b.kind]);
         el.style.setProperty('--c', c);
+        const t1 = b.lead ? ` (Tier 1 ${b.lead.tier1_h} h${b.lead.hvp ? ', port area' : ''})` : '';
         el.innerHTML = b.late
-          ? `<span><b class="late">too late for boom</b> · oil ashore ~${tplus(b.eta_h)} · shoreline crews</span>`
-          : `<span>${esc(b.label)} · <b>deploy by ${tplus(b.deploy_by_h)}</b>${b.staging[0] ? ` · from ${esc(b.staging[0].name)} ~${b.staging[0].travel_h} h` : ''}</span>`;
-        el.title = `${b.name ?? ''}: ESI ${b.esi} ${b.esi_label}. Oil predicted at ${tplus(b.eta_h)}; mobilize by ${tplus(Math.max(0, b.mobilize_by_h))}.`
-          + (b.current_kt != null ? ` Forecast current at the site ${b.current_kt} kt.` : '');
+          ? `<span><b class="late">too late for boom</b> · oil ashore ~${tplus(b.eta_h)} · boom on scene ~${tplus(b.deploy_by_h)}${t1} · shoreline crews</span>`
+          : `<span>${esc(b.label)} · <b>on scene ${tplus(b.deploy_by_h)}</b>${t1}${b.across_kt != null ? ` · ${b.across_kt} kt across` : ''}</span>`;
+        el.title = `${b.name ?? ''}: ESI ${b.esi} ${b.esi_label}. Oil predicted at ${tplus(b.eta_h)}`
+          + (b.eta_earliest_h != null ? ` (earliest plausible ${tplus(b.eta_earliest_h)})` : '')
+          + `; Tier 1 en route by ${tplus(b.mobilize_by_h)}${b.staging[0] ? ` from ${b.staging[0].name} (~${b.staging[0].travel_h} h by road)` : ''}.`
+          + (b.current_kt != null ? ` Forecast current ${b.current_kt} kt, ${b.across_kt ?? '?'} kt across the boom.` : '')
+          + (b.rule ? ` ${b.rule}` : '');
         this.markers.push(new maplibregl.Marker({ element: el, anchor: 'top-left', offset: [6, 10] }).setLngLat([b.lon, b.lat]).addTo(map));
         this.markerEls.push({ el, showFrom: -1e9 });
       }
@@ -214,9 +247,10 @@ export function respLayerHTML(L: RespLayer | undefined, on: boolean) {
     <label class="rl-tog"><input type="checkbox" id="resp-layer-cb" ${on ? 'checked' : ''}> <b>Response layer</b> <small class="hint">on the map, follows the clock</small></label>
     ${on ? `<div class="rl-leg">
       <div><span class="hint">Oil arrival</span> ${L.bands.map((b, i) => `${sw(BAND_COL[i])}${esc(b)}`).join(' ')}</div>
-      <div>${sw(BOOM_COL.exclusion, 14, 5)}exclusion boom ${sw(BOOM_COL.deflection, 14, 5)}deflection boom ${sw(BOOM_COL.beach, 14, 5)}beach crews <i class="sw ring" style="border-color:#fff"></i>inlet</div>
+      <div>${sw(BOOM_COL.exclusion, 14, 5)}exclusion boom (&le;0.7 kt across) ${sw(BOOM_COL.deflection, 14, 5)}deflection (0.7–1 kt) ${sw(BOOM_COL.nohold, 14, 5)}won't hold (&gt;1 kt) ${sw(BOOM_COL.beach, 14, 5)}beach crews <i class="sw ring" style="border-color:#fff"></i>inlet</div>
+      <div><i class="sw dashl" style="border-color:${css(UNC_COL)}"></i><b>best guess + uncertainty</b>: solid = this run, dashed = could be reached with 1–4 % windage (NOAA-style) <i class="sw dashl" style="border-color:#78beff"></i>10 nm dispersant circle${L.circles?.some((c) => c.kind === 'grand_isle') ? ' <i class="sw dashl" style="border-color:#ff8c50"></i>Grand Isle 7 mi ISB buffer' : ''}</div>
       <div><i class="sw box" style="background:rgba(64,156,255,.5);border:1px solid #78beff"></i>dispersant zone <i class="sw box" style="background:rgba(255,96,32,.5);border:1px solid #ff8c50"></i>in-situ burn <i class="sw ring" style="border-color:${css(SKIM_COL)}"></i>skimmer target <i class="sw dot"></i>staging base ${sw([120, 190, 255, 255], 14, 2)}3 nm / 10 m dispersant line</div>
-      <div class="hint">Faint = planned; bright = boom in place (deploy-by) / oil arrived; blue lines = travel from staging while mobilizing. Thin outlines = where surface oil has been by T+6/12/24/48/72 h.</div>
+      <div class="hint">Faint = planned; bright = boom on scene (USCG Tier 1 lead time) / oil arrived; blue lines = road travel from the equipment base. Thin outlines = where surface oil has been by T+6/12/24/48/72 h.</div>
       ${L.notes.map((n) => `<div class="warn">${esc(n)}</div>`).join('')}
     </div>` : ''}
   </div><div id="next-actions"></div>`;

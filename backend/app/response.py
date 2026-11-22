@@ -632,8 +632,9 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
                     "No current data along the slick."], "skimming")
 
     # --- uncertainty envelope (R1, FCST-2/FCST-4): windage 1-4 % instead of the model's own value ---------------
-    wd_model = float(req.get("wind_drift_factor") or (0.03 if (meta.get("model") or req.get("model")) == "ours"
-                                                    else 0.02))
+    # our model: fixed 3 % (ourmodel/sim.py WINDAGE); OpenOil: the request's wind_drift_factor (default 2 %)
+    wd_model = 0.03 if str(meta.get("model") or req.get("model") or "").startswith("ours") else float(
+        req.get("wind_drift_factor") or 0.02)
     uw = np.array([0.0 if h["wind_kt"] is None or h["wind_to_deg"] is None else
                    h["wind_kt"] / KT * math.sin(math.radians(h["wind_to_deg"])) for h in hours])
     vw = np.array([0.0 if h["wind_kt"] is None or h["wind_to_deg"] is None else
@@ -668,8 +669,7 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
     extra_cells = [k for k in early if k not in known]
     envelope_only = {"cells": len(extra_cells), "shoreline_km": round(sum(cells[k][2] for k in extra_cells), 1),
                      "earliest_h": round(min((early[k] - t0) / 3600 for k in extra_cells), 1) if extra_cells else None,
-                     "places": sorted({place_name(float(elon[k]), float(elat[k])) or "" for k in
-                                       sorted(extra_cells, key=lambda k: early[k])[:6]} - {""})}
+                     "places": _envelope_places(extra_cells, early, elon, elat)}
 
     # --- boom-first list with real lead times (R6) ---------------------------------------------------------------
     boom_first = []
@@ -696,8 +696,8 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
                      (f"Oil expected in {s['eta_h']:.0f} h, before Tier 1 boom can be on scene (~{lt['lead_h']:.0f} h"
                       f"{', higher-volume port area' if lt['hvp'] else ''}): go straight to shoreline crews and "
                       "protect the next site (R6).")) + (
-                f" Marsh-wide protective booming takes {P.MARSH_BOOM_DAYS[0]}-{P.MARSH_BOOM_DAYS[1]} days (Galveston "
-                "Bay ACP, MECH-7): pre-position." if marsh else ""),
+                f" Marsh: in the Galveston Bay ACP, protective booming of marsh tributaries takes "
+                f"{P.MARSH_BOOM_DAYS[0]}-{P.MARSH_BOOM_DAYS[1]} days (MECH-7): pre-position early." if marsh else ""),
         })
         if len(boom_first) >= 5:
             break
@@ -892,6 +892,16 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
         ],
     }
     return json.loads(json.dumps(out, default=_plain))
+
+
+def _envelope_places(extra_cells, early, elon, elat, k=6) -> list[str]:
+    """nearest Census place names of shoreline cells reached only in the uncertainty envelope, earliest first."""
+    names = []
+    for c in sorted(extra_cells, key=lambda c: early[c])[:60]:
+        nm = (place_name(float(elon[c]), float(elat[c])) or "").split(" (")[0]
+        if nm and nm not in names:
+            names.append(nm)
+    return names[:k]
 
 
 def _protocol_steps(shorelines, boom_first, disp, burn, mech, P) -> dict:

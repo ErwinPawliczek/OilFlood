@@ -200,3 +200,18 @@ body.lowzoom .rlbl span { display: none; }
 .pin:hover .lbl-hide, .olpin:hover .lbl-hide, .rlbl:hover .lbl-hide { opacity: 1 !important; }
 .pin span, .olpin span { transition: opacity 0.25s; }
 .rl-leg .sw.box { width: 11px; height: 9px; }
+.rl-leg .sw.dashl { width: 14px; height: 0; border-top: 2px dashed; border-radius: 0; background: none; }
+/* T23: protocol gates, precedents, uncertainty tag, model-to-action explainer */
+.ol-gates { display: flex; flex-wrap: wrap; gap: 3px; margin: 2px 0 1px; }
+.gate { font-size: 9.5px; padding: 0 5px; border-radius: 8px; border: 1px solid; line-height: 15px; cursor: help; white-space: nowrap; }
+.gate.g-ok { color: #7fe0a0; border-color: rgba(127, 224, 160, 0.45); }
+.gate.g-part { color: #ffd59a; border-color: rgba(255, 213, 154, 0.5); }
+.gate.g-no { color: #ff8f8f; border-color: rgba(255, 143, 143, 0.55); }
+.gate.g-unk { color: #9aa6b8; border-color: rgba(154, 166, 184, 0.35); border-style: dashed; }
+.gate.g-soft { color: #b8c4d6; border-color: rgba(184, 196, 214, 0.3); }
+.ol-prec { font-size: 10.5px; color: #bcc8da; margin: 1px 0 3px; line-height: 1.35; }
+.ol-tac { margin-bottom: 5px; }
+.unc-tag { display: inline-block; font-size: 10px; padding: 0 6px; border-radius: 8px; border: 1px dashed rgba(200, 170, 255, 0.8); color: #d9c8ff; cursor: help; }
+.ol-how { margin: 3px 0 3px 16px; padding: 0; font-size: 11px; line-height: 1.4; }
+.ol-how li { margin: 2px 0; }
+.ol-sub.how a, .ol-prec a { color: #8fb8ff; }

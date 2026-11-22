@@ -55,8 +55,14 @@ def _compact(outline: dict) -> dict:
     o.get("conditions", {}).pop("hourly", None)
     o.pop("sources", None)
     o.pop("limits", None)
+    for k in ("layer", "protocol", "model_vs_reality", "boom_precedents", "shoreline_precedents", "closure_precedents"):
+        o.pop(k, None)
     for t in o.get("tactics", {}).values():
         t["windows"] = t["windows"][:3]
+        t.pop("precedents", None)
+        t.pop("conditions", None)
+        t["gates"] = [{"gate": g["label"], "limit": g["limit"], "pass_h": g["pass_h"], "fail_h": g["fail_h"]}
+                      for g in t.get("gates", [])]
     o["priority_shorelines"] = o.get("priority_shorelines", [])[:6]
     return o
 

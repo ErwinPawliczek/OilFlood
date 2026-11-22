@@ -286,7 +286,7 @@ addEventListener('keydown', (e) => {
 // Response timeline (historical): open state survives re-renders; a date click moves the clock there.
 // Every collapsible section (incl. the nested Precedents / Sources & limits) carries data-k so its open state
 // survives the panel re-rendering while a run progresses.
-const respOpen: Record<string, boolean> & { resp: boolean; evo: boolean } = { resp: true, evo: false, bt: false, outline: true, prec: false, srcs: false, rules: false };
+const respOpen: Record<string, boolean> & { resp: boolean; evo: boolean } = { resp: true, evo: false, bt: false, outline: true, prec: false, srcs: false, rules: false, how: true, mvr: false };
 content.addEventListener('toggle', (e) => {
   const d = e.target as HTMLDetailsElement;
   if (d.dataset?.k && d.dataset.k in respOpen) respOpen[d.dataset.k] = d.open;
