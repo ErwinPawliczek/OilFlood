@@ -46,7 +46,7 @@ export function actionsHTML(a: Actions | null, url: string, st: { loading?: stri
       <button class="act-row k-${esc(r.kind)}" data-i="${i}" data-h="${r.h}" title="${esc(`${r.t_utc} · ${r.where}\n${r.why} [${r.rules}]\nConfidence: ${r.confidence}`)}">
         <span class="act-t"><b>${esc(r.tplus)}</b><small>${esc(r.t_local.replace(/^\w{3} /, ''))}</small></span>
         <span class="act-a"><b><i>${ICON[r.kind] ?? '•'}</i> ${esc(r.action)}</b>
-          <small>${r.where ? `${esc(r.where)} · ` : ''}${esc(r.why)} <em>[${esc(r.rules)}]</em></small>
+          <small>${r.where && !r.action.includes(r.where.replace(/ \(ESI.*$/, '')) ? `${esc(r.where)} · ` : ''}${esc(r.why)} <em>[${esc(r.rules)}]</em></small>
           <small class="act-c">${r.p != null ? `<span class="pq" style="--p:${r.p}">${Math.round(r.p * 100)}%</span> ` : ''}${esc(r.confidence)}</small></span>
       </button>`).join('')}</div>
     <div class="hint">Click a row to move the clock there. Rows: protocol checkpoints (notification, Tier 1/2/3, re-forecast every 6–12 h), boom on scene vs the earliest plausible arrival, tactic windows when the gates pass, shoreline P10/P50 arrival. Rule IDs: <a href="${esc(a.rules_doc)}" target="_blank" rel="noopener">PROTOCOLS.md</a>.</div>`;

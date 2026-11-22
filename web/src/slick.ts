@@ -16,11 +16,13 @@ export type SlickStyle = 'fill' | 'outline';
 type RGBA = [number, number, number, number];
 
 /** fill colours per level (outer -> inner) and the outline colour */
-const FILL: RGBA[] = [[58, 58, 58, 150], [26, 26, 26, 235], [11, 11, 11, 250]];
+const FILL: RGBA[] = [[60, 60, 60, 150], [28, 28, 28, 230], [10, 10, 10, 252]];
 const EDGE: RGBA = [92, 92, 92, 230];
 const OUTLINE_ONLY: RGBA = [205, 205, 205, 235];
-/** density levels in multiples of one isolated particle's peak (so a lone particle stays invisible) */
-const LEVELS = [1.15, 3.5, 9];
+/** outer edge in multiples of one isolated particle's peak (a lone particle stays invisible); the inner levels are
+ *  shares of the current peak density, so every slick shows sheen -> slick -> thick core */
+const EDGE_LEVEL = 1.15;
+const INNER = [0.12, 0.45];
 const MAX_CELLS = 260;
 const dash = new PathStyleExtension({ dash: true });
 
@@ -163,7 +165,11 @@ export class SlickView {
     // a lone particle peaks at ~kernel[r]^2; levels are multiples of that (coarsened grids hold more per cell)
     const r = (this.kernel.length - 1) >> 1;
     const p1 = this.kernel[r] * this.kernel[r];
-    const thr = (this.style === 'fill' ? LEVELS : [LEVELS[0]]).map((l) => l * p1);
+    let mx = 0;
+    for (let i = 0; i < a.length; i++) if (a[i] > mx) mx = a[i];
+    const l0 = EDGE_LEVEL * p1;
+    const l1 = Math.max(l0 * 1.6, INNER[0] * mx), l2 = Math.max(l1 * 1.6, INNER[1] * mx);
+    const thr = this.style === 'fill' ? [l0, l1, l2] : [l0];
     const cs = contours().size([nx, ny]).thresholds(thr)(a as unknown as number[]);
     const features = cs.filter((c) => c.coordinates.length).map((c, li) => ({
       type: 'Feature',

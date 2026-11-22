@@ -43,7 +43,7 @@ budget (surface / evaporated / dispersed / stranded).
 
 **Two models side by side.** "OpenOil" is the established baseline (OpenDrift OpenOil). "Ours" is our own particle model with an
 optional machine-learned drift correction: **experimental and OFF by default** (our backtest found no gain on Deepwater Horizon
-and false stranding at Main Pass 2023), switched on only with the "[EXPERIMENTAL]" checkbox. "Compare" draws both at once (OpenOil amber, ours cyan) with separate budgets, so you can see
+and false stranding at Main Pass 2023), switched on only with the "[EXPERIMENTAL]" checkbox. "Compare" draws both at once (ours as a black slick, OpenOil as a dashed outline, both labelled on the map) with separate budgets, so you can see
 where they disagree.
 
 **Response outline.** From the forecast, OilFlood builds a first-responder outline:
@@ -73,7 +73,15 @@ hindcast, OpenOil or ours) and follows the time slider:
 - dispersant and in-situ burn zones every 3 h, only where every protocol gate passes and inside the RRT-6 pre-approval zone
   (10 m depth line or 3 nmi from shore, whichever is farther; real ETOPO1 bathymetry), the 10 nm RRT-6 planning circle around
   the source, the dashed uncertainty envelope, and skimmer targets on the densest patches of surface oil;
-- a "Next actions" list in the panel (T+ hours, click to fly there) and a Response layer on/off toggle with a legend.
+- a "Next actions" list in the panel (T+ hours, click to fly there) and a Response layer on/off toggle with a legend;
+- playback: boom sites go PENDING → EN ROUTE (crews and vessels move from their staging base at road/water speed) → DEPLOYED,
+  shorelines flash in the 6 h before the oil arrives.
+
+**Action timeline.** Step 5 turns the forecast into a time-series document: one row per thing to do (notification, Tier 1/2/3,
+boom on scene and its deadline = P10 arrival, each tactic window opening/closing, P10/P50 shoreline arrival, re-forecast
+checkpoints every 6–12 h), with UTC + local time, where, why (the forecast number + the protocol rule ID) and the confidence
+(ensemble probability or share of members whose gates pass). Click a row to move the clock; export it as Markdown, CSV or a
+printable page. The oil itself is now drawn as a black slick (merged polygons, darker where thicker) instead of dots.
 
 It is labelled as a planning aid, not operational guidance. An optional LLM summary can be added on top (see below).
 
