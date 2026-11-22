@@ -880,9 +880,8 @@ function frame(now: number) {
 
 map.on('load', async () => {
   updateView();
-  const q = new URLSearchParams(location.search);
   // demo default: a short fly from the globe down to Houston/Galveston (a ?spill= link flies to that spill instead)
-  if (!q.get('spill')) map.flyTo({ ...HOME, offset: panelOffset(), duration: 3500, curve: 1.5, essential: true });
+  if (!new URLSearchParams(location.search).get('spill')) map.flyTo({ ...HOME, offset: panelOffset(), duration: 3500, curve: 1.5, essential: true });
   try {
     state.catalog = await getCatalog();
   } catch (e) {
@@ -890,6 +889,7 @@ map.on('load', async () => {
   }
   initPredForm();
   getModels().then((ms) => { state.models = ms; renderContent(); }).catch(() => { /* note only */ });
+  const q = new URLSearchParams(location.search);
   const qm = q.get('model');
   setModel(qm === 'ours' || qm === 'openoil' || qm === 'compare' ? qm : state.model);
   setMode(q.get('mode') === 'prediction' ? 'prediction' : 'historical');
