@@ -158,6 +158,8 @@ const state = {
   playing: false,
   rateIdx: autoRateIdx(72),
   showCurrents: true,
+  /** T28: pending spill point from the form / a map click (null = none yet); Run starts it */
+  place: null as null | { lat: number; lon: number },
   /** model builder (T25): custom params + ensemble size for our model's runs; null = the published defaults */
   custom: null as BuilderConfig | null,
   schema: null as ParamsSchema | null,
@@ -167,7 +169,7 @@ const state = {
   /** summary of the previous ensemble run, to show what changed after the user edits the model */
   prevSummary: null as null | RunDigest,
   /** 3D tilt, which surface (probability / expected mass / none), force arrows */
-  view: { threeD: false, surface: 'p' as SurfaceKind | 'off', forces: true,
+  view: { threeD: false, surface: 'off' as SurfaceKind | 'off', forces: true,
     /** T27: oil is drawn as a black slick; the model particles are an optional overlay */
     particles: (() => { try { return localStorage.getItem('oilflood.particles.v1') === '1'; } catch { return false; } })() },
   /** first-responder map layer (T21): on by default after a run; remembered */
@@ -675,16 +677,23 @@ function renderContent() {
   } else {
     const j = state.job;
     const at = spillPoint();
+    const pend = pendingPlace();
+    const amtTxt = form.unit === 't' ? `${form.amount.toLocaleString()} t` : fmtBbl(PRED.volumeBbl);
+    // what Run does, said on the button: the placed point, or (nothing placed) the Galveston demo point
+    const runNew = pend
+      ? `<button class="primary" id="run-btn">▶ Run forecast at ${fmtLL(pend.lat, pend.lon)} · ${esc(amtTxt)}</button>`
+      : `<button class="primary" id="run-btn" title="${fmtLL(at.lat, at.lon)}">▶ Run forecast off Galveston (demo point) · ${esc(amtTxt)}</button>
+         <div class="hint">No point placed yet: Run uses the ringed demo point ~30 km SE of Galveston.</div>`;
+    if (pend) stPlace = `${pend.lat.toFixed(2)}°, ${pend.lon.toFixed(2)}° · pending`;
     if (!j) {
-      place += `<div class="hint">Click the Gulf on the map (runs at once), or use the ringed point off Galveston.</div>`;
-      run += `<button class="primary" id="run-btn" title="${at.lat.toFixed(2)}°N ${(-at.lon).toFixed(2)}°W">▶ Run forecast off Galveston</button>`;
+      run += runNew;
     } else {
-      stPlace = `${j.lat.toFixed(2)}°, ${j.lon.toFixed(2)}°`;
-      place += `<div class="kv"><span>Spill at</span><span>${j.lat.toFixed(3)}°, ${j.lon.toFixed(3)}°</span>${j.volume_bbl ? `<span>Amount</span><span>${fmtBbl(j.volume_bbl)}${j.oil_type ? ` · ${esc(j.oil_type)}` : ''}</span>` : ''}</div>`;
+      if (!pend) stPlace = `${j.lat.toFixed(2)}°, ${j.lon.toFixed(2)}°`;
+      place += `<div class="kv"><span>${pend ? 'On screen' : 'Spill at'}</span><span>${j.lat.toFixed(3)}°, ${j.lon.toFixed(3)}°</span>${j.volume_bbl ? `<span>Amount</span><span>${fmtBbl(j.volume_bbl)}${j.oil_type ? ` · ${esc(j.oil_type)}` : ''}</span>` : ''}</div>`;
 
       const busy = j.status === 'queued' || j.status === 'running' || !!state.ens.msg;
       stRun = busy ? `${pct(j.progress ?? 0)}` : j.status === 'done' ? 'done' : j.status === 'error' ? 'error' : '';
-      run += `<button class="primary" id="run-btn" ${busy ? 'disabled' : ''}>${busy ? 'Running…' : '▶ Run again here'}</button>`;
+      run += pend && !busy ? runNew : `<button class="primary" id="run-btn" ${busy ? 'disabled' : ''}>${busy ? 'Running…' : `▶ Run again here · ${esc(amtTxt)}`}</button>`;
       if (j.note && !state.live?.note) run += `<div class="warn">${esc(j.note)}</div>`;
       const multi = wanted().length > 1;
       if (!Object.keys(state.jobRuns).length && j.status === 'error') run += `<div class="err">${esc(j.error || 'Run failed')}</div>`;
@@ -768,10 +777,79 @@ async function refreshLive() {
   renderForecast();
 }
 
+/** Oil density (t/m³) per curated oil id, for tons → bbl; typical values (ADIOS / NOAA product sheets). */
+const OIL_DENSITY: Record<string, number> = {
+  crude_light: 0.84, crude_medium: 0.87, crude_heavy: 0.94, ifo380: 0.98, fuel_no6: 0.97,
+  diesel: 0.84, jet: 0.80, gasoline: 0.74, condensate: 0.75,
+};
+const M3_PER_BBL = 0.158987;
+const density = (oilId: string) => OIL_DENSITY[oilId] ?? 0.87;
+/** metric tonnes → barrels: t / (t/m³) / (m³/bbl) */
+const tonsToBbl = (t: number, oilId: string) => t / density(oilId) / M3_PER_BBL;
+type AmtUnit = 'bbl' | 't';
+const form = { amount: PRED.volumeBbl, unit: 'bbl' as AmtUnit, picking: false };
+const inGulf = (lat: number, lon: number) => lat >= GULF_BBOX.minLat && lat <= GULF_BBOX.maxLat && lon >= GULF_BBOX.minLon && lon <= GULF_BBOX.maxLon;
+const fmtLL = (lat: number, lon: number) => `${Math.abs(lat).toFixed(2)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(2)}°${lon >= 0 ? 'E' : 'W'}`;
+
+/** Put the pending spill point (from typing or a map click) into the form; it does NOT start a run. */
+function setPlace(lat: number, lon: number, opts: { fill?: boolean; fly?: boolean } = {}) {
+  const la = $('p-lat') as HTMLInputElement, lo = $('p-lon') as HTMLInputElement;
+  if (opts.fill) { la.value = lat.toFixed(4); lo.value = lon.toFixed(4); }
+  form.picking = false;
+  validatePlace();
+  if (state.place && opts.fly) map.flyTo({ center: [lon, lat], zoom: Math.max(map.getZoom(), 6.5), offset: panelOffset(), duration: 1500, essential: true });
+}
+/** Read lat/lon inputs → state.place (or null), mark bad fields, explain. */
+function validatePlace() {
+  const la = $('p-lat') as HTMLInputElement, lo = $('p-lon') as HTMLInputElement;
+  const msg = $('p-llmsg');
+  const sLat = la.value.trim(), sLon = lo.value.trim();
+  let err = '';
+  state.place = null;
+  la.classList.remove('bad'); lo.classList.remove('bad');
+  if (sLat || sLon) {
+    const lat = Number(sLat), lon = Number(sLon);
+    const okLat = sLat !== '' && Number.isFinite(lat) && Math.abs(lat) <= 90, okLon = sLon !== '' && Number.isFinite(lon) && Math.abs(lon) <= 180;
+    if (!okLat) la.classList.add('bad');
+    if (!okLon) lo.classList.add('bad');
+    if (!okLat || !okLon) err = !sLat || !sLon ? 'Enter both latitude and longitude (decimal degrees, west is negative).' : 'Latitude must be −90…90 and longitude −180…180 (decimal degrees, west is negative).';
+    else if (!inGulf(lat, lon)) {
+      la.classList.toggle('bad', lat < GULF_BBOX.minLat || lat > GULF_BBOX.maxLat);
+      lo.classList.toggle('bad', lon < GULF_BBOX.minLon || lon > GULF_BBOX.maxLon);
+      err = `${fmtLL(lat, lon)} is outside the Gulf of Mexico. Forecasts need the cached ocean + wind forcing, which covers 18–31°N, 98–80°W.`;
+    } else state.place = { lat, lon };
+  }
+  msg.innerHTML = err ? `<div class="err">${esc(err)}</div>` : '';
+  syncPickBtn();
+  renderContent();
+}
+function syncPickBtn() {
+  const b = document.getElementById('p-pick');
+  if (!b) return;
+  b.classList.toggle('on', form.picking);
+  b.textContent = form.picking ? 'Click the map…' : state.place ? '⌖ Pick again on map' : '⌖ Pick on map';
+}
+/** Amount field + unit → PRED.volumeBbl, plus the conversion hint. */
+function syncAmount() {
+  const amt = $('p-amt') as HTMLInputElement;
+  const v = Number(amt.value);
+  const ok = v > 0 && (form.unit === 'bbl' ? v : tonsToBbl(v, PRED.oilId)) <= 1e7;
+  amt.classList.toggle('bad', !ok);
+  if (ok) { form.amount = v; PRED.volumeBbl = form.unit === 'bbl' ? v : Math.round(tonsToBbl(v, PRED.oilId) * 10) / 10; }
+  const d = density(PRED.oilId);
+  $('p-conv').innerHTML = !ok ? '<span class="bad-t">Amount must be above 0 and at most 10 million bbl.</span>'
+    : form.unit === 't'
+      ? `= <b>${fmtBbl(PRED.volumeBbl)}</b> · ${esc(oilLabel(PRED.oilId).toLowerCase())} at ${d.toFixed(2)} t/m³, 1 bbl = ${M3_PER_BBL} m³`
+      : `≈ ${(v * M3_PER_BBL * d).toLocaleString(undefined, { maximumFractionDigits: 1 })} t at ${d.toFixed(2)} t/m³`;
+  panel.querySelectorAll<HTMLButtonElement>('#p-unit button').forEach((b) => b.classList.toggle('on', b.dataset.unit === form.unit));
+  try { localStorage.setItem(PRED_KEY, JSON.stringify({ volumeBbl: PRED.volumeBbl, oilId: PRED.oilId, amount: form.amount, unit: form.unit })); } catch { /* private mode */ }
+}
+
 async function initPredForm() {
   try {
     const saved = JSON.parse(localStorage.getItem(PRED_KEY) || 'null');
-    if (saved && saved.volumeBbl > 0) PRED.volumeBbl = saved.volumeBbl;
+    if (saved && saved.volumeBbl > 0) PRED.volumeBbl = form.amount = saved.volumeBbl;
+    if (saved?.unit === 't' && saved.amount > 0) { form.unit = 't'; form.amount = saved.amount; }
     if (saved?.oilId) PRED.oilId = saved.oilId;
   } catch { /* ignore */ }
   try {
@@ -782,25 +860,49 @@ async function initPredForm() {
     state.liveError = `Oil list: ${(e as Error).message}`;
   }
   const f = $('predform');
+  const pl = state.place;
   f.innerHTML = `<div class="sec pform">
-    <div class="frow"><label for="p-amt">Amount</label><input id="p-amt" type="number" min="1" max="10000000" step="any" value="${PRED.volumeBbl}" /><span class="unit">bbl</span></div>
+    <div class="frow"><label for="p-lat">Latitude</label><input id="p-lat" type="number" min="-90" max="90" step="0.0001" placeholder="e.g. 28.7500" value="${pl ? pl.lat.toFixed(4) : ''}" /><span class="unit">°N</span></div>
+    <div class="frow"><label for="p-lon">Longitude</label><input id="p-lon" type="number" min="-180" max="180" step="0.0001" placeholder="e.g. -90.2500" value="${pl ? pl.lon.toFixed(4) : ''}" /><span class="unit">°E</span></div>
+    <div class="frow"><label></label><button class="pickbtn" id="p-pick" title="Then click the Gulf on the map: fills latitude/longitude and drops a pin (does not start the run)">⌖ Pick on map</button></div>
+    <div id="p-llmsg"></div>
+    <div class="frow"><label for="p-amt">Amount</label><input id="p-amt" type="number" min="0" step="any" value="${form.amount}" />
+      <span class="mode seg mini unitseg" id="p-unit"><button data-unit="bbl" title="US oil barrels">bbl</button><button data-unit="t" title="Metric tonnes, converted to barrels with the oil's density">tons</button></span></div>
+    <div class="hint conv" id="p-conv"></div>
     <div class="frow"><label for="p-oil">Oil type</label><select id="p-oil">${state.oils
       .map((o) => `<option value="${esc(o.id)}" ${o.id === PRED.oilId ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select></div>
+    <div class="hint phint">Type coordinates and amount, or pick a point on the map, then run.</div>
     <div id="p-fc"></div>
   </div>`;
   const amt = $('p-amt') as HTMLInputElement, oil = $('p-oil') as HTMLSelectElement;
-  const save = () => {
+  const la = $('p-lat') as HTMLInputElement, lo = $('p-lon') as HTMLInputElement;
+  const commit = () => { const had = state.place; validatePlace(); const p = state.place; if (p && (!had || had.lat !== p.lat || had.lon !== p.lon)) setPlace(p.lat, p.lon, { fly: true }); };
+  for (const el of [la, lo]) {
+    el.addEventListener('change', commit); // blur, or Enter in most browsers
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+    el.addEventListener('input', () => { el.classList.remove('bad'); });
+  }
+  $('p-pick').addEventListener('click', () => {
+    form.picking = !form.picking;
+    syncPickBtn();
+    if (form.picking) message('Click the Gulf on the map to place the spill.', 2500);
+  });
+  panel.querySelectorAll<HTMLButtonElement>('#p-unit button').forEach((b) => b.addEventListener('click', () => {
+    const u = b.dataset.unit as AmtUnit;
+    if (u === form.unit) return;
+    // keep the same quantity of oil: convert the number in the box
     const v = Number(amt.value);
-    amt.classList.toggle('bad', !(v > 0 && v <= 1e7));
-    if (v > 0 && v <= 1e7) PRED.volumeBbl = v;
-    PRED.oilId = oil.value;
-    try { localStorage.setItem(PRED_KEY, JSON.stringify({ volumeBbl: PRED.volumeBbl, oilId: PRED.oilId })); } catch { /* private mode */ }
+    if (v > 0) amt.value = String(u === 't' ? Math.round(v * M3_PER_BBL * density(PRED.oilId) * 10) / 10 : Math.round(tonsToBbl(v, PRED.oilId)));
+    form.unit = u;
+    syncAmount();
     if (!state.job) renderContent();
-  };
+  }));
   mountBuilder($('builder'));
   syncBuilderVis();
-  amt.addEventListener('input', save);
-  oil.addEventListener('change', save);
+  amt.addEventListener('input', () => { syncAmount(); if (!state.job) renderContent(); });
+  oil.addEventListener('change', () => { PRED.oilId = oil.value; syncAmount(); if (!state.job) renderContent(); });
+  syncAmount();
+  syncPickBtn();
   renderForecast();
   refreshLive();
   setInterval(refreshLive, 10 * 60 * 1000);
@@ -1033,7 +1135,8 @@ function modelNoteHTML(s: Scene) {
 pbody.addEventListener('click', (e) => {
   if (!(e.target as HTMLElement).closest('#run-btn')) return;
   const at = spillPoint();
-  if (!state.job) map.flyTo({ ...HOME, offset: panelOffset(), duration: 1500, essential: true });
+  if (!state.job && !state.place) map.flyTo({ ...HOME, offset: panelOffset(), duration: 1500, essential: true });
+  else if (pendingPlace()) map.flyTo({ center: [at.lon, at.lat], zoom: Math.max(map.getZoom(), 6.5), offset: panelOffset(), duration: 1500, essential: true });
   startSpill(at.lon, at.lat);
 });
 /** Shift the camera target right of the panel so the area of interest isn't hidden behind it. */
@@ -1045,14 +1148,13 @@ function panelOffset(): [number, number] {
   return [0, 0];
 }
 
+// Forecast mode: a map click only places the pending spill (fills lat/lon, drops a pin); Run in step 3 starts it.
 map.on('click', (e) => {
-  if (state.mode !== 'prediction') { message('Switch to Prediction to release a spill.', 2500); return; }
+  if (state.mode !== 'prediction') { message('Switch to Forecast to place a spill.', 2500); return; }
   const { lng, lat } = e.lngLat;
-  if (lng < GULF_BBOX.minLon - 2 || lng > GULF_BBOX.maxLon + 2 || lat < GULF_BBOX.minLat - 2 || lat > GULF_BBOX.maxLat + 2) {
-    message('Forecasts need real cached forcing, which covers the Gulf of Mexico (18–31°N, 98–80°W). Click inside the Gulf.');
-    return;
-  }
-  startSpill(lng, lat);
+  openStep('place');
+  setPlace(lat, lng, { fill: true });
+  if (state.place) message('Spill placed: set the amount, then ▶ Run forecast in step 3.', 3000);
 });
 
 // ---------------------------------------------------------------- ensemble, 3D view, forces, model builder (T25)
@@ -1090,8 +1192,8 @@ async function loadEnsemble(id: string, token: number, hasEns: boolean) {
       if (stale() || !p) return;
       E.prob = new ProbView(p);
       E.dig = digest(); // labelled with the config this run was made with
-      if (!userTilted && !state.view.threeD) set3D(true, false);
-      else if (state.view.threeD) set3D(true, false); // re-frame on the new footprint
+      // T28: 3D stays off until the user asks for it (the black slick is the default view)
+      if (state.view.threeD) set3D(true, false); // re-frame on the new footprint
       requestAnimationFrame(() => pbody.querySelector('.ens')?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
     }).catch((e) => { if (!stale()) E.err = `Probabilities: ${(e as Error).message}`; })
     : Promise.resolve();
@@ -1183,7 +1285,6 @@ function renderEnsNow() {
 }
 
 // 3D: tilt + smooth camera fly to the slick
-let userTilted = false;
 function slickCenter(): [number, number] | null {
   const c = state.ens.prob?.centroidAt(ensTH());
   if (c) return c;
@@ -1191,8 +1292,7 @@ function slickCenter(): [number, number] | null {
   const j = state.job;
   return j ? [j.lon, j.lat] : null;
 }
-function set3D(on: boolean, byUser = true) {
-  if (byUser) userTilted = true;
+function set3D(on: boolean, _byUser = true) {
   state.view.threeD = on;
   $('b3d').classList.toggle('on', on);
   const c = slickCenter();
@@ -1261,7 +1361,10 @@ function ensembleLayers(): Layer[] {
 
 // ---- model builder: mounted under the prediction form once GET /api/model/params answers
 let builder: Builder | null = null;
-const spillPoint = () => (state.job ? { lon: state.job.lon, lat: state.job.lat } : DEMO_SPILL);
+/** Where Run starts: the placed point, else the current spill, else the Galveston demo point. */
+const spillPoint = () => state.place ?? (state.job ? { lon: state.job.lon, lat: state.job.lat } : DEMO_SPILL);
+/** A placed point that differs from the spill on screen (pending: Run would start a new spill there). */
+const pendingPlace = () => { const p = state.place, j = state.job; return p && !(j && Math.abs(j.lat - p.lat) < 1e-6 && Math.abs(j.lon - p.lon) < 1e-6) ? p : null; };
 const panelWidth = () => (panel.classList.contains('collapsed') || innerWidth < 900 ? 0 : panel.getBoundingClientRect().width);
 function shareURL(c: BuilderConfig) {
   const at = spillPoint();
@@ -1367,6 +1470,35 @@ function syncPins() {
 function markerLayer(): Layer[] {
   if (state.mode !== 'prediction') return [];
   const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 300);
+  const pend = pendingPlace();
+  const pin: Layer[] = pend ? [new ScatterplotLayer({ // pending spill point from the form / a map click
+    id: 'spill-pending',
+    data: [pend],
+    getPosition: (d: any) => [d.lon, d.lat],
+    getRadius: 7,
+    radiusUnits: 'pixels',
+    filled: true,
+    getFillColor: [255, 181, 71, 235],
+    stroked: true,
+    getLineColor: [10, 14, 22, 255],
+    lineWidthUnits: 'pixels',
+    getLineWidth: 2,
+    parameters: ON_SURFACE,
+  }), new ScatterplotLayer({
+    id: 'spill-pending-ring',
+    data: [pend],
+    getPosition: (d: any) => [d.lon, d.lat],
+    getRadius: 12 + 5 * pulse,
+    radiusUnits: 'pixels',
+    filled: false,
+    stroked: true,
+    getLineColor: [255, 181, 71, 90 + 120 * pulse],
+    lineWidthUnits: 'pixels',
+    getLineWidth: 1.5,
+    updateTriggers: { getRadius: pulse, getLineColor: pulse },
+    parameters: ON_SURFACE,
+  })] : [];
+  if (pend && !state.job) return pin;
   if (!state.job) { // suggested demo spill point: a soft ring the user can click (or use the panel button)
     return [new ScatterplotLayer({
       id: 'spill-suggest',
@@ -1385,6 +1517,7 @@ function markerLayer(): Layer[] {
   }
   const running = state.job.status !== 'done' && state.job.status !== 'error';
   return [
+    ...pin,
     new ScatterplotLayer({
       id: 'spill-marker',
       data: [state.job],
@@ -1485,6 +1618,7 @@ map.on('load', async () => {
   // shared model link (?mode=prediction&lat=&lon=&model=ours&ens=20&p=...): rerun that model at that spill
   const qlat = Number(q.get('lat')), qlon = Number(q.get('lon'));
   if (state.mode === 'prediction' && q.has('lat') && Number.isFinite(qlat) && Number.isFinite(qlon)) {
+    if (inGulf(qlat, qlon)) state.place = { lat: qlat, lon: qlon };
     const go = () => { map.flyTo({ center: [qlon, qlat], zoom: 7, offset: panelOffset(), duration: 2500, essential: true }); startSpill(qlon, qlat); };
     if (q.has('p') || q.has('ens')) getModelParams().then((S) => { state.custom = configFromURL(q, S); go(); }).catch(go);
     else go();
