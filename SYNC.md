@@ -36,6 +36,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T23 | Apply real response protocols (PROTOCOLS.md R1–R10) to outline + map layer | Erwin | done (agent A16, branch a15-layer; ready to merge together with T21) |
 | T24 | Ensemble + probability engine + custom model params + METHODOLOGY.md (backend) | Erwin | in progress (agent A17, branch a17-ensemble) |
 | T25 | 3D probability/forces visuals + model builder + /methodology page (frontend) | Erwin | in progress (agent A18, branch a18-viz) |
+| T26 | Minimal block UI: one draggable window, no rounded edges (after A18) | Erwin | queued (agent A19, branch a19-ui, starts when A18 exits) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
