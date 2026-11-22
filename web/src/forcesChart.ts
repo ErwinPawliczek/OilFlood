@@ -59,7 +59,7 @@ export function forcesPanelHTML(F: ForcesPayload, tMax: number, opts: { members?
   const src = F.source === 'ensemble' ? `mean of ${opts.members ?? F.members} members` : 'control run';
   return `<div class="sec forces-sec">
     <div class="label">What pushes the oil <small class="hint">(${esc(src)}, avg over surface oil)</small></div>
-    <div class="flegend">${fs.map((s) => chip(s.key, s.color)).join('')}${chip('total', FORCE_COL.total, true)}${st.some((s) => s.diffusion) ? chip('diffusion', '#8796ad') : ''}</div>
+    <div class="flegend">${fs.map((s) => chip(s.key, s.color)).join('')}${chip('total', FORCE_COL.total, true)}${st.some((s) => s.diffusion) ? `<span class="fchip info" data-force="diffusion" tabindex="0">ⓘ Diffusion <small class="hint">(spreads, no direction)</small></span>` : ''}</div>
     <div class="fwrap" data-chart="forces">${stackedSVG('fc-forces', hs, fs, ymax, (v) => v.toFixed(2), tMax, net)}<div class="ftip"></div></div>
     <div class="hint fcap">Drift speed (m/s) from each force, stacked. White line = net drift: where it sits below the stack, the forces push in different directions.</div>
     ${hasBudget ? `<div class="label" style="margin-top:8px">Oil budget</div>

@@ -70,7 +70,7 @@ export const fetchForces = (id: string, isStale: () => boolean) =>
 // ---------------------------------------------------------------- colours
 type RGB = [number, number, number];
 /** Sequential ramp for P(oil): dim ember -> amber -> pale gold (one warm hue family, light = more likely). */
-const P_RAMP: [number, RGB][] = [[0, [70, 22, 8]], [0.25, [160, 52, 14]], [0.5, [232, 110, 28]], [0.75, [255, 176, 60]], [1, [255, 236, 170]]];
+const P_RAMP: [number, RGB][] = [[0, [120, 34, 12]], [0.15, [205, 72, 20]], [0.35, [245, 128, 34]], [0.6, [255, 184, 70]], [0.85, [255, 226, 140]], [1, [255, 248, 220]]];
 /** Expected mass: deep teal -> aqua -> near white. */
 const M_RAMP: [number, RGB][] = [[0, [8, 40, 60]], [0.3, [14, 110, 140]], [0.65, [40, 200, 220]], [1, [210, 250, 255]]];
 function ramp(r: [number, RGB][], x: number): RGB {
@@ -164,6 +164,14 @@ export class ProbView {
     this.dense = new Float32Array(nx * ny);
   }
 
+  /** [w, s, e, n] of every cell that ever holds oil plus the oiled shorelines (camera framing). */
+  bounds(): [number, number, number, number] {
+    const { lon0, lat0, res_deg: r } = this.d.grid;
+    const [x0, y0, x1, y1] = this.bbox;
+    let w = lon0 + x0 * r, s = lat0 + y0 * r, e = lon0 + (x1 + 1) * r, n = lat0 + (y1 + 1) * r;
+    for (const sh of this.d.shorelines) for (const [x, y] of sh.path ?? []) { w = Math.min(w, x); e = Math.max(e, x); s = Math.min(s, y); n = Math.max(n, y); }
+    return [w, s, e, n];
+  }
   get members() { return this.d.members_ok ?? this.d.members; }
   get cellKm() { return this.d.grid.res_deg * KM_PER_DEG; }
 
@@ -185,7 +193,7 @@ export class ProbView {
     const [a, b, f] = bracket(this.hours, tH);
     const Pa = this.P[a], Pb = this.P[b], Ma = this.M[a], Mb = this.M[b];
     const n = this.idx.length;
-    const H = threeD ? 32000 : 0; // m at p = 1
+    const H = threeD ? 60000 : 0; // m at p = 1
     const mNorm = this.mMax > 0 ? 1 / Math.sqrt(this.mMax) : 0;
     for (let i = 0; i < n; i++) {
       const p = Pa[i] + (Pb[i] - Pa[i]) * f;
@@ -341,9 +349,20 @@ export const FORCE_KEYS = ['current', 'wind', 'stokes', 'ml'] as const;
 
 /** Chained 3D arrows (current -> wind -> Stokes -> ML, head to tail) plus the net drift from the centroid.
  *  Length: 1 m/s = KM_PER_MS km. Drawn ~ALT m above the sea in 3D (with a stem down to the slick), flat in 2D. */
-const KM_PER_MS = 70;
+/** km of arrow per m/s: the largest chained force stack of the run maps to ~45 km, so weak drifts stay readable. */
+const scaleCache = new WeakMap<ForcesPayload, number>();
+function kmPerMs(F: ForcesPayload) {
+  let s = scaleCache.get(F);
+  if (s == null) {
+    const mx = Math.max(0.02, ...F.steps.map((st) => FORCE_KEYS.reduce((a, k) => a + ((st as any)[k]?.speed ?? 0), 0)));
+    s = Math.min(1500, Math.max(40, 45 / mx));
+    scaleCache.set(F, s);
+  }
+  return s;
+}
 export function forceLayers(F: ForcesPayload, tH: number, at: [number, number], threeD: boolean, onHover: (info: any) => void): Layer[] {
-  const alt = threeD ? 36000 : 0;
+  const KM_PER_MS = kmPerMs(F);
+  const alt = threeD ? 22000 : 0;
   const cosLat = Math.cos((at[1] * Math.PI) / 180);
   const step = (p: [number, number], v: Vec): [number, number] => [p[0] + (v.u * KM_PER_MS) / (KM_PER_DEG * cosLat), p[1] + (v.v * KM_PER_MS) / KM_PER_DEG];
   const arrows: { key: string; from: [number, number]; to: [number, number]; v: Vec }[] = [];
@@ -382,18 +401,18 @@ export function forceLayers(F: ForcesPayload, tH: number, at: [number, number], 
   layers.push(
     new PathLayer({
       id: 'force-glow', data: paths, getPath: (d: any) => d.path, getColor: (d: any) => col(d.key, 60),
-      getWidth: (d: any) => (d.key === 'total' ? 14 : 11), widthUnits: 'pixels', capRounded: true,
+      getWidth: (d: any) => (d.key === 'total' ? 18 : 14), widthUnits: 'pixels', capRounded: true,
       parameters: threeD ? undefined : ON_SURFACE,
     }),
     new PathLayer({
       id: 'force-shaft', data: paths, getPath: (d: any) => d.path, getColor: (d: any) => col(d.key),
-      getWidth: (d: any) => (d.key === 'total' ? 4.5 : 3.5), widthUnits: 'pixels', capRounded: true,
+      getWidth: (d: any) => (d.key === 'total' ? 5.5 : 4.5), widthUnits: 'pixels', capRounded: true,
       pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 255], onHover,
       parameters: threeD ? undefined : ON_SURFACE,
     }),
     new PathLayer({
       id: 'force-head', data: paths, getPath: (d: any) => d.head, getColor: (d: any) => col(d.key),
-      getWidth: (d: any) => (d.key === 'total' ? 4.5 : 3.5), widthUnits: 'pixels', capRounded: true, jointRounded: true,
+      getWidth: (d: any) => (d.key === 'total' ? 5.5 : 4.5), widthUnits: 'pixels', capRounded: true, jointRounded: true,
       pickable: true, onHover, parameters: threeD ? undefined : ON_SURFACE,
     }),
     new ScatterplotLayer({

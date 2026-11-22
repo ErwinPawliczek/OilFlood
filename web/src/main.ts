@@ -963,6 +963,8 @@ async function loadEnsemble(id: string, token: number, hasEns: boolean) {
       if (stale() || !p) return;
       E.prob = new ProbView(p);
       if (!userTilted && !state.view.threeD) set3D(true, false);
+      else if (state.view.threeD) set3D(true, false); // re-frame on the new footprint
+      requestAnimationFrame(() => content.querySelector('.ens')?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
     }).catch((e) => { if (!stale()) E.err = `Probabilities: ${(e as Error).message}`; })
     : Promise.resolve();
   await Promise.all([pF, pP]);
@@ -1038,7 +1040,9 @@ function renderEnsNow() {
   const t = ensTH();
   const st = P.stepAt(t);
   const top = P.d.shorelines.map((x) => ({ x, p: pOiledAt(x, t) })).filter((o) => o.p > 0).sort((a, b) => b.p - a.p)[0];
-  const html = st ? `<span>Oil likely (P ≥ 50 %)</span><span>${Math.round(st.area_km2.p50).toLocaleString()} km² <small class="hint">≥ 90 %: ${Math.round(st.area_km2.p90).toLocaleString()} km²</small></span>
+  const km = (x: number) => `${Math.round(x).toLocaleString()} km²`;
+  const html = st ? `<span>Oil possible (P ≥ 10 %)</span><span>${km(st.area_km2.p10)}</span>
+    <span>Oil likely (P ≥ 50 %)</span><span>${km(st.area_km2.p50)} <small class="hint">≥ 90 %: ${km(st.area_km2.p90)}</small></span>
     <span>On the surface</span><span>${fmtKg(st.surface_kg.mean)} <small class="hint">P10–P90 ${fmtKg(st.surface_kg.p10)}–${fmtKg(st.surface_kg.p90)}</small></span>
     <span>Most at risk now</span><span>${top ? `${esc(top.x.name)} <b>${pct(top.p)}</b>` : '<span class="hint">no shoreline oiled yet</span>'}</span>` : '';
   if (html !== lastEnsNow || !el.innerHTML) { lastEnsNow = html; el.innerHTML = html; }
@@ -1057,10 +1061,18 @@ function set3D(on: boolean, byUser = true) {
   state.view.threeD = on;
   $('b3d').classList.toggle('on', on);
   const c = slickCenter();
+  // frame the whole probability footprint (+ oiled shorelines) when tilting in
+  let frame: { center?: [number, number]; zoom?: number } = c && on ? { center: c, zoom: Math.max(7, Math.min(8.5, map.getZoom())) } : {};
+  const P = state.ens.prob;
+  if (on && P) {
+    const [w, s, e, n] = P.bounds();
+    const pad = 0.03;
+    const cam = map.cameraForBounds([[w - pad, s - pad], [e + pad, n + pad]], { padding: { top: 90, bottom: 60, left: 50, right: 50 + panelWidth() } });
+    if (cam?.zoom != null) frame = { center: [(w + e) / 2, (s + n) / 2], zoom: Math.min(10, cam.zoom - 0.2) };
+  }
   map.easeTo({
-    pitch: on ? 58 : 0, bearing: on ? -20 : 0,
-    ...(c && on ? { center: c, zoom: Math.max(7, Math.min(8.2, map.getZoom())) } : {}),
-    offset: panelOffset(), duration: 2200, easing: (x) => 1 - (1 - x) ** 3, essential: true,
+    pitch: on ? 58 : 0, bearing: on ? -20 : 0, ...frame,
+    offset: panelOffset(), duration: 2400, easing: (x) => 1 - (1 - x) ** 3, essential: true,
   });
   renderContent();
 }
@@ -1115,6 +1127,7 @@ function ensembleLayers(): Layer[] {
 // ---- model builder: mounted under the prediction form once GET /api/model/params answers
 let builder: Builder | null = null;
 const spillPoint = () => (state.job ? { lon: state.job.lon, lat: state.job.lat } : DEMO_SPILL);
+const panelWidth = () => (panel.classList.contains('collapsed') || innerWidth < 900 ? 0 : panel.getBoundingClientRect().width);
 function shareURL(c: BuilderConfig) {
   const at = spillPoint();
   const q = new URLSearchParams({ mode: 'prediction', lat: at.lat.toFixed(4), lon: at.lon.toFixed(4), model: c.compare ? 'compare' : 'ours', ...configToQuery(c) });
@@ -1124,12 +1137,14 @@ function mountBuilder(host: HTMLElement) {
   getModelParams().then((S) => {
     state.schema = S;
     const init = configFromURL(new URLSearchParams(location.search), S);
-    if (init) { state.custom = init; state.builderOpen = true; }
+    if (init) state.custom = init;
     builder = new Builder(S, host, {
       isOpen: () => state.builderOpen,
       setOpen: (o) => { state.builderOpen = o; },
       onRun: (c) => {
         state.custom = c;
+        state.builderOpen = false;
+        builder?.render();
         setModel(c.compare ? 'compare' : 'ours', false);
         const at = spillPoint();
         history.replaceState(null, '', shareURL(c));
