@@ -311,7 +311,8 @@ def precedents(ocls: str, vol_bbl: float, lon: float, lat: float, cats: list[str
 
 # --- main ---------------------------------------------------------------------------------------------
 
-def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | None = None) -> dict:
+def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | None = None,
+          ens: dict | None = None) -> dict:
     times = np.array(tracks["times"], dtype=float)
     t0 = float(times[0])
     parts = tracks["particles"]
