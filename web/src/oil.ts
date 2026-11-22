@@ -3,10 +3,11 @@
 import { ScatterplotLayer, GeoJsonLayer, PathLayer } from '@deck.gl/layers';
 import { ON_SURFACE, type Tracks, type Footprint, type BudgetRow, type Particle } from './types';
 
-/** Particle colours per model: OpenOil amber, ours cyan (so both can be drawn at once). */
+/** Particle colours per model (T27: oil is black / dark grey; OpenOil a lighter grey so both read in Compare).
+ *  `css` stays a model accent for text labels (budget columns, model names). */
 export const PALETTES = {
-  openoil: { fresh: [255, 190, 70], aged: [205, 105, 35], stranded: [255, 70, 90], css: '#ffb547', cssStranded: '#ff5a64' },
-  ours: { fresh: [90, 225, 255], aged: [40, 130, 230], stranded: [235, 90, 255], css: '#5ae1ff', cssStranded: '#eb5aff' },
+  openoil: { fresh: [150, 150, 150], aged: [105, 105, 105], stranded: [40, 40, 40], css: '#ffb547', cssStranded: '#ff5a64' },
+  ours: { fresh: [55, 55, 55], aged: [22, 22, 22], stranded: [0, 0, 0], css: '#5ae1ff', cssStranded: '#eb5aff' },
 } as const;
 export type PaletteId = keyof typeof PALETTES;
 
@@ -108,7 +109,11 @@ export class OilView {
         radiusUnits: 'pixels',
         getRadius: 2.2,
         radiusMinPixels: 1.5,
-        stroked: false,
+        // dark particles on a dark ocean: a thin light rim keeps them visible
+        stroked: true,
+        getLineColor: [150, 150, 150, 170],
+        lineWidthUnits: 'pixels',
+        getLineWidth: 0.5,
         parameters: ON_SURFACE,
       }),
     ];

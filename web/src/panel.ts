@@ -78,14 +78,18 @@ export function initPanel(panel: HTMLElement) {
 
 /** Speed colour ramp legend for the current streaks. */
 export function legendHTML(show: boolean, sourceLine: string, models: ('openoil' | 'ours')[] = ['openoil']) {
-  const oil = models.map((m) => `<span><i style="background:${PALETTES[m].css}"></i>oil (${m === 'ours' ? 'our model' : 'OpenOil'})</span>`).join('')
-    + `<span>${models.map((m) => `<i style="background:${PALETTES[m].cssStranded}"></i>`).join('')}stranded</span>`;
+  const name = (m: string) => (m === 'ours' ? 'our model' : 'OpenOil');
+  const cmp = models.length > 1;
+  const oil = `<span><i style="background:#0b0b0b;border:1px solid #5c5c5c"></i>oil slick${cmp ? ` (${name('ours')})` : ''}</span>`
+    + (cmp ? `<span><i style="background:transparent;border:1px dashed #cdcdcd"></i>${name('openoil')} slick</span>` : '')
+    + `<span><i style="background:#080808;border:1px solid #888"></i>stranded</span>`;
   const max = 1.8;
   const stops = SPEED_RAMP.map(([v, r, g, b]) => `rgb(${r},${g},${b}) ${(v / max) * 100}%`).join(',');
   return `<div class="label">Surface current${show ? '' : ' <small>(hidden)</small>'}</div>
     <div class="ramp" style="background:linear-gradient(90deg,${stops})"></div>
     <div class="ticks"><span>0</span><span>0.5</span><span>1.0</span><span>1.5+ m/s</span></div>
     <div class="lg-oil">${oil}<span><i class="ring"></i>observed outline</span></div>
+    <div class="hint">Darker = thicker oil, grey edge = thin sheen. "Particles" in step 3 shows the model particles.</div>
     ${sourceLine}`;
 }
 

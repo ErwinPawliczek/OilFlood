@@ -74,7 +74,9 @@ export class ResponseMap {
   private boomLines: { path: [number, number][]; kind: string; deploy: number; mob: number; late: boolean }[] = [];
   private travel: { path: [number, number][]; mob: number; deploy: number }[] = [];
   private markers: maplibregl.Marker[] = [];
-  private markerEls: { el: HTMLElement; showFrom: number }[] = [];
+  private markerEls: { el: HTMLElement; showFrom: number; boom?: Boom; state?: string }[] = [];
+  /** T27 playback: crews / vessels moving from their staging base to the site (straight line, R6 travel time) */
+  private movers: { from: [number, number]; to: [number, number]; dep: number; arr: number; kind: 'boom' | 'vessel' }[] = [];
   private lastVis = '';
 
   constructor(public L: RespLayer, public key: string) {
@@ -91,12 +93,36 @@ export class ResponseMap {
     for (const b of L.booms) {
       for (const ln of b.lines) this.boomLines.push({ path: ln.path, kind: ln.kind, deploy: b.deploy_by_h, mob: b.mobilize_by_h, late: b.late });
       const st = b.staging[0];
-      if (st) this.travel.push({ path: [[st.lon, st.lat], [b.lon, b.lat]], mob: b.mobilize_by_h, deploy: b.deploy_by_h });
+      if (st) {
+        this.travel.push({ path: [[st.lon, st.lat], [b.lon, b.lat]], mob: b.mobilize_by_h, deploy: b.deploy_by_h });
+        if (!b.late) {
+          // leaves when Tier 1 is en route, arrives after the road travel time (never after the on-scene time)
+          const arr = Math.min(b.deploy_by_h, b.mobilize_by_h + Math.max(0.25, st.travel_h));
+          this.movers.push({ from: [st.lon, st.lat], to: [b.lon, b.lat], dep: b.mobilize_by_h, arr, kind: 'boom' });
+        }
+      }
+    }
+    for (const o of L.staging_ops) {
+      // dispersant / ISB vessels and skimmers: arrive when their window opens (or as soon as they can)
+      const tr = Math.max(0.25, o.base.travel_h);
+      const dep = Math.max((L.assumptions.en_route_h as number) ?? 2.5, o.h - tr);
+      this.movers.push({ from: [o.base.lon, o.base.lat], to: [o.lon, o.lat], dep, arr: dep + tr, kind: 'vessel' });
     }
   }
 
-  /** deck.gl layers at hour tH after this run's release. */
-  layers(tH: number): Layer[] {
+  /** Crew / vessel positions at hour tH (en route = moving, on scene = at the site). */
+  private moversAt(tH: number) {
+    const out: { p: [number, number]; kind: string; moving: boolean }[] = [];
+    for (const m of this.movers) {
+      if (tH < m.dep) continue;
+      const f = Math.min(1, (tH - m.dep) / Math.max(1e-3, m.arr - m.dep));
+      out.push({ p: [m.from[0] + (m.to[0] - m.from[0]) * f, m.from[1] + (m.to[1] - m.from[1]) * f], kind: m.kind, moving: f < 1 });
+    }
+    return out;
+  }
+
+  /** deck.gl layers at hour tH after this run's release; pulse 0..1 animates shorelines about to be hit. */
+  layers(tH: number, pulse = 0.5): Layer[] {
     const L = this.L;
     const step = L.zone_step_h || 3;
     const sk = Math.floor(Math.max(0, tH) / step) * step;
@@ -144,10 +170,15 @@ export class ResponseMap {
     }
     out.push(new PathLayer({
       id: 'resp-shore', data: this.shoreLines, getPath: (d: any) => d.path,
-      getColor: (d: any) => { const c = BAND_COL[d.band]; return [c[0], c[1], c[2], d.eta_h <= tH ? 255 : 120]; },
-      getWidth: (d: any) => (d.eta_h <= tH ? (d.impact === 'landfall' ? 4 : 3) : 2) + (d.tier === 1 ? 0.5 : 0),
+      // T27: segments the oil reaches within 6 h flash (warning), then turn bright when it arrives
+      getColor: (d: any) => {
+        const c = BAND_COL[d.band];
+        const soon = d.eta_h > tH && d.eta_h - tH <= 6;
+        return [c[0], c[1], c[2], d.eta_h <= tH ? 255 : soon ? 90 + 165 * pulse : 120];
+      },
+      getWidth: (d: any) => (d.eta_h <= tH ? (d.impact === 'landfall' ? 4 : 3) : d.eta_h - tH <= 6 ? 2 + 3 * pulse : 2) + (d.tier === 1 ? 0.5 : 0),
       widthUnits: 'pixels', widthMinPixels: 1.5, capRounded: true, jointRounded: true,
-      updateTriggers: { getColor: tq, getWidth: tq }, parameters: ON_SURFACE,
+      updateTriggers: { getColor: [tq, Math.round(pulse * 8)], getWidth: [tq, Math.round(pulse * 8)] }, parameters: ON_SURFACE,
     }) as any);
     if (this.shorePts.length) {
       out.push(new ScatterplotLayer({
@@ -162,12 +193,29 @@ export class ResponseMap {
       getWidth: (d: any) => (tH >= d.mob - 0.5 && tH <= d.deploy ? 2 : 1), widthUnits: 'pixels',
       updateTriggers: { getColor: tq, getWidth: tq }, parameters: ON_SURFACE,
     }) as any);
+    // T27: boom "pending" (dashed, faint) until its on-scene time, then "deployed" (solid, bright)
+    const pending = this.boomLines.filter((d) => d.late || tH < d.deploy);
+    const deployed = this.boomLines.filter((d) => !d.late && tH >= d.deploy);
     out.push(new PathLayer({
-      id: 'resp-boom', data: this.boomLines, getPath: (d: any) => d.path,
-      getColor: (d: any) => { const c = BOOM_COL[d.kind]; return [c[0], c[1], c[2], tH >= d.deploy && !d.late ? 255 : 110]; },
-      getWidth: (d: any) => (tH >= d.deploy && !d.late ? 5 : 2.5), widthUnits: 'pixels', capRounded: true, jointRounded: true,
-      updateTriggers: { getColor: tq, getWidth: tq }, parameters: ON_SURFACE,
+      id: 'resp-boom-pending', data: pending, getPath: (d: any) => d.path,
+      getColor: (d: any) => { const c = BOOM_COL[d.kind]; return [c[0], c[1], c[2], 130]; },
+      getWidth: 2.5, widthUnits: 'pixels', extensions: [dash], getDashArray: [3, 3], dashJustified: true,
+      updateTriggers: { data: pending.length }, parameters: ON_SURFACE,
+    } as any) as any);
+    out.push(new PathLayer({
+      id: 'resp-boom', data: deployed, getPath: (d: any) => d.path,
+      getColor: (d: any) => BOOM_COL[d.kind], getWidth: 5, widthUnits: 'pixels', capRounded: true, jointRounded: true,
+      updateTriggers: { data: deployed.length }, parameters: ON_SURFACE,
     }) as any);
+    const mv = this.moversAt(tH);
+    if (mv.length) {
+      out.push(new ScatterplotLayer({
+        id: 'resp-movers', data: mv, getPosition: (d: any) => d.p, radiusUnits: 'pixels',
+        getRadius: (d: any) => (d.moving ? 5.5 : 4), getFillColor: (d: any) => (d.kind === 'boom' ? [255, 255, 255, 255] : [120, 190, 255, 255]),
+        stroked: true, getLineColor: [10, 10, 10, 255], lineWidthUnits: 'pixels', getLineWidth: 1.5,
+        updateTriggers: { getRadius: tq }, parameters: ON_SURFACE,
+      }) as any);
+    }
     out.push(new ScatterplotLayer({
       id: 'resp-inlets', data: L.inlets, getPosition: (d: any) => [d.lon, d.lat], radiusUnits: 'pixels', getRadius: 6,
       filled: false, stroked: true, lineWidthUnits: 'pixels', getLineWidth: (d: any) => (tH >= d.deploy_by_h ? 3 : 1.5),
@@ -205,7 +253,7 @@ export class ResponseMap {
           + (b.current_kt != null ? ` Forecast current ${b.current_kt} kt, ${b.across_kt ?? '?'} kt across the boom.` : '')
           + (b.rule ? ` ${b.rule}` : '');
         this.markers.push(new maplibregl.Marker({ element: el, anchor: 'top-left', offset: [6, 10] }).setLngLat([b.lon, b.lat]).addTo(map));
-        this.markerEls.push({ el, showFrom: -1e9 });
+        this.markerEls.push({ el, showFrom: -1e9, boom: b });
       }
       const used = new Map<string, Staging>();
       for (const b of this.L.booms) if (b.staging[0]) used.set(b.staging[0].name, b.staging[0]);
@@ -218,8 +266,24 @@ export class ResponseMap {
         this.markerEls.push({ el, showFrom: -1e9 });
       }
     }
+    // T27 playback: status chip per boom site (pending -> en route -> deployed / too late)
+    if (on) {
+      for (const m of this.markerEls) {
+        const b = m.boom;
+        if (!b) continue;
+        const st = b.late ? 'late' : tH < b.mobilize_by_h ? 'pending' : tH < b.deploy_by_h ? 'enroute' : 'deployed';
+        const dt = st === 'pending' ? b.mobilize_by_h - tH : st === 'enroute' ? b.deploy_by_h - tH : 0;
+        const key = st + (dt > 0 ? Math.ceil(dt * 2) : 0);
+        if (key === m.state) continue;
+        m.state = key;
+        let chip = m.el.querySelector<HTMLElement>('.rst');
+        if (!chip) { chip = document.createElement('b'); chip.className = 'rst'; m.el.querySelector('span')!.prepend(chip); }
+        chip.className = `rst rst-${st}`;
+        chip.textContent = st === 'late' ? 'TOO LATE' : st === 'pending' ? `PENDING · en route in ${dt.toFixed(1)} h`
+          : st === 'enroute' ? `EN ROUTE · on scene in ${dt.toFixed(1)} h` : 'DEPLOYED';
+      }
+    }
     const vis = on ? 'on' : 'off';
-    void tH;
     if (vis === this.lastVis) return false;
     this.lastVis = vis;
     for (const m of this.markerEls) m.el.style.display = on ? '' : 'none';
@@ -250,6 +314,7 @@ export function respLayerHTML(L: RespLayer | undefined, on: boolean) {
       <div>${sw(BOOM_COL.exclusion, 14, 5)}exclusion boom (&le;0.7 kt across) ${sw(BOOM_COL.deflection, 14, 5)}deflection (0.7–1 kt) ${sw(BOOM_COL.nohold, 14, 5)}won't hold (&gt;1 kt) ${sw(BOOM_COL.beach, 14, 5)}beach crews <i class="sw ring" style="border-color:#fff"></i>inlet</div>
       <div><i class="sw dashl" style="border-color:${css(UNC_COL)}"></i><b>best guess + uncertainty</b>: solid = this run, dashed = could be reached with 1–4 % windage (NOAA-style) <i class="sw dashl" style="border-color:#78beff"></i>10 nm dispersant circle${L.circles?.some((c) => c.kind === 'grand_isle') ? ' <i class="sw dashl" style="border-color:#ff8c50"></i>Grand Isle 7 mi ISB buffer' : ''}</div>
       <div><i class="sw box" style="background:rgba(64,156,255,.5);border:1px solid #78beff"></i>dispersant zone <i class="sw box" style="background:rgba(255,96,32,.5);border:1px solid #ff8c50"></i>in-situ burn <i class="sw ring" style="border-color:${css(SKIM_COL)}"></i>skimmer target <i class="sw dot"></i>staging base ${sw([120, 190, 255, 255], 14, 2)}3 nm / 10 m dispersant line</div>
+      <div><b class="rst rst-pending">PENDING</b> dashed boom, <b class="rst rst-enroute">EN ROUTE</b> crews moving <i class="sw dot" style="background:#fff;border:1px solid #000"></i> boom crew <i class="sw dot" style="background:#78beff;border:1px solid #000"></i> dispersant / skimmer vessel, <b class="rst rst-deployed">DEPLOYED</b> solid boom. Shorelines flash in the 6 h before oil arrives.</div>
       <div class="hint">Faint = planned; bright = boom on scene (USCG Tier 1 lead time) / oil arrived; blue lines = road travel from the equipment base. Thin outlines = where surface oil has been by T+6/12/24/48/72 h.</div>
       ${L.notes.map((n) => `<div class="warn">${esc(n)}</div>`).join('')}
     </div>` : ''}

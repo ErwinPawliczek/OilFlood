@@ -227,3 +227,47 @@ No key → `briefing.text = null` and the panel shows the rule-based outline onl
 - Stretch size (30 km), port proximity for closures (15 km, GAP-15) and the higher-volume port area boxes are planning
   assumptions; everything else is cited in docs/PROTOCOLS.md.
 - ESI atlases date from 1996–2017; shorelines have changed since (especially Louisiana).
+
+
+## Action timeline + response playback (T27, actions-v1)
+![Action timeline, Padre Island ensemble](img/action_timeline.png)
+![Response playback](img/response_playback.png)
+
+`GET /api/spill/{run_id}/actions` and `GET /api/spills/{spill_id}/actions?model=openoil|ours` (same 202 behaviour as
+`/response`) return a time-ordered action document built from the outline above (`backend/app/actions.py`; no new modelling).
+`?format=md|csv` downloads it, `?format=html` is a print-friendly page. Every format carries the disclaimer.
+
+Keys: `disclaimer`, `spill`, `ensemble`, `timezone` (America/Chicago west of ~85 W, America/New_York east, Mexico's Gulf
+coast America/Monterrey), `rows[]` with `h`, `tplus`, `t_utc`, `t_local`, `kind`, `action`, `where`, `lon`/`lat`, `why`, `rules`
+(protocol rule IDs, docs/PROTOCOLS.md), `confidence` (text) and `p` (0..1 or null).
+
+| Row kind | Time | Rule |
+|---|---|---|
+| `start`, `notify` (NRC + COTP + NOAA SSC), `safety` | T+0, T+0.5 h | FCST-1, MECH-6, AUTH-3, R9 |
+| `overflight` | first daylight at the source (sun > 5°) | MON-1, FCST-1 |
+| `mobilize` | Tier 1 en route T+2.5 h | MECH-6 |
+| `boom_on_scene` | per boom site / inlet: Tier 1 lead time (the map's "on scene") | MECH-6, MECH-1, R5 |
+| `deadline` | boom in place before the P10 arrival (ensemble) or the 1-4 % windage envelope's earliest arrival | R6, FCST-2 |
+| `tier` | Tier 2 30/36 h, Tier 3 54/60 h (port area / elsewhere) | MECH-6 |
+| `tactic_open` / `tactic_close` | each dispersant / in-situ burn / skimming window from the hourly gates; confidence = share of members whose gates pass | DISP-*, ISB-*, MECH-2 |
+| `eta_p10`, `eta_p50`, `landfall` | shoreline arrival (P10 / P50 over members; best guess + envelope without ensemble) | FCST-2, ESI-1, R8 |
+| `closure` | channel restriction 12 h before oil is within 15 km; fishery closure 12 h before first landfall | R9, GAP-15 |
+| `reforecast` | every 6 h on day 1 (GFS cycle), then every 12 h (operational period) | FCST-1, FCST-3, MON-1, ICS-2 |
+| `end` | forecast horizon | FCST-3 |
+
+Panel (step 5): **Action timeline** table above the outline; past rows dim, the current row is highlighted, a click moves the
+clock (and flies to the site for site rows); Export Markdown / CSV / Print. Sample: [samples/action_timeline_padre.md](samples/action_timeline_padre.md).
+
+**Map playback** (the "Response" toggle in step 3 = the Response layer): boom lines dashed + "PENDING" until Tier 1 is en
+route, "EN ROUTE" with crews (white dots) moving from the staging base in a straight line at the R6 road time, then solid +
+"DEPLOYED" at the on-scene time ("TOO LATE" when the oil arrives first); dispersant/ISB vessels and skimmers (blue dots) leave
+their depot to arrive when their window opens; shoreline segments flash during the 6 h before their ETA; dispersant/burn
+zones are drawn only for 3 h steps in which every gate passes (unchanged from T21/T23).
+
+**Oil slick rendering** (`web/src/slick.ts`): surface particles interpolated to the clock are splatted onto a fixed lon/lat
+lattice (cell = run extent / 150, 0.3–3 km), Gaussian-blurred (σ 1.6 cells) and contoured with marching squares (d3-contour)
+at three levels: outer edge = 1.15 × one isolated particle's peak (so stragglers vanish), then 12 % and 45 % of the current
+peak density (sheen → slick → thick core). Holes and separate blobs come out of the contouring. ~1 ms per new clock value
+in software WebGL, cached per 0.05 h. Stranded particles are a black band of dots on the shore. Our model flags some
+particles "stranded" after they had already weathered away (their path ends hours earlier); those are treated as gone, not
+as stranded oil. These are visual densities of model particles, not measured thickness.

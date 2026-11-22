@@ -19,6 +19,10 @@ The UI is one draggable, minimizable window that you work through from top to bo
 |---|---|
 | ![One window, five steps](docs/img/ui_minimal.png) | ![Results and action plan](docs/img/ui_minimal_results.png) |
 | **One window:** a live ensemble forecast off Padre Island (27.0°N 97.1°W) with steps 1–3 open. Step 1: spill point, amount and oil. Step 2: model and Advanced (build your model). Step 3: Run, time slider and view toggles (3D, Currents, P(oil)/Mass/Off, Forces). | **Steps 4–5:** probability numbers, force and oil-budget charts, then the action plan. Past spills (here Deepwater Horizon at 1920×1080) are in [`docs/img/ui_minimal_dwh.png`](docs/img/ui_minimal_dwh.png). |
+| ![Black oil slick](docs/img/slick.png) | ![Response playback](docs/img/response_playback.png) |
+| **Oil as a slick (T27):** the particle cloud is drawn as merged black slick polygons every frame, darker where thicker, a grey sheen edge, stranded oil as a black band on the shore. Particles are an optional toggle (step 3). | **Response playback:** the action plan follows the time slider: boom PENDING (dashed) → EN ROUTE (crews move from the staging base) → DEPLOYED (solid); shorelines flash in the 6 h before oil arrives; dispersant/burn zones only while every gate passes. |
+| ![Action timeline](docs/img/action_timeline.png) | |
+| **Action timeline (step 5):** what to do when, from this forecast: time (T+, UTC, local), action, where, why (forecast number + protocol rule ID), confidence (ensemble P / gate pass share). Click a row to move the clock; export Markdown / CSV / print HTML ([sample](docs/samples/action_timeline_padre.md)). | |
 | ![Home](docs/img/home.png) | ![Prediction](docs/img/prediction.png) |
 | **Home:** the globe flies to Houston/Galveston with live NOAA RTOFS currents and the historical spill pins. | **Forecast:** a spill off Galveston (1,000 bbl medium crude) on the live RTOFS + GFS forecast; slick at T+48 h, forecast block and run details. |
 | ![Compare](docs/img/compare.png) | ![Deepwater Horizon](docs/img/dwh.png) |
@@ -48,6 +52,10 @@ The UI is one draggable, minimizable window that you work through from top to bo
 - **Response outline** (`docs/RESPONSE.md`): from the forecast, the outline gives time to first landfall, priority shorelines
   ranked by NOAA ESI sensitivity × arrival time, where to boom first, dispersant/in-situ-burn/skimming windows, closures, and
   precedents cited from past spills. An LLM summary is added if an API key is set. *Planning aid only, not operational guidance.*
+- **Oil slick, response playback, action timeline** (T27, `docs/RESPONSE.md`). Oil is drawn as black slick polygons
+  (density contours of the particles, thickness-shaded; Compare: ours black, OpenOil dashed outline). The "Response" toggle
+  plays the action plan on the map with the clock. Step 5 has a time-ordered action list (`GET /api/spill/{id}/actions`,
+  `?format=md|csv|html`), every row with its rule ID and confidence; the "not operational guidance" disclaimer is on every export.
 - **Probabilities, in 3D** (`docs/ENSEMBLE.md`, `docs/METHODOLOGY.md`). Our model can run as an ensemble of up to 30 members, each
   with perturbed windage (1–4 %), wind direction (σ 20°), current speed (σ 20 %) and diffusivity. The map tilts to 3D (button
   or key `3`) and shows P(oil present) per 5 km cell as smooth, animated columns (or expected surface mass), with the 50 % and
