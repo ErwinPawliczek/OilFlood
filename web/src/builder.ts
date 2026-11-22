@@ -107,14 +107,15 @@ export class Builder {
     const inGroup = (g: string) => S.params.filter((p) => (p.group ?? '') === g || (!g && !groups.some((x) => x.id === p.group)));
     const pert = S.ensemble.perturbations.map((p: any) => `${p.name}${p.dist === 'uniform' ? ` U(${p.low}, ${p.high})` : p.dist === 'normal' ? ` ±${p.sigma}` : p.dist === 'lognormal' ? ` ×/÷${p.factor}` : ''}`).join(', ');
     this.el.innerHTML = `<details class="resp builder" data-k="builder" ${this.hooks.isOpen() ? 'open' : ''}>
-      <summary>Build your model <small>${esc(S.version)} · hover a setting for its source</small></summary>
+      <summary>Advanced: build your model <small>${this.ensemble ? `${this.ensemble} members` : 'single run'}</small></summary>
+      <div class="hint">Hover a setting for its source. Applies to Ours.</div>
       ${groups.map((g) => `${g.label ? `<div class="bg">${esc(g.label)}</div>` : ''}${inGroup(g.id).map((p) => this.paramHTML(p)).join('')}`).join('')}
       <div class="bg">Ensemble</div>
       <div class="bp" title="${esc(`Each member reruns the model with perturbed inputs: ${pert}. P(oil) = share of members with oil in a cell.`)}"><div class="row"><span class="bl">Members</span><span class="bv"><b data-out="ens">${this.ensemble ? `${this.ensemble} members` : 'single run'}</b></span></div>
         <input type="range" id="b-ens" min="0" max="${S.ensemble.max_members}" step="1" value="${this.ensemble}" aria-label="Ensemble members"/></div>
       <label class="bp bool" title="Run OpenDrift OpenOil (default settings) on the same spill, drawn amber next to yours"><span class="bl">Compare with OpenOil</span><input type="checkbox" class="sw" id="b-cmp" ${this.compare ? 'checked' : ''}/><i class="swi"></i></label>
       <div class="bdiff hint"></div>
-      <div class="bbtns"><button data-act="run" class="brun">Run my model</button><button data-act="copy" title="Copy a link that reruns this model at this spill">Share</button><button data-act="reset" title="Back to the default parameters">Reset</button></div>
+      <div class="bbtns"><button data-act="run" class="brun">Run with these</button><button data-act="copy" title="Copy a link that reruns this model at this spill">Share</button><button data-act="reset" title="Back to the default parameters">Reset</button></div>
     </details>`;
     this.renderDiff();
   }

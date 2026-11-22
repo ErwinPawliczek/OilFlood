@@ -119,7 +119,7 @@ function sepChart(rows: { lab: string; v: number[]; c: string }[]) {
     for (const r of rows) {
       const w = ((W - left - 46) * r.v[j]) / max;
       out += `<text x="${left - 8}" y="${y + 15}" text-anchor="end" class="lb">${esc(r.lab)}</text>
-        <rect x="${left}" y="${y + 4}" width="${w.toFixed(1)}" height="${rowH - 8}" rx="3" fill="${r.c}"><title>${esc(r.lab)} ${h}: ${f1(r.v[j])} km</title></rect>
+        <rect x="${left}" y="${y + 4}" width="${w.toFixed(1)}" height="${rowH - 8}" fill="${r.c}"><title>${esc(r.lab)} ${h}: ${f1(r.v[j])} km</title></rect>
         <text x="${left + w + 6}" y="${y + 15}" class="val">${f1(r.v[j])}</text>`;
       y += rowH;
     }
@@ -138,7 +138,7 @@ function covChart(rows: any[]) {
     const x0 = L + i * gw + (gw - S.length * (bw + 3)) / 2;
     S.forEach((s, j) => {
       const v = r[s.k] ?? 0, x = x0 + j * (bw + 3);
-      g += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" rx="3" fill="${s.c}"><title>${esc(s.lab)} at ${r.h} h: ${Math.round(v * 100)} %</title></rect>`;
+      g += `<rect x="${x}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" fill="${s.c}"><title>${esc(s.lab)} at ${r.h} h: ${Math.round(v * 100)} %</title></rect>`;
       if (j === 0) g += `<text x="${x + bw / 2}" y="${y(v) - 5}" text-anchor="middle" class="val">${Math.round(v * 100)}%</text>`;
     });
     g += `<text x="${L + i * gw + gw / 2}" y="${H - 6}" text-anchor="middle" class="ax">${r.h} h</text>`;

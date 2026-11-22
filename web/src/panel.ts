@@ -4,7 +4,7 @@ import { SPEED_RAMP } from './flow';
 import { PALETTES } from './oil';
 import type { CatalogSpill, ResponseCategory } from './types';
 
-const KEY = 'oilflood.panel.v1';
+const KEY = 'oilflood.panel.v2';
 
 interface Saved { x: number; y: number; collapsed: boolean }
 
@@ -25,7 +25,7 @@ function save(s: Saved) {
 export function initPanel(panel: HTMLElement) {
   const header = panel.querySelector<HTMLElement>('.ph')!;
   const btn = panel.querySelector<HTMLButtonElement>('.collapse')!;
-  const st: Saved = load() ?? { x: innerWidth - 336 - 16, y: 16, collapsed: false };
+  const st: Saved = load() ?? { x: innerWidth - 340 - 12, y: 12, collapsed: false };
 
   const clamp = () => {
     const w = panel.offsetWidth, h = header.offsetHeight;
@@ -39,7 +39,7 @@ export function initPanel(panel: HTMLElement) {
   const setCollapsed = (c: boolean) => {
     st.collapsed = c;
     panel.classList.toggle('collapsed', c);
-    btn.title = c ? 'Expand' : 'Collapse';
+    btn.title = c ? 'Expand' : 'Minimize';
     btn.setAttribute('aria-expanded', String(!c));
   };
   setCollapsed(st.collapsed);
@@ -82,9 +82,8 @@ export function legendHTML(show: boolean, sourceLine: string, models: ('openoil'
     + `<span>${models.map((m) => `<i style="background:${PALETTES[m].cssStranded}"></i>`).join('')}stranded</span>`;
   const max = 1.8;
   const stops = SPEED_RAMP.map(([v, r, g, b]) => `rgb(${r},${g},${b}) ${(v / max) * 100}%`).join(',');
-  return `<div class="row"><div class="label" style="margin:0">Surface current</div>
-      <label class="toggle"><input type="checkbox" id="cur-toggle" ${show ? 'checked' : ''}/> show</label></div>
-    <div class="ramp" style="margin-top:6px;background:linear-gradient(90deg,${stops})"></div>
+  return `<div class="label">Surface current${show ? '' : ' <small>(hidden)</small>'}</div>
+    <div class="ramp" style="background:linear-gradient(90deg,${stops})"></div>
     <div class="ticks"><span>0</span><span>0.5</span><span>1.0</span><span>1.5+ m/s</span></div>
     <div class="lg-oil">${oil}<span><i class="ring"></i>observed outline</span></div>
     ${sourceLine}`;

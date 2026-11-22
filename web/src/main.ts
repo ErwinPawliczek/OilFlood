@@ -244,59 +244,107 @@ function currentLayers(s: Scene, tUnix: number, dt: number): Layer[] {
 // ---------------------------------------------------------------- UI: the one floating panel
 const ui = document.getElementById('ui')!;
 ui.innerHTML = `
-  <section class="panel glass" id="panel">
-    <header class="ph" title="Drag to move · double-click to collapse">
-      <span class="grip" aria-hidden="true"></span>
-      <b class="brand">OilFlood</b>
+  <section class="panel" id="panel">
+    <header class="ph" title="Drag to move · double-click to minimize">
+      <b class="brand">OILFLOOD</b>
       <span class="hclock" id="hclock"></span>
-      <button class="collapse" aria-label="Collapse panel"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="collapse" aria-label="Minimize panel"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor" stroke-width="1.6"/></svg></button>
     </header>
     <div class="pb">
-      <div class="mode">
-        <button data-mode="historical">Historical</button>
-        <button data-mode="prediction">Prediction</button>
+      <div class="mode tabs">
+        <button data-mode="historical" title="Replay a real past spill">Past spills</button>
+        <button data-mode="prediction" title="Forecast a new spill with live data">Forecast</button>
       </div>
-      <div class="mode model-sel" id="modelsel" title="Trajectory model">
-        <button data-model="openoil" title="OpenDrift OpenOil: the established baseline">OpenOil</button>
-        <button data-model="ours" title="Our model: Lagrangian + Fay spreading + weathering (ML drift correction optional)">Ours</button>
-        <button data-model="compare" title="Both at once: OpenOil amber, ours cyan">Compare</button>
-      </div>
-      <label class="mltoggle" id="mltoggle" title="Off by default: the backtest found no gain on Deepwater Horizon and false stranding at Main Pass 2023 (docs/BACKTEST.md)">
-        <input type="checkbox" id="ml-cb" /> Ours + ML drift correction <span class="exp">experimental</span>
-      </label>
-      <div id="predform"></div>
-      <div id="content"></div>
-      <div class="sec time">
-        <div class="clock"><b id="clock-utc"></b><span id="clock-local"></span></div>
-        <div class="trow">
-          <button class="play" id="play" title="Play / pause (space)"></button>
-          <input type="range" id="slider" min="0" max="1000" value="0" aria-label="Simulation time" />
+      <section class="step" data-step="place">
+        <button class="sh"><b>1</b><span>Place spill</span><small id="st-place"></small></button>
+        <div class="sb"><div id="place"></div><div id="predform"></div></div>
+      </section>
+      <section class="step" data-step="model">
+        <button class="sh"><b>2</b><span>Model</span><small id="st-model"></small></button>
+        <div class="sb">
+          <div class="mode seg model-sel" id="modelsel" title="Trajectory model">
+            <button data-model="openoil" title="OpenDrift OpenOil: the established baseline">OpenOil</button>
+            <button data-model="ours" title="Our model: Lagrangian + Fay spreading + weathering (ML drift correction optional)">Ours</button>
+            <button data-model="compare" title="Both at once: OpenOil amber, ours cyan">Compare</button>
+          </div>
+          <div id="mnote"></div>
+          <div id="builder"></div>
+          <label class="mltoggle" id="mltoggle" title="Off by default: the backtest found no gain on Deepwater Horizon and false stranding at Main Pass 2023 (docs/BACKTEST.md)">
+            <input type="checkbox" id="ml-cb" /> ML drift correction <span class="exp">experimental</span>
+          </label>
         </div>
-        <div class="trow small">
-          <span id="clock-rel"></span>
-          <button class="b3d" id="b3d" title="Tilt the map into 3D (key: 3)">3D</button>
-          <span class="rate"><button id="slower" title="Slower">−</button><span id="rate"></span><button id="faster" title="Faster">+</button></span>
+      </section>
+      <section class="step" data-step="run">
+        <button class="sh"><b>3</b><span>Run</span><small id="st-run"></small></button>
+        <div class="sb">
+          <div id="runbox"></div>
+          <div class="time">
+            <div class="clock"><b id="clock-utc"></b><span id="clock-local"></span></div>
+            <div class="trow">
+              <button class="play" id="play" title="Play / pause (space)"></button>
+              <input type="range" id="slider" min="0" max="1000" value="0" aria-label="Simulation time" />
+            </div>
+            <div class="trow small">
+              <span id="clock-rel"></span>
+              <span class="rate"><button id="slower" title="Slower">−</button><span id="rate"></span><button id="faster" title="Faster">+</button></span>
+            </div>
+          </div>
+          <div class="vrow" id="viewrow">
+            <button class="pill" id="b3d" title="Tilt the map into 3D (key: 3)">3D</button>
+            <button class="pill" id="bcur" title="Show / hide surface currents">Currents</button>
+            <span id="viewctl"></span>
+          </div>
         </div>
-      </div>
-      <div id="dyn"></div>
-      <div class="sec legend" id="legend"></div>
+      </section>
+      <section class="step" data-step="results">
+        <button class="sh"><b>4</b><span>Results</span><small id="st-results"></small></button>
+        <div class="sb">
+          <div id="content"></div>
+          <div id="dyn"></div>
+          <details class="legend-d" data-k="legend"><summary>Legend</summary><div class="legend" id="legend"></div></details>
+        </div>
+      </section>
+      <section class="step" data-step="plan">
+        <button class="sh"><b>5</b><span>Action plan</span><small id="st-plan"></small></button>
+        <div class="sb" id="plan"></div>
+      </section>
       <div class="msg" id="msg"></div>
-      <div class="ptools"><a href="/methodology/" target="_blank" rel="noopener">How it works: methodology →</a></div>
+      <a class="ptools" href="/methodology/" target="_blank" rel="noopener">How it works: methodology →</a>
     </div>
   </section>`;
 const $ = (id: string) => document.getElementById(id)!;
 const panel = $('panel');
 const content = $('content');
+/** every panel section re-renders into its own slot; events are delegated on the panel body */
+const pbody = panel.querySelector<HTMLElement>('.pb')!;
+const STEP_KEY = 'oilflood.steps.v1';
+const stepClosed: Record<string, boolean> = (() => { try { return JSON.parse(localStorage.getItem(STEP_KEY) || '{}') || {}; } catch { return {}; } })();
+panel.querySelectorAll<HTMLElement>('.step').forEach((st) => {
+  const k = st.dataset.step!;
+  st.classList.toggle('closed', !!stepClosed[k]);
+  st.querySelector('.sh')!.addEventListener('click', () => {
+    stepClosed[k] = !st.classList.contains('closed');
+    st.classList.toggle('closed', stepClosed[k]);
+    try { localStorage.setItem(STEP_KEY, JSON.stringify(stepClosed)); } catch { /* private mode */ }
+  });
+});
+/** Open a step (e.g. results when a run finishes) unless the user closed it on purpose. */
+function openStep(k: string) {
+  const st = panel.querySelector<HTMLElement>(`.step[data-step="${k}"]`);
+  if (st && !stepClosed[k]) st.classList.remove('closed');
+}
 const slider = $('slider') as HTMLInputElement;
 initPanel(panel);
 const ICON_PLAY = '<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 1.2v9.6L10.5 6z" fill="currentColor"/></svg>';
-const ICON_PAUSE = '<svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"/><rect x="7" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"/></svg>';
+const ICON_PAUSE = '<svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="1.5" width="3" height="9" fill="currentColor"/><rect x="7" y="1.5" width="3" height="9" fill="currentColor"/></svg>';
 
-panel.querySelectorAll<HTMLButtonElement>('.mode button[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode as Mode)));
+panel.querySelectorAll<HTMLButtonElement>('button[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode as Mode)));
 panel.querySelectorAll<HTMLButtonElement>('#modelsel button').forEach((b) => b.addEventListener('click', () => setModel(b.dataset.model as ModelChoice)));
 $('ml-cb').addEventListener('change', (e) => setMl((e.target as HTMLInputElement).checked));
 $('play').addEventListener('click', togglePlay);
 $('b3d').addEventListener('click', () => set3D(!state.view.threeD));
+$('bcur').addEventListener('click', () => { state.showCurrents = !state.showCurrents; $('bcur').classList.toggle('on', state.showCurrents); });
+$('bcur').classList.toggle('on', state.showCurrents);
 $('slower').addEventListener('click', () => { state.rateIdx = Math.max(0, state.rateIdx - 1); renderTime(true); });
 $('faster').addEventListener('click', () => { state.rateIdx = Math.min(RATES_H.length - 1, state.rateIdx + 1); renderTime(true); });
 slider.addEventListener('input', () => { state.tH = (Number(slider.value) / 1000) * scene().durationH; state.playing = false; renderTime(true); });
@@ -309,18 +357,18 @@ addEventListener('keydown', (e) => {
 // Every collapsible section (incl. the nested Precedents / Sources & limits) carries data-k so its open state
 // survives the panel re-rendering while a run progresses.
 const respOpen: Record<string, boolean> & { resp: boolean; evo: boolean } = { resp: true, evo: false, bt: false, outline: true, prec: false, srcs: false, rules: false, how: true, mvr: false, chg: true };
-content.addEventListener('toggle', (e) => {
+pbody.addEventListener('toggle', (e) => {
   const d = e.target as HTMLDetailsElement;
   if (d.dataset?.k && d.dataset.k in respOpen) respOpen[d.dataset.k] = d.open;
 }, true);
-content.addEventListener('change', (e) => {
+pbody.addEventListener('change', (e) => {
   const t = e.target as HTMLInputElement;
   if (t.id !== 'resp-layer-cb') return;
   state.showResponse = t.checked;
   try { localStorage.setItem('oilflood.resp.v1', t.checked ? '1' : '0'); } catch { /* ignore */ }
   renderContent();
 });
-content.addEventListener('click', (e) => {
+pbody.addEventListener('click', (e) => {
   const sh = (e.target as HTMLElement).closest<HTMLElement>('.ol-shore');
   if (sh) {
     map.flyTo({ center: [Number(sh.dataset.lon), Number(sh.dataset.lat)], zoom: Math.max(map.getZoom(), 8.5), duration: 1500, essential: true });
@@ -342,9 +390,6 @@ content.addEventListener('click', (e) => {
   if (!b) return;
   const c = state.catalog.find((x) => x.id === b.dataset.id);
   if (c) selectSpill(c);
-});
-$('legend').addEventListener('change', (e) => {
-  if ((e.target as HTMLElement).id === 'cur-toggle') state.showCurrents = (e.target as HTMLInputElement).checked;
 });
 
 let msgTimer = 0;
@@ -544,53 +589,65 @@ function syncOutlineMarkers() {
   declutterSoon();
 }
 
+const setHTML = (id: string, html: string) => { const el = $(id); if (el.innerHTML !== html) el.innerHTML = html; };
+const setText = (id: string, t: string) => { const el = $(id); if (el.textContent !== t) el.textContent = t; };
+
 function renderContent() {
   ensureOutline();
   syncOutlineMarkers();
   const s = scene();
-  let html = '';
+  let place = '', run = '', html = '', plan = '';
+  let stPlace = '', stRun = '';
   if (state.mode === 'historical') {
     const sel = state.selected;
-    if (state.catalogError) html += errorsHTML([`Spill catalog: ${state.catalogError}`]);
-    html += `<div class="sec"><div class="spills">${state.catalog
+    if (state.catalogError) place += errorsHTML([`Spill catalog: ${state.catalogError}`]);
+    place += `<div class="spills">${state.catalog
       .map((c) => `<button data-id="${esc(c.id)}" class="${sel?.id === c.id ? 'on' : ''}"><span>${esc(c.name)}</span><small>${esc(c.date_start.slice(0, 4))}</small></button>`)
-      .join('')}</div></div>`;
+      .join('')}</div>`;
     if (sel) {
+      stPlace = sel.name;
       const hc = shownRuns(s).map((r) => modelShort(r.m));
       const srcs = [s.footprints.length ? `${s.footprints.length} observed outlines (NOAA/NESDIS)` : '', hc.length ? `hindcast: ${hc.join(' + ')}` : ''].filter(Boolean).join(' + ');
       const prog = wanted().filter((m) => !s.runs[m] && s.runMsg[m]).map((m) => `${modelShort(m)}: ${s.runMsg[m]}`).join(' · ');
-      html += `<div class="sec"><h2>${esc(sel.name)}</h2>
-      <div class="sub">${srcs ? esc(srcs) : ''}${s.loading ? esc(s.loading) : ''}${prog ? `<br>${esc(prog)}` : ''}</div>
-      <div class="kv" style="margin-top:6px">
+      const busy = !!(s.loading || prog);
+      stRun = busy ? 'running' : hc.length ? 'done' : '';
+      run += `<div class="hint">${busy ? `${esc(s.loading ?? '')}${prog ? esc(prog) : ''}` : srcs ? esc(srcs) : 'Hindcast runs when you pick a spill.'}</div>`;
+      if (busy) run += '<div class="progress"><div class="indet"></div></div>';
+      html += `<h2>${esc(sel.name)}</h2>
+      <div class="kv">
         <span>Start</span><span>${esc(sel.date_start.slice(0, 10))}</span>
         ${sel.date_end ? `<span>End</span><span>${esc(sel.date_end.slice(0, 10))}</span>` : ''}
         ${sel.volume_bbl ? `<span>Volume</span><span>${Number(sel.volume_bbl).toLocaleString()} bbl</span>` : ''}
         ${sel.oil_type ? `<span>Oil</span><span>${esc(sel.oil_type)}${s.tracks?.meta?.oil_type && s.tracks.meta.oil_type !== sel.oil_type ? ` <small class="hint">(model: ${esc(s.tracks.meta.oil_type)})</small>` : ''}</span>` : ''}
         <span>Position</span><span>${sel.lat.toFixed(3)}°, ${sel.lon.toFixed(3)}°</span>
-      </div>${(sel as any).forcing ? modelNoteHTML(s) : `<div class="hint mnote">No ocean reanalysis exists for ${esc(sel.date_start.slice(0, 4))} (HYCOM starts in 2001), so there is no hindcast for this spill: record and response log only.</div>`}${errorsHTML(s.errors)}`;
-      if (state.outline.key) html += outlineHTML(state.outline.data, state.outline, respOpen, state.showResponse);
+      </div>${(sel as any).forcing ? '' : `<div class="hint mnote">No ocean reanalysis for ${esc(sel.date_start.slice(0, 4))} (HYCOM starts 2001): record and response log only.</div>`}${errorsHTML(s.errors)}`;
       html += responseHTML(sel, respOpen);
       html += backtestHTML(sel.id, state.backtest, respOpen.bt);
       if (sel.source_urls?.length) html += `<details class="links"><summary>Sources</summary>${sel.source_urls.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\//, ''))}</a>`).join('<br>')}</details>`;
-      html += `</div>`;
+      if (state.outline.key) plan += outlineHTML(state.outline.data, state.outline, respOpen, state.showResponse);
     } else {
-      html += `<div class="hint">Pick a spill above or on the globe to replay it with its real currents.</div>`;
+      run += `<div class="hint">Pick a spill in step 1.</div>`;
     }
   } else {
     const j = state.job;
+    const at = spillPoint();
     if (!j) {
-      html += `<div class="hint">Click the ocean (Gulf of Mexico) to release ${fmtBbl(PRED.volumeBbl)} of ${esc(oilLabel(PRED.oilId).toLowerCase())} now and forecast its drift with the live forecast above.</div>
-        <button class="demo-spill" id="demo-spill" title="${DEMO_SPILL.lat.toFixed(2)}°N ${(-DEMO_SPILL.lon).toFixed(2)}°W, the pulsing ring on the map">Release it off Galveston</button>`;
+      place += `<div class="hint">Click the Gulf on the map (runs at once), or use the ringed point off Galveston.</div>`;
+      run += `<button class="primary" id="run-btn" title="${at.lat.toFixed(2)}°N ${(-at.lon).toFixed(2)}°W">▶ Run forecast off Galveston</button>`;
     } else {
-      html += `<div class="sec"><h2>Spill prediction</h2><div class="sub">${j.lat.toFixed(3)}°, ${j.lon.toFixed(3)}°${j.volume_bbl ? ` · ${fmtBbl(j.volume_bbl)}` : ''}${j.oil_type ? ` · ${esc(j.oil_type)}` : ''}</div>`;
-      if (j.note) html += `<div class="warn">${esc(j.note)}</div>`;
+      stPlace = `${j.lat.toFixed(2)}°, ${j.lon.toFixed(2)}°`;
+      place += `<div class="kv"><span>Spill at</span><span>${j.lat.toFixed(3)}°, ${j.lon.toFixed(3)}°</span>${j.volume_bbl ? `<span>Amount</span><span>${fmtBbl(j.volume_bbl)}${j.oil_type ? ` · ${esc(j.oil_type)}` : ''}</span>` : ''}</div>`;
+      if (j.note) place += `<div class="warn">${esc(j.note)}</div>`;
+      const busy = j.status === 'queued' || j.status === 'running' || !!state.ens.msg;
+      stRun = busy ? `${pct(j.progress ?? 0)}` : j.status === 'done' ? 'done' : j.status === 'error' ? 'error' : '';
+      run += `<button class="primary" id="run-btn" ${busy ? 'disabled' : ''}>${busy ? 'Running…' : '▶ Run again here'}</button>`;
       const multi = wanted().length > 1;
-      if (!Object.keys(state.jobRuns).length && j.status === 'error') html += `<div class="err">${esc(j.error || 'Run failed')}</div>`;
+      if (!Object.keys(state.jobRuns).length && j.status === 'error') run += `<div class="err">${esc(j.error || 'Run failed')}</div>`;
       for (const mid of wanted()) {
         const r = state.jobRuns[mid];
         if (!r || r.status === 'done') continue;
         const who = multi || mid === 'ours' ? `${modelShort(mid)}: ` : '';
-        html += r.status === 'error'
+        run += r.status === 'error'
           ? `<div class="err">${esc(who + (r.error || 'Run failed'))}</div>`
           : `<div class="row" style="margin-top:6px"><span class="hint">${esc(who)}${r.status === 'queued' ? 'Queued…' : mid === 'ours' && state.ens.status?.members ? `Ensemble: ${state.ens.status.done} of ${state.ens.status.members} members${state.ens.status.failed ? ` (${state.ens.status.failed} failed)` : ''}…` : 'Simulating drift…'}</span><span class="hint">${pct(r.progress)}</span></div>
           <div class="progress"><div style="width:${pct(r.progress)}"></div></div>`;
@@ -598,23 +655,35 @@ function renderContent() {
       const runs = shownRuns(s);
       if (s.tracks && runs.length) {
         const m = s.tracks.meta ?? {};
-        html += `<div class="kv" style="margin-top:6px"><span>Start</span><span>${fmtUTC(s.tracks.t0)}</span>
+        html += `<div class="kv"><span>Start</span><span>${fmtUTC(s.tracks.t0)}</span>
           <span>Horizon</span><span>${Math.round(s.tracks.durationH)} h${m.requested_duration_h && m.requested_duration_h > s.tracks.durationH + 0.5 ? ` of ${Math.round(m.requested_duration_h)} h (forecast ends)` : ''}</span>
           ${m.forecast ? `<span>Forcing</span><span>${esc(shortModel(m.forecast.currents?.model).split(' ')[0])} ${fmtRun(m.forecast.currents?.issued_at)} · ${esc(shortModel(m.forecast.winds?.model).split(' ')[0])} ${fmtRun(m.forecast.winds?.issued_at)}</span>` : ''}
           <span>Model</span><span>${runs.map((r) => `<b style="color:${PALETTES[r.m].css}">${modelShort(r.m)}</b> <small class="hint">${r.tracks.meta?.runtime_s ?? '?'} s</small>`).join(' · ')}</span>
           <span>Particles</span><span>${runs.map((r) => r.tracks.particles.length).join(' · ')}</span></div>`;
-        if (m.seed_moved_km > 0) html += `<div class="hint" style="margin-top:4px">Seeded ${m.seed_moved_km} km away, at the nearest model water cell.</div>`;
+        if (m.seed_moved_km > 0) html += `<div class="hint">Seeded ${m.seed_moved_km} km away, at the nearest model water cell.</div>`;
       }
-      html += modelNoteHTML(s);
       html += ensembleHTML();
-      if (state.outline.key) html += outlineHTML(state.outline.data, state.outline, respOpen, state.showResponse);
-      html += `<div class="hint" style="margin-top:8px">Click elsewhere on the ocean for a new spill.</div></div>`;
+      if (state.outline.key) plan += outlineHTML(state.outline.data, state.outline, respOpen, state.showResponse);
     }
     html += errorsHTML(s.errors);
   }
-  const scrolls = [...content.querySelectorAll<HTMLElement>('.resp .tl')].map((el) => el.scrollTop);
-  content.innerHTML = html;
-  content.querySelectorAll<HTMLElement>('.resp .tl').forEach((el, i) => { el.scrollTop = scrolls[i] ?? 0; });
+  if (!html) html = `<div class="hint">${state.mode === 'historical' ? 'Pick a spill to see what happened and how the models did.' : 'Run a forecast to see where the oil goes.'}</div>`;
+  if (!plan) plan = `<div class="hint">Shorelines at risk, boom, dispersant and burn windows appear here after a run.</div>`;
+  setHTML('place', place);
+  setHTML('runbox', run);
+  setHTML('mnote', state.mode === 'historical' && !(state.selected as any)?.forcing ? '' : modelNoteHTML(s));
+  setHTML('viewctl', ensembleViewHTML());
+  const tls = () => [...pbody.querySelectorAll<HTMLElement>('.resp .tl')];
+  const scrolls = tls().map((el) => el.scrollTop);
+  setHTML('content', html);
+  setHTML('plan', plan);
+  tls().forEach((el, i) => { el.scrollTop = scrolls[i] ?? 0; });
+  setText('st-place', stPlace);
+  setText('st-model', state.model === 'compare' ? 'Compare' : modelShort(state.model as ModelId));
+  setText('st-run', stRun);
+  const od = state.outline.data as any;
+  setText('st-plan', od ? (od.eta_first_landfall_h != null ? `landfall ~${Math.round(od.eta_first_landfall_h)} h` : 'no landfall') : state.outline.loading ? '…' : '');
+  if (stRun === 'done') { openStep('results'); openStep('plan'); }
   lastPastKey = '';
   syncPins();
   renderLegend();
@@ -634,12 +703,12 @@ function renderForecast() {
   if (!el) return;
   const L = state.live;
   if (!L) { el.innerHTML = state.liveError ? `<div class="err">${esc(state.liveError)}</div>` : '<div class="hint">Loading live forecast…</div>'; return; }
-  el.innerHTML = `<div class="label" style="margin:8px 0 4px">Live forecast</div>
+  el.innerHTML = `<details class="ol-sub" data-k="live"><summary>Live data <small>valid ${fmtIso(L.valid_until)}</small></summary>
     <div class="kv">
       <span>Currents</span><span>${esc(shortModel(L.currents.model))} · issued ${fmtIso(L.currents.issued_at)}</span>
       <span>Winds</span><span>${esc(shortModel(L.winds.model))} · issued ${fmtIso(L.winds.issued_at)}</span>
       <span>Valid until</span><span>${fmtIso(L.valid_until)} <small class="hint">(${Math.round(L.hours_available)} h from now)</small></span>
-    </div>${L.note ? `<div class="${L.stale ? 'err' : 'warn'}">${esc(L.note)}</div>` : ''}`;
+    </div></details>${L.note ? `<div class="${L.stale ? 'err' : 'warn'}">${esc(L.note)}</div>` : ''}`;
 }
 
 async function refreshLive() {
@@ -672,7 +741,7 @@ async function initPredForm() {
     <div class="frow"><label for="p-oil">Oil type</label><select id="p-oil">${state.oils
       .map((o) => `<option value="${esc(o.id)}" ${o.id === PRED.oilId ? 'selected' : ''}>${esc(o.label)}</option>`).join('')}</select></div>
     <div id="p-fc"></div>
-  </div><div id="builder"></div>`;
+  </div>`;
   const amt = $('p-amt') as HTMLInputElement, oil = $('p-oil') as HTMLSelectElement;
   const save = () => {
     const v = Number(amt.value);
@@ -683,6 +752,7 @@ async function initPredForm() {
     if (!state.job) renderContent();
   };
   mountBuilder($('builder'));
+  $('builder').style.display = state.mode === 'prediction' ? '' : 'none';
   amt.addEventListener('input', save);
   oil.addEventListener('change', save);
   renderForecast();
@@ -693,11 +763,12 @@ async function initPredForm() {
 // ---------------------------------------------------------------- modes / data
 function setMode(m: Mode) {
   state.mode = m;
-  panel.querySelectorAll<HTMLButtonElement>('.mode button').forEach((b) => b.classList.toggle('on', b.dataset.mode === m));
+  panel.querySelectorAll<HTMLButtonElement>('button[data-mode]').forEach((b) => b.classList.toggle('on', b.dataset.mode === m));
   state.playing = false;
   state.tH = 0;
   map.getCanvas().style.cursor = m === 'prediction' ? 'crosshair' : '';
   $('predform').style.display = m === 'prediction' ? '' : 'none';
+  $('builder').style.display = m === 'prediction' ? '' : 'none';
   const s = scene();
   state.rateIdx = autoRateIdx(s.durationH);
   loadCurrents(s);
@@ -786,6 +857,7 @@ let jobScene: ((tr: Tracks) => Scene) | null = null;
 
 async function startSpill(lon: number, lat: number) {
   const token = ++state.jobToken;
+  if (builder) state.custom = builder.config(); // what "Advanced" shows is what runs
   if (map.getZoom() < 5) map.flyTo({ center: [lon, lat], zoom: 6.5, duration: 2500, essential: true });
   const prev = state.pred;
   state.playing = false;
@@ -905,10 +977,12 @@ function modelNoteHTML(s: Scene) {
   return html + 'But on real oil it did not help: no gain on Deepwater Horizon, 62 % falsely stranded at Main Pass 2023 (docs/BACKTEST.md).</div>';
 }
 
-content.addEventListener('click', (e) => {
-  if (!(e.target as HTMLElement).closest('#demo-spill')) return;
-  map.flyTo({ ...HOME, offset: panelOffset(), duration: 1500, essential: true });
-  startSpill(DEMO_SPILL.lon, DEMO_SPILL.lat);
+// Step 3 primary action: run at the placed spill (or the Galveston demo point) with the model + Advanced settings.
+pbody.addEventListener('click', (e) => {
+  if (!(e.target as HTMLElement).closest('#run-btn')) return;
+  const at = spillPoint();
+  if (!state.job) map.flyTo({ ...HOME, offset: panelOffset(), duration: 1500, essential: true });
+  startSpill(at.lon, at.lat);
 });
 /** Shift the camera target right of the panel so the area of interest isn't hidden behind it. */
 function panelOffset(): [number, number] {
@@ -944,7 +1018,7 @@ function loadForcesChart() {
   if (FC) return;
   import('./forcesChart').then((m) => {
     FC = m;
-    m.wireForcesPanel(content, () => state.ens.forces);
+    m.wireForcesPanel(pbody, () => state.ens.forces);
     renderContent();
   });
 }
@@ -966,7 +1040,7 @@ async function loadEnsemble(id: string, token: number, hasEns: boolean) {
       E.dig = digest(); // labelled with the config this run was made with
       if (!userTilted && !state.view.threeD) set3D(true, false);
       else if (state.view.threeD) set3D(true, false); // re-frame on the new footprint
-      requestAnimationFrame(() => content.querySelector('.ens')?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+      requestAnimationFrame(() => pbody.querySelector('.ens')?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
     }).catch((e) => { if (!stale()) E.err = `Probabilities: ${(e as Error).message}`; })
     : Promise.resolve();
   await Promise.all([pF, pP]);
@@ -1004,7 +1078,17 @@ function changesHTML() {
     ${names.map((x) => `<span>P(oiled) ${esc(x.n)}</span><span>${arrow(pct(x.a), pct(x.b))}</span>`).join('')}</div></details>`;
 }
 
-/** Panel section: probability view controls + legend + live numbers + forces charts. */
+/** Step 3 view controls for our model's products: probability surface (P(oil) / Mass / Off) + force arrows. */
+function ensembleViewHTML() {
+  const E = state.ens, v = state.view;
+  if (state.mode !== 'prediction') return '';
+  let h = '';
+  if (E.prob) h += `<span class="mode seg mini">${(['p', 'mass', 'off'] as const).map((k) => `<button data-surf="${k}" class="${v.surface === k ? 'on' : ''}" title="${k === 'p' ? 'P(oil present): share of members with surface oil in the cell' : k === 'mass' ? 'Expected surface oil mass (mean over members)' : 'Hide the probability surface'}">${k === 'p' ? 'P(oil)' : k === 'mass' ? 'Mass' : 'Off'}</button>`).join('')}</span>`;
+  if (E.forces) h += `<button class="pill ${v.forces ? 'on' : ''}" data-vforces title="Arrows at the slick centre: what pushes the oil">Forces</button>`;
+  return h;
+}
+
+/** Results: probability legend + live numbers + "what changed" + forces charts. */
 function ensembleHTML() {
   const E = state.ens;
   if (state.mode !== 'prediction' || (!E.prob && !E.forces && !E.msg && !E.err)) return '';
@@ -1012,18 +1096,14 @@ function ensembleHTML() {
   if (E.prob) {
     const P = E.prob;
     const v = state.view;
-    h += `<div class="row"><div class="label" style="margin:0">Probability of oil</div><small class="hint">${P.members} members · ${P.cellKm.toFixed(1)} km cells</small></div>
-      <div class="vrow"><div class="mode mini">${(['p', 'mass', 'off'] as const).map((k) => `<button data-surf="${k}" class="${v.surface === k ? 'on' : ''}" title="${k === 'p' ? 'P(oil present): share of members with surface oil in the cell' : k === 'mass' ? 'Expected surface oil mass (mean over members)' : 'Hide the surface'}">${k === 'p' ? 'P(oil)' : k === 'mass' ? 'Mass' : 'Off'}</button>`).join('')}</div>
-      <button class="pill ${v.threeD ? 'on' : ''}" data-v3d title="Tilt into 3D: column height = probability">3D</button>
-      ${E.forces ? `<button class="pill ${v.forces ? 'on' : ''}" data-vforces title="Arrows at the slick centre: what pushes the oil">Forces</button>` : ''}</div>
+    h += `<div class="row"><div class="label" style="margin:0">Probability of oil</div><small class="hint">${P.members} members · ${P.cellKm.toFixed(1)} km</small></div>
       ${v.surface !== 'off' ? `<div class="ramp" style="margin-top:6px;background:${rampCSS(v.surface)}"></div>
       <div class="ticks">${v.surface === 'p' ? '<span>2 %</span><span>50 %</span><span>100 %</span>' : `<span>0</span><span>${fmtKg(P.mmaxKg / 4)}</span><span>${fmtKg(P.mmaxKg)} / cell</span>`}</div>
-      <div class="lg-oil"><span><i class="cline" style="--c:#ffc86e"></i>50 % contour</span><span><i class="cline" style="--c:#fff"></i>90 % contour</span><span><i class="cline thick" style="--c:#ffb03c"></i>shore P(oiled)</span></div>` : ''}
+      <div class="lg-oil"><span><i class="cline" style="--c:#ffc86e"></i>50 %</span><span><i class="cline" style="--c:#fff"></i>90 %</span><span><i class="cline thick" style="--c:#ffb03c"></i>shore P(oiled)</span></div>` : ''}
       <div id="ens-now" class="kv" style="margin-top:6px"></div>`;
     h += changesHTML();
-  } else if (E.forces && state.view.surface !== 'off') {
-    h += `<div class="row"><div class="label" style="margin:0">Forces</div><button class="pill ${state.view.forces ? 'on' : ''}" data-vforces>Arrows</button></div>
-      <div class="hint">Single run: set Members above 0 in "Build your model" for the probability map.</div>`;
+  } else if (E.forces) {
+    h += `<div class="hint">Single run. For a probability map set Members > 0 under Model → Advanced.</div>`;
   }
   if (E.msg) h += `<div class="hint" style="margin-top:6px">${esc(E.msg)}</div><div class="progress"><div class="indet"></div></div>`;
   if (E.err) h += `<div class="err">${esc(E.err)}</div>`;
@@ -1080,7 +1160,7 @@ function set3D(on: boolean, byUser = true) {
   renderContent();
 }
 
-content.addEventListener('click', (e) => {
+pbody.addEventListener('click', (e) => {
   const t = e.target as HTMLElement;
   const sf = t.closest<HTMLButtonElement>('[data-surf]');
   if (sf) { state.view.surface = sf.dataset.surf as SurfaceKind | 'off'; renderContent(); return; }
@@ -1090,7 +1170,7 @@ content.addEventListener('click', (e) => {
 
 // hovering a force arrow on the map: one-sentence explanation + equation
 const maptip = document.createElement('div');
-maptip.className = 'maptip glass';
+maptip.className = 'maptip';
 document.body.appendChild(maptip);
 function onArrowHover(info: any) {
   const o = info?.object;
@@ -1297,7 +1377,7 @@ function frame(now: number) {
     layers.push(...(r.oil.layers(s.footprints.length ? 0.45 : surf ? 0.4 : 1) as any[]));
   }
   layers.push(...ens);
-  if (FC && state.ens.forces) FC.setChartTime(content, ensTH());
+  if (FC && state.ens.forces) FC.setChartTime(pbody, ensTH());
   layers.push(...markerLayer());
   overlay.setProps({ layers });
   requestAnimationFrame(frame);
