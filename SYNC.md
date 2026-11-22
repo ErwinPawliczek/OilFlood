@@ -30,7 +30,7 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | done (merged + deployed to oilflood.xyz 2026-11-21) |
 | T18 | Post-merge QA, ML default off/experimental label, README screenshots | Erwin | done (agent A12; merged + deployed) |
 | T19 | Devpost write-up + demo video script (docs/DEVPOST.md, docs/DEMO.md) | Erwin | done (agent A13; merged) |
-| T20 | Continuous wellhead release for DWH in both models + re-backtest | Erwin | done (agent A14, branch a14-release; ready to merge) |
+| T20 | Continuous wellhead release for DWH in both models + re-backtest | Erwin | done (agent A14; merged + deployed) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
@@ -103,6 +103,7 @@ Briefs in `agents/`. Each Claude agent works in its own worktree and branch and 
 - 2026-11-21 bot: merged a13-devpost (docs/DEVPOST.md, docs/DEMO.md; docs only, no redeploy). Claimed T20 (A14 continuous wellhead release + DWH re-backtest).
 - 2026-11-22 A14: T20 done. Optional continuous point source (`params["source"]`, backend/app/source.py) in our model and the OpenOil runner; DWH wellhead schedule from the DOI/FRTG flow estimate minus cited containment (backtest/dwh_source.py, 787k bbl collected vs DOI ~800k). Re-ran DWH (52 starts, 3 new `_src` variants). Result: the source changes 72 h median errors by 0-2 km, coin-flip vs no source, persistence still best. docs/BACKTEST.md, data/backtest/results.json, DEVPOST.md updated. Smoke test passed on :5214.
 - 2026-11-21 bot: merged a12-qa (ML off by default + experimental toggle, marker fix, README screenshots), rebuilt web, restarted :5200; oilflood.xyz, /api/spills, /api/backtest 200. Updated docs/DEVPOST.md lines 45/89 to say the ML correction is optional/experimental.
+- 2026-11-21 bot: merged a14-release (optional point source in both models, DWH re-backtest; no web changes), restarted :5200.
 
 ## Roles
 - Erwin builds everything (T2–T7).
