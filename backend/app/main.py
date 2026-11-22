@@ -14,7 +14,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, fields, forcing, global_fields, jobs, oils
+from . import briefing, config, fields, forcing, global_fields, jobs, oils, response
 from .jobs import SpillRequest
 
 logging.basicConfig(level=logging.INFO)
@@ -71,6 +71,58 @@ def get_spill_tracks(run_id: str):
             raise HTTPException(404, "unknown spill id")
         return JSONResponse(st, status_code=409 if st["status"] == "error" else 202)
     return _json_file(p)
+
+
+def _response_for(run_id: str, brief: bool, spill_id: str | None = None):
+    """Response outline for a finished run (cached as runs/<id>/response.json; LLM text cached separately)."""
+    try:
+        d = jobs.run_dir(run_id)
+    except ValueError:
+        raise HTTPException(400, "bad id")
+    p = jobs.tracks_path(run_id)
+    if p is None:
+        st = jobs.status(run_id)
+        if st is None:
+            raise HTTPException(404, "unknown spill id")
+        return JSONResponse(st, status_code=409 if st["status"] == "error" else 202)
+    cache = d / "response.json"
+    out = None
+    if cache.exists():
+        try:
+            out = json.loads(cache.read_text())
+        except json.JSONDecodeError:
+            out = None
+        if out and out.get("version") != response.VERSION:
+            out = None
+    if out is None:
+        req = json.loads((d / "request.json").read_text())
+        out = response.build(json.loads(p.read_text()), req, run_id=run_id, spill_id=spill_id)
+        cache.write_text(json.dumps(out))
+    if brief:
+        prov = briefing.provider()
+        bc = d / "briefing.json"
+        b = None
+        if prov and bc.exists():
+            b = json.loads(bc.read_text())
+            if b.get("version") != response.VERSION or b.get("model") != prov[2] or not b.get("text"):
+                b = None
+        if b is None:
+            b = briefing.generate(out)
+            if b.get("text"):
+                bc.write_text(json.dumps({**b, "version": response.VERSION}))
+        out["briefing"] = b
+    else:
+        out["briefing"] = {"text": None, "note": "not requested"}
+    return out
+
+
+@app.get("/api/spill/{run_id}/response")
+def get_spill_response(run_id: str, brief: bool = True):
+    """First-responder action outline for a finished prediction run (docs/RESPONSE.md): ETA to landfall,
+    priority shorelines (NOAA ESI + arrival time), where to boom first, dispersant / in-situ burn / skimming
+    windows, closures, cited precedents. `briefing.text` = optional LLM plain-English summary (null if no key).
+    202 + status while the run is still going."""
+    return _response_for(run_id, brief)
 
 
 @app.get("/api/live")
@@ -201,6 +253,26 @@ def get_spill_hindcast(spill_id: str, n_particles: int = 2000, duration_h: float
         return _json_file(p)
     st = jobs.status(sub["id"]) or sub
     return JSONResponse(st, status_code=409 if st.get("status") == "error" else 202)
+
+
+@app.get("/api/spills/{spill_id}/response")
+def get_spill_hindcast_response(spill_id: str, n_particles: int = 2000, duration_h: float = 72,
+                                model: str = Query("openoil", pattern="^(openoil|ours)$"), ml: bool = True,
+                                brief: bool = True):
+    """Response outline for a catalog spill's hindcast (same shape as /api/spill/{id}/response; the spill's
+    own response log is left out of the precedents). Starts the hindcast if needed (202 until done)."""
+    s = _spill(spill_id)
+    if not s.get("forcing"):
+        raise HTTPException(400, "No hindcast exists for this spill (no ocean reanalysis before 2001).")
+    vol_m3 = float(s.get("volume_bbl") or 3000) * 0.158987
+    req = SpillRequest(lat=s["lat"], lon=s["lon"], start_time=s.get("date_start") or s.get("start_time"),
+                       duration_h=duration_h, volume_m3=vol_m3, oil_type=s.get("oil_type") or "IFO 380",
+                       n_particles=n_particles, model=model, ml=ml)
+    try:
+        sub = jobs.submit(req, extra_key=f"hist:{spill_id}", snap_km=config.SNAP_KM_HINDCAST)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return _response_for(sub["id"], brief, spill_id=spill_id)
 
 
 # --- currents (flow layer) ----------------------------------------------------
