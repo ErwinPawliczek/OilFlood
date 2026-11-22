@@ -19,7 +19,8 @@ from . import config, forcing, oils, runner
 MODEL_VERSION = "openoil-v4-live"  # v3: real forcing only; v4: predictions on the live forecast only
 from .ourmodel.sim import VERSION as OURS_VERSION  # bump sim.VERSION when app/ourmodel changes
 BBL_M3 = 0.158987
-MODEL_LABELS = {"openoil": "OpenDrift OpenOil (baseline)", "ours": "OilFlood model (ours, + ML drift correction)"}
+MODEL_LABELS = {"openoil": "OpenDrift OpenOil (baseline)", "ours": "OilFlood model (ours)"}
+OURS_ML_LABEL = "OilFlood model (ours, + experimental ML drift correction)"
 
 
 class SpillRequest(BaseModel):
@@ -34,7 +35,8 @@ class SpillRequest(BaseModel):
     wind_drift_factor: float = Field(0.02, ge=0, le=0.1)
     model: Literal["openoil", "ours"] = Field("openoil", description="openoil = OpenDrift OpenOil baseline, "
                                               "ours = OilFlood model (docs/OURMODEL.md)")
-    ml: bool = Field(True, description="ours only: apply the ML drift correction")
+    # Default off since the P5 backtest (docs/BACKTEST.md): no gain on DWH, strands 62 % at Main Pass 2023.
+    ml: bool = Field(False, description="ours only: apply the experimental ML drift correction (default off)")
 
 
 _pool: ProcessPoolExecutor | None = None
@@ -173,7 +175,9 @@ def _summary(params: dict) -> dict:
     out["model"] = params.get("model", "openoil")
     out["model_label"] = MODEL_LABELS.get(out["model"], out["model"])
     if out["model"] == "ours":
-        out["ml"] = params.get("ml", True)
+        out["ml"] = params.get("ml", False)
+        if out["ml"]:
+            out["model_label"] = OURS_ML_LABEL
     out["truncated"] = "note" in params
     out["seed"] = [params["lon"], params["lat"]]
     return out

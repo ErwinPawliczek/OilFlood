@@ -114,11 +114,16 @@ const emptyScene = (t0: number, durationH: number): Scene => ({
 type ModelChoice = ModelId | 'compare';
 const MODEL_KEY = 'oilflood.model.v1';
 const savedModel = (() => { try { return localStorage.getItem(MODEL_KEY); } catch { return null; } })();
+/** Experimental ML drift correction for our model: off unless the user turns it on (backtest: no gain / harmful). */
+const ML_KEY = 'oilflood.ml.v1';
+const savedMl = (() => { try { return localStorage.getItem(ML_KEY) === '1'; } catch { return false; } })();
 
 const state = {
   mode: 'prediction' as Mode,
   /** which trajectory model(s) to show: OpenOil baseline, ours, or both side by side */
   model: (['openoil', 'ours', 'compare'].includes(savedModel ?? '') ? savedModel : 'openoil') as ModelChoice,
+  /** apply the experimental ML drift correction in our model's runs */
+  ml: savedMl,
   models: [] as ModelInfo[],
   /** prediction: per-model run status for the current click */
   jobRuns: {} as Partial<Record<ModelId, { id: string; status: string; progress: number; error?: string }>>,
@@ -233,9 +238,12 @@ ui.innerHTML = `
       </div>
       <div class="mode model-sel" id="modelsel" title="Trajectory model">
         <button data-model="openoil" title="OpenDrift OpenOil: the established baseline">OpenOil</button>
-        <button data-model="ours" title="Our model: Lagrangian + Fay + weathering + ML drift correction">Ours</button>
+        <button data-model="ours" title="Our model: Lagrangian + Fay spreading + weathering (ML drift correction optional)">Ours</button>
         <button data-model="compare" title="Both at once: OpenOil amber, ours cyan">Compare</button>
       </div>
+      <label class="mltoggle" id="mltoggle" title="Off by default: the backtest found no gain on Deepwater Horizon and false stranding at Main Pass 2023 (docs/BACKTEST.md)">
+        <input type="checkbox" id="ml-cb" /> Ours + ML drift correction <span class="exp">experimental</span>
+      </label>
       <div id="predform"></div>
       <div id="content"></div>
       <div class="sec time">
@@ -264,6 +272,7 @@ const ICON_PAUSE = '<svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" 
 
 panel.querySelectorAll<HTMLButtonElement>('.mode button[data-mode]').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode as Mode)));
 panel.querySelectorAll<HTMLButtonElement>('#modelsel button').forEach((b) => b.addEventListener('click', () => setModel(b.dataset.model as ModelChoice)));
+$('ml-cb').addEventListener('change', (e) => setMl((e.target as HTMLInputElement).checked));
 $('play').addEventListener('click', togglePlay);
 $('slower').addEventListener('click', () => { state.rateIdx = Math.max(0, state.rateIdx - 1); renderTime(true); });
 $('faster').addEventListener('click', () => { state.rateIdx = Math.min(RATES_H.length - 1, state.rateIdx + 1); renderTime(true); });
@@ -438,7 +447,7 @@ function ensureOutline() {
     if (m) { key = `p:${state.jobRuns[m]!.id}`; url = `/api/spill/${state.jobRuns[m]!.id}/response`; }
   } else if (state.mode === 'historical' && state.selected && (state.selected as any).forcing) {
     const r = shownRuns(state.hist)[0];
-    if (r) { key = `h:${state.selected.id}:${r.m}`; url = `/api/spills/${encodeURIComponent(state.selected.id)}/response?model=${r.m}`; }
+    if (r) { const ml = r.m === 'ours' ? `&ml=${state.ml}` : ''; key = `h:${state.selected.id}:${r.m}${ml}`; url = `/api/spills/${encodeURIComponent(state.selected.id)}/response?model=${r.m}${ml}`; }
   }
   const o = state.outline;
   if (key === o.key) return;
@@ -468,7 +477,8 @@ function syncOutlineMarkers() {
     el.style.setProperty('--c', col[sh.sensitivity_tier] ?? '#fff');
     el.innerHTML = `<b>${sh.priority}</b><span>${esc(sh.name ?? '')} · ${sh.impact === 'landfall' ? `oil in ~${Math.round(sh.eta_h)} h` : `oil near in ~${Math.round(sh.eta_h)} h`} · ESI ${esc(sh.esi_most_sensitive)}</span>`;
     el.title = `${sh.esi_most_sensitive_label}. ${sh.shoreline_tactic}`;
-    outlineMarkers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([sh.lon, sh.lat]).addTo(map));
+    // anchor on the numbered circle (18 px + 2 px border), not on the middle of circle + label
+    outlineMarkers.push(new maplibregl.Marker({ element: el, anchor: 'left', offset: [-11, 0] }).setLngLat([sh.lon, sh.lat]).addTo(map));
   }
 }
 
@@ -495,7 +505,7 @@ function renderContent() {
         ${sel.volume_bbl ? `<span>Volume</span><span>${Number(sel.volume_bbl).toLocaleString()} bbl</span>` : ''}
         ${sel.oil_type ? `<span>Oil</span><span>${esc(sel.oil_type)}${s.tracks?.meta?.oil_type && s.tracks.meta.oil_type !== sel.oil_type ? ` <small class="hint">(model: ${esc(s.tracks.meta.oil_type)})</small>` : ''}</span>` : ''}
         <span>Position</span><span>${sel.lat.toFixed(3)}°, ${sel.lon.toFixed(3)}°</span>
-      </div>${modelNoteHTML(s)}${errorsHTML(s.errors)}`;
+      </div>${(sel as any).forcing ? modelNoteHTML(s) : `<div class="hint mnote">No ocean reanalysis exists for ${esc(sel.date_start.slice(0, 4))} (HYCOM starts in 2001), so there is no hindcast for this spill: record and response log only.</div>`}${errorsHTML(s.errors)}`;
       if (state.outline.key) html += outlineHTML(state.outline.data, state.outline, respOpen.outline);
       html += responseHTML(sel, respOpen);
       html += backtestHTML(sel.id, state.backtest, respOpen.bt);
@@ -633,8 +643,8 @@ function setMode(m: Mode) {
   renderContent(); renderTime(true);
 }
 
-async function selectSpill(s: CatalogSpill) {
-  if (state.selected?.id === s.id && state.hist.loading == null) {
+async function selectSpill(s: CatalogSpill, reload = false) {
+  if (!reload && state.selected?.id === s.id && state.hist.loading == null) {
     map.flyTo({ center: [s.lon, s.lat], zoom: 6.3, pitch: 25, duration: 2000, essential: true });
     return;
   }
@@ -648,7 +658,7 @@ async function selectSpill(s: CatalogSpill) {
   state.playing = false; state.tH = 0;
   state.rateIdx = autoRateIdx(sc.durationH);
   renderContent(); renderTime(true);
-  map.flyTo({ center: [s.lon, s.lat], zoom: 6.3, pitch: 25, duration: 3200, essential: true, curve: 1.6 });
+  if (!reload) map.flyTo({ center: [s.lon, s.lat], zoom: 6.3, pitch: 25, duration: 3200, essential: true, curve: 1.6 });
   const stale = () => state.selected !== s || state.hist !== sc;
   const active = () => state.mode === 'historical' && !stale();
 
@@ -675,8 +685,9 @@ async function selectSpill(s: CatalogSpill) {
     applyTimeline();
     if (fp.length) startPlayback();
   }).catch((e) => { if (!stale()) sc.errors.push(`Observed outlines: ${e.message}`); });
+  const hasForcing = !!(s as any).forcing; // pre-2001 spills have no reanalysis: don't request a hindcast that must 400
   sc.loadRun = (m: ModelId) => {
-    if (sc.runReq.has(m)) return Promise.resolve();
+    if (!hasForcing || sc.runReq.has(m)) return Promise.resolve();
     sc.runReq.add(m);
     sc.runMsg[m] = 'computing hindcast on real forcing…';
     const onProgress = (p: number) => {
@@ -684,7 +695,7 @@ async function selectSpill(s: CatalogSpill) {
       sc.runMsg[m] = `computing hindcast on real forcing… ${Math.round((p > 1 ? p / 100 : p) * 100)}%`;
       renderContent();
     };
-    return getHistoricalTracks(s, m, onProgress, stale).then((tr) => {
+    return getHistoricalTracks(s, m, onProgress, stale, state.ml).then((tr) => {
       if (stale() || !tr) return;
       addRun(sc, m, tr);
       delete sc.runMsg[m];
@@ -757,7 +768,7 @@ async function runPrediction(m: ModelId, token: number) {
   state.jobRuns[m] = run;
   updateJobStatus();
   try {
-    const job = await postSpill(j0.lat, j0.lon, m);
+    const job = await postSpill(j0.lat, j0.lon, m, state.ml);
     if (token !== state.jobToken) return;
     run.id = job.id;
     const { status: _s, progress: _p, id: _id, model: _m, ...summary } = job as any;
@@ -792,27 +803,37 @@ function setModel(m: ModelChoice) {
   state.model = m;
   try { localStorage.setItem(MODEL_KEY, m); } catch { /* private mode */ }
   panel.querySelectorAll<HTMLButtonElement>('#modelsel button').forEach((b) => b.classList.toggle('on', b.dataset.model === m));
+  $('mltoggle').style.display = wanted().includes('ours') ? '' : 'none';
   if (state.hist.loadRun && state.selected) for (const id of wanted()) state.hist.loadRun(id);
   if (state.job && state.job.lat != null) for (const id of wanted()) if (!state.jobRuns[id]) runPrediction(id, state.jobToken);
   renderContent();
 }
 
-/** What our model is + its held-out ML skill (from GET /api/models), shown when ours is on screen. */
+/** Experimental ML toggle: re-run our model for what is on screen (other runs come back from the server cache). */
+function setMl(on: boolean) {
+  state.ml = on;
+  try { localStorage.setItem(ML_KEY, on ? '1' : '0'); } catch { /* private mode */ }
+  ($('ml-cb') as HTMLInputElement).checked = on;
+  if (!wanted().includes('ours')) return;
+  if (state.mode === 'historical' && state.selected) selectSpill(state.selected, true);
+  else if (state.mode === 'prediction' && state.job && state.job.lat != null) startSpill(state.job.lon, state.job.lat);
+}
+
+/** What our model is, and the honest status of its ML option (from GET /api/models + docs/BACKTEST.md). */
 function modelNoteHTML(s: Scene) {
   if (!wanted().includes('ours')) return '';
   const info = state.models.find((x) => x.id === 'ours');
-  const sk = info?.skill;
-  let html = '<div class="hint mnote">';
-  if (sk?.traj_24h) {
-    html += `<b style="color:${PALETTES.ours.css}">Ours</b>: ML drift correction trained on ${sk.drifters} NOAA drifters `
-      + `(${Number(sk.rows).toLocaleString()} hourly fixes). On held-out drifters the median 24 h position error drops `
-      + `${sk.traj_24h.median_km_current} → ${sk.traj_24h.median_km_ml} km, 48 h ${sk.traj_48h.median_km_current} → ${sk.traj_48h.median_km_ml} km.`;
-  } else if (info) {
-    html += esc(info.summary);
-  }
   const mo = s.runs.ours?.tracks.meta;
-  if (mo && mo.ml_correction === false) html += ' (ML correction off for this run)';
-  return html + '</div>';
+  const mlOn = mo ? mo.ml_correction === true : state.ml;
+  const c = PALETTES.ours.css;
+  if (!mlOn) return `<div class="hint mnote"><b style="color:${c}">Ours</b>: currents + 3 % wind + spreading + weathering, no ML correction. The ML option is experimental: in our backtest it gave no gain on Deepwater Horizon and stranded 62 % of the oil at Main Pass 2023, where none came ashore (docs/BACKTEST.md).</div>`;
+  const sk = info?.skill;
+  let html = `<div class="hint mnote"><b style="color:${c}">Ours + ML</b> <span class="exp">experimental</span>: `;
+  if (sk?.traj_24h) {
+    html += `drift correction trained on ${sk.drifters} NOAA drifters (${Number(sk.rows).toLocaleString()} hourly fixes); on held-out drifters the median 24 h `
+      + `position error drops ${sk.traj_24h.median_km_current} → ${sk.traj_24h.median_km_ml} km. `;
+  }
+  return html + 'But on real oil it did not help: no gain on Deepwater Horizon, 62 % falsely stranded at Main Pass 2023 (docs/BACKTEST.md).</div>';
 }
 
 content.addEventListener('click', (e) => {
@@ -949,6 +970,8 @@ map.on('load', async () => {
   getBacktest().then((b) => { state.backtest = b; renderContent(); });
   const q = new URLSearchParams(location.search);
   const qm = q.get('model');
+  if (q.get('ml') != null) state.ml = q.get('ml') === '1' || q.get('ml') === 'true';
+  ($('ml-cb') as HTMLInputElement).checked = state.ml;
   setModel(qm === 'ours' || qm === 'openoil' || qm === 'compare' ? qm : state.model);
   setMode(q.get('mode') === 'prediction' ? 'prediction' : 'historical');
   const pick = q.get('spill') && state.catalog.find((c) => c.id === q.get('spill'));

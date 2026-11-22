@@ -219,8 +219,13 @@ def get_models():
          "summary": "OpenDrift OpenOil 1.14: currents + 2 % wind + Stokes drift, random walk, "
                     "NOAA ADIOS weathering, stranding on the GSHHG coastline."},
         {"id": "ours", "label": jobs.MODEL_LABELS["ours"], "short": "Ours",
-         "summary": "Our Lagrangian model: currents + ML drift correction (trained on NOAA drifters) + 3 % wind, "
-                    "Fay spreading, Fingas evaporation, Mackay emulsification/dispersion, beaching.",
+         "summary": "Our Lagrangian model: currents + 3 % wind, Fay spreading, Fingas evaporation, "
+                    "Mackay emulsification/dispersion, beaching. Optional experimental ML drift correction "
+                    "(trained on NOAA drifters; ml=true), off by default.",
+         "ml_default": False,
+         "ml_note": "Experimental: in the oil backtest (docs/BACKTEST.md) the ML correction gives no gain on "
+                    "Deepwater Horizon and strands 62 % of the oil on the Mississippi Delta at Main Pass 2023 "
+                    "(observed: none), so it is off by default.",
          "skill": skill},
     ]}
 
@@ -285,7 +290,7 @@ def get_footprints(spill_id: str):
 
 @app.get("/api/spills/{spill_id}/tracks")
 def get_spill_hindcast(spill_id: str, n_particles: int = 2000, duration_h: float = 72,
-                       model: str = Query("openoil", pattern="^(openoil|ours)$"), ml: bool = True):
+                       model: str = Query("openoil", pattern="^(openoil|ours)$"), ml: bool = False):
     """Hindcast for a catalog spill. Starts the run on first call; returns 202 +
     status until done, then the same JSON shape as /api/spill/{id}/tracks."""
     s = _spill(spill_id)
@@ -310,7 +315,7 @@ def get_spill_hindcast(spill_id: str, n_particles: int = 2000, duration_h: float
 
 @app.get("/api/spills/{spill_id}/response")
 def get_spill_hindcast_response(spill_id: str, n_particles: int = 2000, duration_h: float = 72,
-                                model: str = Query("openoil", pattern="^(openoil|ours)$"), ml: bool = True,
+                                model: str = Query("openoil", pattern="^(openoil|ours)$"), ml: bool = False,
                                 brief: bool = True):
     """Response outline for a catalog spill's hindcast (same shape as /api/spill/{id}/response; the spill's
     own response log is left out of the precedents). Starts the hindcast if needed (202 until done)."""

@@ -42,7 +42,7 @@ the slick plays back on the globe: drift, evaporation, dispersion, emulsificatio
 budget (surface / evaporated / dispersed / stranded).
 
 **Two models side by side.** "OpenOil" is the established baseline (OpenDrift OpenOil). "Ours" is our own particle model with a
-machine-learned drift correction. "Compare" draws both at once (OpenOil amber, ours cyan) with separate budgets, so you can see
+an optional machine-learned drift correction (experimental, off by default after our backtest). "Compare" draws both at once (OpenOil amber, ours cyan) with separate budgets, so you can see
 where they disagree.
 
 **Response outline.** From the forecast, OilFlood builds a first-responder outline:
@@ -86,7 +86,7 @@ wind drift + Stokes drift, random-walk diffusion, NOAA weathering (evaporation, 
 coastline.
 
 **Our own model** (`backend/app/ourmodel/`, numpy). Same forcing files, same oil record, same seed and output format as OpenOil, so
-the two can be compared directly. Lagrangian particles with RK2 advection (current + ML correction + 3 % wind), random-walk
+the two can be compared directly. Lagrangian particles with RK2 advection (current + optional ML correction + 3 % wind), random-walk
 diffusion, Fay spreading written as an equivalent diffusivity, Fingas evaporation from the ADIOS distillation cuts, Mackay
 emulsification and natural dispersion, and beaching on GSHHG or ocean-model land. A 72 h, 2,000-particle run takes ~12–17 s
 (OpenOil ~21–26 s).
