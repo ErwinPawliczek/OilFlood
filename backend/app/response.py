@@ -22,7 +22,7 @@ from scipy.spatial import cKDTree
 
 from . import config, oils
 
-VERSION = "resp-v1"
+VERSION = "resp-v2"  # v2: + "layer" (map geometry, T21); windows use ETOPO1 depth + coast distance
 KT = 1.943844  # m/s -> knots
 NM_KM = 1.852
 
@@ -61,6 +61,7 @@ WIND_BURN_MAX = 20.0
 WIND_MECH_MAX = 20.0
 BOOM_CURRENT_KT = 0.75  # containment boom entrains oil above ~0.7-1 kt relative current
 PREAUTH_NM = 3.0        # RRT 4/6 dispersant pre-authorization: >= 3 nm from shore and >= 10 m depth
+PREAUTH_DEPTH_M = 10.0  # checked against ETOPO1 (data/cache/bathy) when cached
 STAGE_H = 6.0           # assumed hours to get boom on site after notification (planning assumption)
 LANDFALL_KM = 6.0       # stranded particle -> ESI cell match radius
 APPROACH_KM = 10.0      # oil within this distance of a shoreline cell = "threatened"
@@ -442,6 +443,7 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
             "esi_dominant": cdom, "esi_dominant_label": labels.get(cdom, cdom),
             "sensitivity_tier": tier,
             "shoreline_tactic": next(txt for r, txt in SHORE_TACTICS if esi_rank(cmax) >= r),
+            "_cells": ks,
         })
     # Rank: oiled before merely threatened; then sensitivity tier (ESI 9-10 first); then arrival time;
     # tiny hits (< 0.5 % of particles) after the real ones.
@@ -460,13 +462,17 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
         bt = np.array([b["t"] for b in bud], float)
         ev = np.array([b.get("evaporated", 0) / m0 for b in bud])
         evap = np.interp(hrs, bt, ev)
-    nearest_shore_km = []
-    for c in cen:
-        if not np.isfinite(c[0]):
-            nearest_shore_km.append(None)
-            continue
-        dd, _ = etree.query(_xy([c[0]], [c[1]])[0])
-        nearest_shore_km.append(round(float(dd), 1))
+    from . import response_layer as rl
+    okc = np.isfinite(cen[:, 0])
+    sk = np.full(len(cen), np.nan)
+    dep = np.full(len(cen), np.nan)
+    if okc.any():
+        sk[okc] = rl.shore_km(cen[okc, 0], cen[okc, 1])
+        d_ = rl.depth_m(cen[okc, 0], cen[okc, 1])
+        if d_ is not None:
+            dep[okc] = d_
+    nearest_shore_km = [None if not np.isfinite(x) else round(float(x), 1) for x in sk]
+    depth_c = [None if not np.isfinite(x) else round(float(x)) for x in dep]
     hours = []
     for i, t in enumerate(hrs):
         h = (t - t0) / 3600
@@ -478,14 +484,15 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
         has_surface = bool(np.isfinite(cen[i, 0]))
         disp_ok = (oc["dispersant"] is not None and oc["dispersant"] > 0 and h <= oc["dispersant"] and has_surface
                    and wk is not None and WIND_DISP_MIN <= wk <= WIND_DISP_MAX and day
-                   and off_nm is not None and off_nm >= PREAUTH_NM)
+                   and off_nm is not None and off_nm >= PREAUTH_NM
+                   and (depth_c[i] is None or depth_c[i] >= PREAUTH_DEPTH_M))
         burn_ok = (oc["burn"] is not None and h <= oc["burn"] and has_surface and wk is not None
                    and wk <= WIND_BURN_MAX and day and off_nm is not None and off_nm >= PREAUTH_NM)
         mech_ok = oc["mechanical"] and has_surface and wk is not None and wk <= WIND_MECH_MAX and day
         hours.append({"t": t, "h": round(h, 1), "wind_kt": None if wk is None else round(wk, 1),
                       "wind_to": None if env["wind_dir_to"][i] is None else _compass(env["wind_dir_to"][i]),
                       "current_kt": None if cur is None else round(cur * KT, 2), "daylight": day,
-                      "offshore_nm": None if off_nm is None else round(off_nm, 1),
+                      "offshore_nm": None if off_nm is None else round(off_nm, 1), "depth_m": depth_c[i],
                       "evaporated_pct": round(100 * float(evap[i]), 1) if len(evap) else None,
                       "disp": bool(disp_ok), "burn": bool(burn_ok), "mech": bool(mech_ok)})
 
@@ -517,8 +524,9 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
                     "raises viscosity)",
                     f"wind {WIND_DISP_MIN:.0f}-{WIND_DISP_MAX:.0f} kt (some mixing energy, safe flight ops)",
                     "daylight (spotter aircraft)",
-                    f">= {PREAUTH_NM:.0f} nm from shore and >= 10 m deep (RRT 4/6 pre-authorization zone; "
-                    "depth not checked here)"],
+                    f">= {PREAUTH_NM:.0f} nm from shore and >= {PREAUTH_DEPTH_M:.0f} m deep (RRT 4/6 pre-authorization "
+                    "zone; depth from ETOPO1 at the slick centroid" + ("" if rl.bathy() is not None else
+                                                                        ", NOT checked: no bathymetry cached") + ")"],
                    ["Requires FOSC decision and RRT concurrence outside pre-authorized zones; SMART monitoring."])
     burn = _tactic("burn", "In-situ burning (fire boom)",
                    [f"within ~{oc['burn'] or 0} h for {oc['label']} (ignitable, < ~25 % water in emulsion)",
@@ -623,6 +631,18 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
         headline.append(f"After {b['h']} h: {b['surface']:.0f} % on the surface, {b['evaporated']:.0f} % evaporated, "
                         f"{b['dispersed']:.0f} % dispersed, {b['stranded']:.0f} % on shore.")
 
+    # --- map layer (T21): geometry for arrival times, boom plan, tactic zones, staging, timeline ---------------
+    try:
+        layer = rl.build_layer(t0=t0, hrs=hrs, pos=pos, status=status, end_xy=end_xy, end_t=end_t, hit=hit,
+                               stretch_cells=[s["_cells"] for s in shorelines], shorelines=shorelines,
+                               boom_first=boom_first, hours=hours, oc=oc, req=req, port_entrances=PORT_ENTRANCES)
+    except Exception as e:  # noqa: BLE001 - the text outline must still work
+        import traceback
+        traceback.print_exc()
+        layer = {"error": f"{type(e).__name__}: {e}"}
+    for s in shorelines:
+        s.pop("_cells", None)
+
     out = {
         "version": VERSION, "run_id": run_id, "spill_id": spill_id, "disclaimer": DISCLAIMER,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"),
@@ -647,10 +667,11 @@ def build(tracks: dict, req: dict, run_id: str | None = None, spill_id: str | No
             "wind_kt": {"min": min(winds), "mean": round(float(np.mean(winds)), 1), "max": max(winds)} if winds else None,
             "current_kt": {"mean": round(float(np.mean(curs)), 2), "max": max(curs)} if curs else None,
             "hourly": [{k: h[k] for k in ("h", "wind_kt", "wind_to", "current_kt", "daylight", "offshore_nm",
-                                          "evaporated_pct")} for h in hours[::3]],
+                                          "depth_m", "evaporated_pct")} for h in hours[::3]],
             "source": env["source"] or None,
         },
         "closures": closures,
+        "layer": layer,
         "precedents": prec,
         "sources": [
             {"what": "Shoreline sensitivity", "ref": ed["source"], "url": ed["source_url"]},
