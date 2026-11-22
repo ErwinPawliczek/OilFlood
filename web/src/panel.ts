@@ -179,3 +179,55 @@ export function responseHTML(s: CatalogSpill, open: { resp: boolean; evo: boolea
   }
   return html;
 }
+
+// ---------- backtest (P5): scores of each model against what was observed (GET /api/backtest) ----------
+const BT_ROWS: [string, string][] = [['persistence', 'Persistence'], ['openoil', 'OpenOil'], ['ours_ml', 'Ours + ML'], ['ours_noml', 'Ours, no ML'], ['ours_ml_nodwh', 'Ours + ML (held out)']];
+const f0 = (x: unknown) => (typeof x === 'number' && isFinite(x) ? x.toFixed(0) : '–');
+const f2 = (x: unknown) => (typeof x === 'number' && isFinite(x) ? x.toFixed(2) : '–');
+const pct = (x: unknown) => (typeof x === 'number' && isFinite(x) ? `${Math.round(x * 100)}%` : '–');
+
+/** Mark the best value of each column (lower or higher is better) in bold. */
+function btTable(head: string[], rows: [string, (string | number | null)[]][], better: ('lo' | 'hi' | '')[]) {
+  const best = better.map((b, j) => {
+    const v = rows.map(([, r]) => r[j]).filter((x): x is number => typeof x === 'number' && isFinite(x));
+    return !b || !v.length ? null : b === 'lo' ? Math.min(...v) : Math.max(...v);
+  });
+  const cell = (x: string | number | null, j: number, fmt: (x: unknown) => string) =>
+    `<td${typeof x === 'number' && x === best[j] ? ' class="best"' : ''}>${typeof x === 'number' ? fmt(x) : escH(x ?? '–')}</td>`;
+  return `<table class="bt"><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr>${rows
+    .map(([lab, r]) => `<tr><td>${escH(lab)}</td>${r.map((x, j) => cell(x, j, better[j] === 'hi' ? f2 : f0)).join('')}</tr>`)
+    .join('')}</table>`;
+}
+
+export function backtestHTML(spillId: string, bt: any | null, open: boolean) {
+  if (!bt) return '';
+  const c = (bt.cases ?? []).find((x: any) => x.id === spillId);
+  const wrap = (sub: string, body: string) =>
+    `<details class="resp bt-sec" data-k="bt" ${open ? 'open' : ''}><summary>Backtest <small>${sub}</small></summary>${body}<div class="gaps">Method + limitations: docs/BACKTEST.md · scores precomputed by <code>python -m app.backtest</code></div></details>`;
+  if (!c) return wrap('not scored', `<div class="resp-out">Not backtested: no observed positions with cached forcing for this spill. Scored: Deepwater Horizon, Texas City Y, Main Pass 2023.</div>`);
+  if (c.kind === 'outlines') {
+    const s = c.summary;
+    const rows: [string, (number | null)[]][] = BT_ROWS.filter(([k]) => s[k]).map(([k, lab]) => [lab, [...s[k].sep_km_median, s[k].lw_median[2], s[k].fss_median[2]]]);
+    const ml = s.ml_closer_share ? `<div class="hint">Ours + ML ends closer than ours without ML in ${pct(s.ml_closer_share[2])} of start days at 72 h.</div>` : '';
+    return wrap(`${s.openoil?.n ?? 0} start days`, `<div class="resp-out">Seed inside the NESDIS outline of day D, compare with the outlines of D+1..D+3. Medians over start days. Sep = centroid distance (km); LW = Liu–Weisberg skill (0–1); FSS at 25 km.</div>${btTable(['', 'Sep 24h', '48h', '72h', 'LW 72h', 'FSS 72h'], rows, ['lo', 'lo', 'lo', 'hi', 'hi'])}${ml}`);
+  }
+  if (c.kind === 'points') {
+    let body = `<div class="resp-out">No observed polygons. Distance (km) from the nearest floating model oil to the overflight positions (times not reported: noon CDT assumed), and share stranded.</div>`;
+    for (const v of c.variants) {
+      const rows: [string, (number | string | null)[]][] = BT_ROWS.filter(([k]) => v.models[k]).map(([k, lab]) => {
+        const m = v.models[k];
+        const fx = (i: number) => (m.fixes?.[i] ? (m.fixes[i].nearest_km ?? 'all ashore') : 'n/a');
+        return [lab, [fx(0), fx(1), m.stranded_end != null ? Math.round(m.stranded_end * 100) : null]];
+      });
+      body += `<div class="hint" style="margin-top:6px">${escH(v.label)}</div>${btTable(['', 'Mar 24', 'Mar 25', 'Stranded %'], rows, ['lo', 'lo', ''])}`;
+    }
+    body += `<div class="hint">Observed: 18.9 mi of Galveston-area shoreline oiled by Mar 25; Matagorda Island landfall Mar 27 is after the cached forcing ends (not scored).</div>`;
+    return wrap('overflight fixes', body);
+  }
+  const rows: [string, (number | string | null)[]][] = BT_ROWS.filter(([k]) => c.models[k]).map(([k, lab]) => {
+    const m = c.models[k];
+    return [lab, [m.bearing_deg?.[0] ?? null, m.bearing_deg?.[2] ?? null, m.stranded?.[2] != null ? Math.round(m.stranded[2] * 100) : null, m.length_24h_km ?? null]];
+  });
+  rows.unshift(['Observed', ['SW', 'SW', 0, '>64']]);
+  return wrap('direction + shoreline', `<div class="resp-out">${escH(c.observed)}</div>${btTable(['', 'Bearing 24h', '72h', 'Stranded %', 'Length 24h km'], rows, ['', '', '', ''])}<div class="hint">Bearing = direction (°) of the floating-oil centroid from the source; SW = 180–270°.</div>`);
+}

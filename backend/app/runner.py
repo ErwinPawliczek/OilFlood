@@ -188,9 +188,11 @@ def _run(run_dir: Path, p: dict) -> None:
 
     oil = resolve_oil_type(p.get("oil_type"), o.oiltypes)
     n = int(p["n_particles"])
+    seed_ll = dict(lon=float(p["lon"]), lat=float(p["lat"]), radius=float(p.get("radius_m", 50)))
+    if p.get("seed_lon") is not None:  # backtest: seed from an observed outline (n points given)
+        seed_ll = dict(lon=np.asarray(p["seed_lon"], float), lat=np.asarray(p["seed_lat"], float), radius=0)
     o.seed_elements(
-        lon=float(p["lon"]), lat=float(p["lat"]), time=start, number=n,
-        radius=float(p.get("radius_m", 50)), z=0,
+        **seed_ll, time=start, number=n, z=0,
         oil_type=oil, m3_per_hour=float(p["volume_m3"]),  # instantaneous: m3_per_hour * 1 h
         wind_drift_factor=float(p.get("wind_drift_factor", 0.02)),
     )

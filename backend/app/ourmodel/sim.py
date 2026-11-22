@@ -112,6 +112,7 @@ def run(run_dir: Path, p: dict, status) -> dict:
 
     oil_name = p["_oil_resolved"]
     op = oil_props(oil_name)
+    ml.use_dir(p.get("ml_dir"))  # backtest only (held-out ML variant); default = shipped model
     use_ml = bool(p.get("ml", True)) and ml.load() is not None
     windage = WINDAGE
 
@@ -127,6 +128,9 @@ def run(run_dir: Path, p: dict, status) -> dict:
     th = 2 * np.pi * rng.random(n)
     lat = p["lat"] + rr * np.sin(th) / M_LAT
     lon = p["lon"] + rr * np.cos(th) / (M_LON * np.cos(np.radians(p["lat"])))
+    if p.get("seed_lon") is not None:  # backtest: seed from an observed outline (n points given)
+        lon = np.asarray(p["seed_lon"], float).copy()
+        lat = np.asarray(p["seed_lat"], float).copy()
 
     mass = m0.copy()           # surface mass per particle (kg)
     evap = np.zeros(n)
@@ -245,6 +249,8 @@ def run(run_dir: Path, p: dict, status) -> dict:
         # Visibility: a particle stands for its share of surface oil; it fades out once that is gone.
         lost = 1 - (mass + strd) / m0
         gone = visible & (state == 0) & (lost > vis_u)
+        if p.get("record_all"):  # backtest: keep drawing weathered particles (transport skill only)
+            gone[:] = False
         for i in np.nonzero(gone)[0]:
             vis_end[i] = "evaporated" if evap[i] >= disp[i] else "dispersed"
         visible &= ~gone

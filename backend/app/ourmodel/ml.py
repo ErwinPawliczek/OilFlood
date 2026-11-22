@@ -43,6 +43,18 @@ def features(uc, vc, uw, vw, vort, div, drogued) -> np.ndarray:
     ])
 
 
+def use_dir(d: str | None) -> None:
+    """Point the model/coverage/card paths at another trained set (backtest: DWH drifters held out);
+    None = the shipped model next to this file."""
+    global MODEL_PATH, CARD_PATH, COVERAGE_PATH
+    base = Path(d) if d else HERE
+    if base / "drift_model.joblib" != MODEL_PATH:
+        MODEL_PATH, CARD_PATH = base / "drift_model.joblib", base / "drift_model.json"
+        COVERAGE_PATH = base / "drift_coverage.npz"
+        load.cache_clear()
+        load_coverage.cache_clear()
+
+
 @lru_cache(maxsize=1)
 def load():
     """(model_u, model_v, card) or None if no trained model is shipped."""

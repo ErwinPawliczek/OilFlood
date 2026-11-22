@@ -301,3 +301,13 @@ export async function getCurrents(startUnix: number, endUnix: number, bbox: BBox
     return src;
   }
 }
+
+// ---------- backtest (P5, docs/BACKTEST.md) ----------
+/** Precomputed scores: OpenOil vs ours (+ML / no ML) vs observed. One entry per scored spill. */
+export async function getBacktest(): Promise<any | null> {
+  try {
+    return await getJSON<any>('/api/backtest');
+  } catch {
+    return null;
+  }
+}
