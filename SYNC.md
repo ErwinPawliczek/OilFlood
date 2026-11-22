@@ -33,12 +33,14 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T20 | Continuous wellhead release for DWH in both models + re-backtest | Erwin | done (agent A14; merged + deployed) |
 | T21 | First-responder map layer: arrival times, boom plan, dispersant/burn zones, staging, action timeline | Erwin | in progress (agent A15, branch a15-layer) |
 | T22 | Response protocols research (docs/PROTOCOLS.md + data/response/protocols.json) | Erwin | done (research agent; merged to main, docs/data only, no redeploy) |
+| T23 | Apply real response protocols (PROTOCOLS.md R1–R10) to outline + map layer | Erwin | queued (agent A16 on branch a15-layer, starts when A15 exits) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-22 Erwin: claimed T23 (A16, runs after A15 on a15-layer).
 - 2026-11-22 research agent (branch research-protocols, T22): **response protocols research.** `docs/PROTOCOLS.md` + `data/response/protocols.json` (49 sourced rules, forecast-to-action pipeline, 7 real incidents incl. DWH and Texas City Y, 16 gaps in `backend/app/response.py`). Key gaps: dispersant zone ignores the 10 m depth rule, hard-coded oil-age windows have no source (use API/pour point, emulsion <= 25 %, thickness), boom limit is on perpendicular current not centroid speed, ESI-only priority (ACP/GRP PPAs missing), single deterministic run (NOAA briefs best guess + minimum regret). A15 should read section 3 (rules R1-R10) and section 5.
 - 2026-11-22 Erwin: claimed T21 (A15 a15-layer, first-responder map layer).
 - 2026-11-22 A12 (branch a12-qa, T18): **post-merge QA + ML off by default + README screenshots.**
