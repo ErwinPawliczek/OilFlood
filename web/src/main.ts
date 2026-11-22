@@ -12,6 +12,7 @@ import {
 import { FlowField } from './flow';
 import { getGlobalCurrents, type GlobalCurrents } from './globalCurrents';
 import { OilView, footprintLayer, footprintAt, budgetAt, PALETTES } from './oil';
+import { SlickView } from './slick';
 import { initPanel, legendHTML, RATES_H, autoRateIdx, rateLabel, responseHTML, backtestHTML } from './panel';
 import { fetchOutline, outlineHTML, type Outline } from './outline';
 import { ResponseMap, nextActionsHTML } from './responseLayer';
@@ -93,7 +94,7 @@ interface Scene {
   /** first model run that arrived (drives the timeline); all runs are in `runs` */
   tracks: Tracks | null;
   oil: OilView | null;
-  runs: Partial<Record<ModelId, { tracks: Tracks; oil: OilView }>>;
+  runs: Partial<Record<ModelId, { tracks: Tracks; oil: OilView; slick: SlickView }>>;
   /** model runs requested for this scene (historical hindcasts) */
   runReq: Set<ModelId>;
   /** per-model progress / status text while a hindcast computes */
@@ -163,7 +164,9 @@ const state = {
   /** summary of the previous ensemble run, to show what changed after the user edits the model */
   prevSummary: null as null | RunDigest,
   /** 3D tilt, which surface (probability / expected mass / none), force arrows */
-  view: { threeD: false, surface: 'p' as SurfaceKind | 'off', forces: true },
+  view: { threeD: false, surface: 'p' as SurfaceKind | 'off', forces: true,
+    /** T27: oil is drawn as a black slick; the model particles are an optional overlay */
+    particles: (() => { try { return localStorage.getItem('oilflood.particles.v1') === '1'; } catch { return false; } })() },
   /** first-responder map layer (T21): on by default after a run; remembered */
   showResponse: (() => { try { return localStorage.getItem('oilflood.resp.v1') !== '0'; } catch { return true; } })(),
 };
@@ -174,7 +177,9 @@ const modelShort = (m: ModelId) => (m === 'ours' ? 'Ours' : 'OpenOil');
 const shownRuns = (s: Scene) => wanted().filter((m) => s.runs[m]).map((m) => ({ m, ...s.runs[m]! }));
 /** Store a finished run in scene s; the first one also drives the timeline. */
 function addRun(s: Scene, m: ModelId, tr: Tracks) {
-  s.runs[m] = { tracks: tr, oil: new OilView(tr, m) };
+  // SlickView first: it fixes our model's 'stranded after weathering away' particles that OilView reads too
+  const slick = new SlickView(tr, m);
+  s.runs[m] = { tracks: tr, oil: new OilView(tr, m), slick };
   if (!s.tracks) { s.tracks = tr; s.oil = s.runs[m]!.oil; }
 }
 const simT = () => scene().t0 + state.tH * 3600;
@@ -265,7 +270,7 @@ ui.innerHTML = `
           <div class="mode seg model-sel" id="modelsel" title="Trajectory model">
             <button data-model="openoil" title="OpenDrift OpenOil: the established baseline">OpenOil</button>
             <button data-model="ours" title="Our model: Lagrangian + Fay spreading + weathering (ML drift correction optional)">Ours</button>
-            <button data-model="compare" title="Both at once: OpenOil amber, ours cyan">Compare</button>
+            <button data-model="compare" title="Both at once: ours = black slick, OpenOil = dashed outline">Compare</button>
           </div>
           <div id="mnote"></div>
           <div id="builder"></div>
@@ -292,6 +297,8 @@ ui.innerHTML = `
           <div class="vrow" id="viewrow">
             <button class="pill" id="b3d" title="Tilt the map into 3D (key: 3)">3D</button>
             <button class="pill" id="bcur" title="Show / hide surface currents">Currents</button>
+            <button class="pill" id="bpart" title="Show the model particles on top of the slick">Particles</button>
+            <button class="pill" id="bresp" title="Response playback on the map: boom pending/deployed, crews en route, tactic zones when the protocol gates pass, shorelines before the oil arrives">Response</button>
             <span id="viewctl"></span>
           </div>
         </div>
@@ -345,6 +352,20 @@ $('play').addEventListener('click', togglePlay);
 $('b3d').addEventListener('click', () => set3D(!state.view.threeD));
 $('bcur').addEventListener('click', () => { state.showCurrents = !state.showCurrents; $('bcur').classList.toggle('on', state.showCurrents); });
 $('bcur').classList.toggle('on', state.showCurrents);
+$('bpart').addEventListener('click', () => {
+  state.view.particles = !state.view.particles;
+  $('bpart').classList.toggle('on', state.view.particles);
+  try { localStorage.setItem('oilflood.particles.v1', state.view.particles ? '1' : '0'); } catch { /* private mode */ }
+});
+$('bpart').classList.toggle('on', state.view.particles);
+$('bresp').addEventListener('click', () => setShowResponse(!state.showResponse));
+$('bresp').classList.toggle('on', state.showResponse);
+function setShowResponse(on: boolean) {
+  state.showResponse = on;
+  $('bresp').classList.toggle('on', on);
+  try { localStorage.setItem('oilflood.resp.v1', on ? '1' : '0'); } catch { /* ignore */ }
+  renderContent();
+}
 $('slower').addEventListener('click', () => { state.rateIdx = Math.max(0, state.rateIdx - 1); renderTime(true); });
 $('faster').addEventListener('click', () => { state.rateIdx = Math.min(RATES_H.length - 1, state.rateIdx + 1); renderTime(true); });
 slider.addEventListener('input', () => { state.tH = (Number(slider.value) / 1000) * scene().durationH; state.playing = false; renderTime(true); });
@@ -364,9 +385,7 @@ pbody.addEventListener('toggle', (e) => {
 pbody.addEventListener('change', (e) => {
   const t = e.target as HTMLInputElement;
   if (t.id !== 'resp-layer-cb') return;
-  state.showResponse = t.checked;
-  try { localStorage.setItem('oilflood.resp.v1', t.checked ? '1' : '0'); } catch { /* ignore */ }
-  renderContent();
+  setShowResponse(t.checked);
 });
 pbody.addEventListener('click', (e) => {
   const sh = (e.target as HTMLElement).closest<HTMLElement>('.ol-shore');
@@ -1357,6 +1376,23 @@ function markerLayer(): Layer[] {
   ];
 }
 
+// Compare mode: small HTML labels on the two slicks
+const slickLabels: Partial<Record<ModelId, maplibregl.Marker>> = {};
+function syncSlickLabels(runs: { m: ModelId; slick: SlickView }[]) {
+  for (const m of MODELS) {
+    const r = runs.find((x) => x.m === m);
+    const c = r?.slick.centroid();
+    let mk = slickLabels[m];
+    if (!c) { if (mk) { mk.remove(); delete slickLabels[m]; } continue; }
+    if (!mk) {
+      const el = document.createElement('div');
+      el.className = `slbl slbl-${m}`;
+      el.textContent = m === 'ours' ? 'Ours (black slick)' : 'OpenOil (outline)';
+      mk = slickLabels[m] = new maplibregl.Marker({ element: el, anchor: m === 'ours' ? 'bottom' : 'top', offset: [0, m === 'ours' ? -10 : 10] }).setLngLat(c).addTo(map);
+    } else mk.setLngLat(c);
+  }
+}
+
 let last = performance.now();
 let lastSlow = 0;
 function frame(now: number) {
@@ -1379,10 +1415,20 @@ function frame(now: number) {
   }
   const ens = ensembleLayers();
   const surf = state.mode === 'prediction' && !!state.ens.prob && state.view.surface !== 'off';
-  for (const r of shownRuns(s)) {
-    r.oil.update(state.tH - (r.tracks.t0 - s.t0) / 3600);
-    layers.push(...(r.oil.layers(s.footprints.length ? 0.45 : surf ? 0.4 : 1) as any[]));
+  const runsOn = shownRuns(s);
+  const cmp = runsOn.length > 1;
+  for (const r of runsOn) {
+    const tR = state.tH - (r.tracks.t0 - s.t0) / 3600;
+    // Compare: ours = black slick, OpenOil = dashed outline only (T27)
+    r.slick.setStyle(cmp && r.m === 'openoil' ? 'outline' : 'fill');
+    r.slick.update(tR);
+    layers.push(...r.slick.layers(s.footprints.length ? 0.8 : surf ? 0.75 : 1));
+    if (state.view.particles) {
+      r.oil.update(tR);
+      layers.push(...(r.oil.layers(s.footprints.length ? 0.6 : surf ? 0.5 : 1) as any[]));
+    }
   }
+  syncSlickLabels(cmp ? runsOn : []);
   layers.push(...ens);
   if (FC && state.ens.forces) FC.setChartTime(pbody, ensTH());
   layers.push(...markerLayer());

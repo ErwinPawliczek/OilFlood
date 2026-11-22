@@ -343,3 +343,7 @@ input.sw:checked + .swi::after { background: var(--accent-ink); }
 #plan .outline { margin-top: 0; }
 #content > :first-child { margin-top: 0; }
 .swi::after { top: 1px; left: 1px; }
+
+/* T27: model labels on the slicks (Compare) */
+.slbl { font: 600 10.5px/1.2 system-ui, sans-serif; color: #eee; background: rgba(8, 10, 14, .82); border: 1px solid #555; padding: 1px 5px; pointer-events: none; white-space: nowrap; }
+.slbl-openoil { border-style: dashed; border-color: #cdcdcd; }
