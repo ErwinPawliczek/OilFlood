@@ -29,7 +29,8 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T16 | First-responder action outline (P6) | Erwin | done (merged + deployed to oilflood.xyz 2026-11-21) |
 | T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | done (merged + deployed to oilflood.xyz 2026-11-21) |
 | T18 | Post-merge QA, ML default off/experimental label, README screenshots | Erwin | in progress (agent A12, branch a12-qa) |
-| T19 | Devpost write-up + demo video script (docs/DEVPOST.md, docs/DEMO.md) | Erwin | done (agent A13, branch a13-devpost; ready to merge, docs only) |
+| T19 | Devpost write-up + demo video script (docs/DEVPOST.md, docs/DEMO.md) | Erwin | done (agent A13; merged) |
+| T20 | Continuous wellhead release for DWH in both models + re-backtest | Erwin | in progress (agent A14, branch a14-release) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
