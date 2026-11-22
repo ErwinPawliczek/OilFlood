@@ -164,20 +164,27 @@ export interface RunSummary {
   forecast?: { currents: ForecastPart; winds: ForecastPart; valid_from: string; valid_until: string };
 }
 
-export async function postSpill(lat: number, lon: number, model: ModelId = 'openoil', ml = false): Promise<SpillJob & RunSummary> {
+/** Custom model (T25 builder, docs/ENSEMBLE.md): only for model=ours. params = non-default values; ensemble 0 = single run. */
+export interface CustomRun { params: Record<string, number | boolean>; ensemble: number; seed: number }
+
+export async function postSpill(lat: number, lon: number, model: ModelId = 'openoil', ml = false, custom: CustomRun | null = null): Promise<SpillJob & RunSummary> {
+  const extra = model === 'ours' && custom
+    ? { params: { ml, ...custom.params }, ...(custom.ensemble > 0 ? { ensemble: custom.ensemble, seed: custom.seed } : {}) }
+    : {};
   const r = await getJSON<any>('/api/spill', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ lat, lon, duration_h: PRED.durationH, volume_bbl: PRED.volumeBbl, oil_type: PRED.oilId, n_particles: PRED.nParticles, model, ...(model === 'ours' ? { ml } : {}) }),
+    body: JSON.stringify({ lat, lon, duration_h: PRED.durationH, volume_bbl: PRED.volumeBbl, oil_type: PRED.oilId, n_particles: PRED.nParticles, model, ...(model === 'ours' ? { ml } : {}), ...extra }),
   });
   return { ...r, id: String(r.id), lat, lon };
 }
 
-export async function pollSpill(job: SpillJob): Promise<{ status: string; progress: number; error?: string }> {
+export interface EnsembleStatus { members: number; seed: number; member_particles?: number; done: number; failed: number }
+export async function pollSpill(job: SpillJob): Promise<{ status: string; progress: number; error?: string; ensemble?: EnsembleStatus | null }> {
   const r = await getJSON<any>(`/api/spill/${encodeURIComponent(job.id)}`);
   let progress = Number(r.progress ?? 0);
   if (progress > 1) progress /= 100;
-  return { status: r.status, progress, error: r.error };
+  return { status: r.status, progress, error: r.error, ensemble: r.ensemble ?? null };
 }
 
 export async function getSpillTracks(job: SpillJob): Promise<Tracks> {
