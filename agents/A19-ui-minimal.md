@@ -7,3 +7,5 @@ Do:
 3. Clearer to use: a top-to-bottom flow with numbered steps 1 Place spill → 2 Model → 3 Run → 4 Results → 5 Action plan; tabs or collapsible sections with plain labels; primary action button obvious; advanced params hidden behind "Advanced"; fewer words, short hints. Don't remove features.
 4. Verify in headless Chrome (swiftshader) on 5310: Padre Island (27.0N 97.1W) ensemble run and a DWH historical; no rounded corners anywhere, nothing off-screen at 1280x800 and 1920x1080. Screenshots to docs/img/ui_minimal*.png; update README screenshots if they show the old UI.
 Update SYNC.md (T26 done, Done log, Blockers), commit, push. End with a short summary.
+
+Cleanup: when you finish, kill every server/process you started (uvicorn on 5250 AND its multiprocessing workers, vite on 5310, headless Chrome). Leave nothing running.
