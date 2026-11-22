@@ -31,12 +31,14 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T18 | Post-merge QA, ML default off/experimental label, README screenshots | Erwin | done (agent A12; merged + deployed) |
 | T19 | Devpost write-up + demo video script (docs/DEVPOST.md, docs/DEMO.md) | Erwin | done (agent A13; merged) |
 | T20 | Continuous wellhead release for DWH in both models + re-backtest | Erwin | done (agent A14; merged + deployed) |
+| T21 | First-responder map layer: arrival times, boom plan, dispersant/burn zones, staging, action timeline | Erwin | in progress (agent A15, branch a15-layer) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-22 Erwin: claimed T21 (A15 a15-layer, first-responder map layer).
 - 2026-11-22 A12 (branch a12-qa, T18): **post-merge QA + ML off by default + README screenshots.**
   - QA of merged main (A9+A10+A11) on :5212 (backend serving a fresh `web/dist`) in headless Chromium at 1280x800: historical DWH (94 outlines, hindcast, response outline, response log, backtest), Texas City Y (Compare, outline marker), Main Pass (ours), Mega Borg (record + log only); live prediction off Galveston (OpenOil, Compare, ML toggle on/off), Padre Island prediction with 5 priority-shoreline markers; playback (play/pause, space, slider, −/+ rate). No duplicate or missing panel sections, no duplicate DOM ids, a9/a10 merge in main.ts/style.css is consistent. `smoke_test.py --base http://127.0.0.1:5212` passes.
   - Fixed: response-outline shoreline markers were anchored at the middle of circle + label, so the numbered circle sat ~100 px west of the real shoreline (inland); now anchored on the circle. Fixed: selecting a pre-2001 spill (Mega Borg, Burmah Agate, Ixtoc) requested a hindcast that must 400 (console error + red error line); now no request, and a grey note says why there is no hindcast.
