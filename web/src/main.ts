@@ -1194,6 +1194,7 @@ async function loadEnsemble(id: string, token: number, hasEns: boolean) {
       E.dig = digest(); // labelled with the config this run was made with
       // T28: 3D stays off until the user asks for it (the black slick is the default view)
       if (state.view.threeD) set3D(true, false); // re-frame on the new footprint
+      else frameFlat();
       requestAnimationFrame(() => pbody.querySelector('.ens')?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
     }).catch((e) => { if (!stale()) E.err = `Probabilities: ${(e as Error).message}`; })
     : Promise.resolve();
@@ -1291,6 +1292,16 @@ function slickCenter(): [number, number] | null {
   if (state.mode === 'historical') return state.selected ? [state.selected.lon, state.selected.lat] : null;
   const j = state.job;
   return j ? [j.lon, j.lat] : null;
+}
+/** Flat (2D) camera fit on the probability footprint, so the black slick fills the view after a run. */
+function frameFlat() {
+  const P = state.ens.prob;
+  if (!P) return;
+  const [w, s, e, n] = P.bounds();
+  const pad = 0.05;
+  const cam = map.cameraForBounds([[w - pad, s - pad], [e + pad, n + pad]], { padding: { top: 80, bottom: 80, left: 60, right: 60 + panelWidth() } });
+  if (cam?.zoom == null) return;
+  map.easeTo({ center: [(w + e) / 2, (s + n) / 2], zoom: Math.min(8.5, cam.zoom - 0.3), pitch: 0, bearing: 0, offset: panelOffset(), duration: 2000, essential: true });
 }
 function set3D(on: boolean, _byUser = true) {
   state.view.threeD = on;
