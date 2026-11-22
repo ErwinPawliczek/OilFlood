@@ -78,7 +78,7 @@ def _run_ours(run_dir: Path, p: dict) -> None:
     out = sim.run(run_dir, {**p, "_oil_resolved": oil}, lambda **kw: _status(run_dir, **kw))
     extra = out.pop("model_extra")
     out["meta"] = {
-        "model": sim.MODEL_ID, "model_label": sim.MODEL_LABEL, "model_version": sim.VERSION,
+        "model": sim.MODEL_ID, "model_label": sim.MODEL_LABEL_ML if extra.get("ml_correction") else sim.MODEL_LABEL, "model_version": sim.VERSION,
         "lat": p["lat"], "lon": p["lon"], "start_time": p["start_time"],
         "duration_h": p["duration_h"], "volume_m3": p["volume_m3"],
         "oil_type": oil, "n_particles": int(p["n_particles"]), "volume_bbl": p.get("volume_bbl"),

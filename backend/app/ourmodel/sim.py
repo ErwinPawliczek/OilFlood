@@ -25,7 +25,8 @@ from . import ml
 from .grid import Grid
 
 MODEL_ID = "ours"
-MODEL_LABEL = "OilFlood model (Lagrangian + Fay + Fingas/Mackay + ML drift correction)"
+MODEL_LABEL = "OilFlood model (Lagrangian + Fay + Fingas/Mackay)"
+MODEL_LABEL_ML = MODEL_LABEL[:-1] + " + experimental ML drift correction)"
 VERSION = "ours-v4"
 
 G = 9.81
@@ -113,7 +114,7 @@ def run(run_dir: Path, p: dict, status) -> dict:
     oil_name = p["_oil_resolved"]
     op = oil_props(oil_name)
     ml.use_dir(p.get("ml_dir"))  # backtest only (held-out ML variant); default = shipped model
-    use_ml = bool(p.get("ml", True)) and ml.load() is not None
+    use_ml = bool(p.get("ml", False)) and ml.load() is not None
     windage = WINDAGE
 
     n = int(p["n_particles"])
