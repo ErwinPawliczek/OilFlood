@@ -143,3 +143,27 @@ body.lowzoom .pin:not(.on):not(:hover) span { opacity: 0; pointer-events: none; 
 .model-sel button[data-model="compare"].on { background: linear-gradient(90deg, rgba(255, 181, 71, 0.28), rgba(90, 225, 255, 0.28)); color: #fff; }
 .budget .bhead { font-size: 11px; font-weight: 600; }
 .mnote { margin-top: 6px; line-height: 1.4; }
+
+/* response outline (T16) */
+.outline { margin-top: 10px; }
+.outline .disc { margin: 5px 0; padding: 4px 6px; border-left: 2px solid #ffb547; color: #ffd59a; font-size: 10.5px; line-height: 1.35; background: rgba(255, 181, 71, 0.06); }
+.outline .brief { margin: 6px 0; padding: 6px 8px; border-radius: 6px; background: rgba(143, 184, 255, 0.08); line-height: 1.4; color: #dbe4f2; }
+.outline .label small, .ol-h small { opacity: 0.7; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.ol-h { margin: 8px 0 3px; }
+.ol-list { display: flex; flex-direction: column; gap: 2px; }
+.ol-shore { all: unset; cursor: pointer; display: grid; grid-template-columns: 14px 1fr auto; gap: 6px; align-items: baseline; padding: 2px 4px; border-radius: 4px; line-height: 1.3; }
+.ol-shore:hover { background: rgba(255, 255, 255, 0.06); }
+.ol-shore small { color: var(--muted); }
+.ol-shore em { font-style: normal; color: #d0d6e0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ol-item { margin: 2px 0; line-height: 1.35; }
+.ol-item a { color: #8fb8ff; font-size: 10px; }
+.ok-t { color: #7fe0a0; }
+.warn-t { color: #ffd59a; }
+.ol-sub { margin-top: 6px; }
+.ol-sub summary { color: var(--muted); cursor: pointer; }
+.ol-sub summary small { opacity: 0.75; margin-left: 4px; }
+.ol-lim { margin: 4px 0; padding-left: 16px; color: var(--muted); }
+.olpin { display: flex; align-items: center; gap: 5px; pointer-events: auto; }
+.olpin b { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; color: #111; background: var(--c); border: 2px solid rgba(255, 255, 255, 0.9); box-shadow: 0 0 10px var(--c); }
+.olpin span { color: #e8eef7; font-size: 11px; white-space: nowrap; text-shadow: 0 1px 3px #000, 0 0 6px #000; }
+body.lowzoom .olpin span { display: none; }

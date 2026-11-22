@@ -13,6 +13,7 @@ import { FlowField } from './flow';
 import { getGlobalCurrents, type GlobalCurrents } from './globalCurrents';
 import { OilView, footprintLayer, footprintAt, budgetAt, PALETTES } from './oil';
 import { initPanel, legendHTML, RATES_H, autoRateIdx, rateLabel, responseHTML } from './panel';
+import { fetchOutline, outlineHTML, type Outline } from './outline';
 import { ON_SURFACE, type CatalogSpill, type Tracks, type Footprint } from './types';
 
 // ---------------------------------------------------------------- starfield
@@ -129,6 +130,8 @@ const state = {
   liveError: null as string | null,
   oils: [] as OilOption[],
   jobToken: 0,
+  /** first-responder response outline for the run on screen (GET .../response) */
+  outline: { key: '', url: '', data: null as Outline | null, loading: null as string | null, error: null as string | null },
   tH: 0,
   playing: false,
   rateIdx: autoRateIdx(72),
@@ -267,12 +270,17 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space' && !(e.target instanceof HTMLElement && e.target.closest('input[type=text], input[type=number], select'))) { e.preventDefault(); togglePlay(); }
 });
 // Response timeline (historical): open state survives re-renders; a date click moves the clock there.
-const respOpen = { resp: true, evo: false };
+const respOpen = { resp: true, evo: false, outline: true };
 content.addEventListener('toggle', (e) => {
   const d = e.target as HTMLDetailsElement;
-  if (d.dataset?.k === 'resp' || d.dataset?.k === 'evo') respOpen[d.dataset.k as 'resp' | 'evo'] = d.open;
+  if (d.dataset?.k === 'resp' || d.dataset?.k === 'evo' || d.dataset?.k === 'outline') respOpen[d.dataset.k as 'resp' | 'evo' | 'outline'] = d.open;
 }, true);
 content.addEventListener('click', (e) => {
+  const sh = (e.target as HTMLElement).closest<HTMLElement>('.ol-shore');
+  if (sh) {
+    map.flyTo({ center: [Number(sh.dataset.lon), Number(sh.dataset.lat)], zoom: Math.max(map.getZoom(), 8.5), duration: 1500, essential: true });
+    return;
+  }
   const d = (e.target as HTMLElement).closest<HTMLElement>('.resp .ev .d');
   if (d) {
     const t = Number(d.closest<HTMLElement>('.ev')!.dataset.t);
@@ -420,7 +428,51 @@ function errorsHTML(errs: string[]) {
   return errs.map((e) => `<div class="err">${esc(e)}</div>`).join('');
 }
 
+/** Which run's response outline belongs on screen; (re)fetch it when that changes. */
+function ensureOutline() {
+  let key = '', url = '';
+  if (state.mode === 'prediction' && state.job) {
+    const m = wanted().find((x) => state.jobRuns[x]?.status === 'done' && state.jobRuns[x]?.id);
+    if (m) { key = `p:${state.jobRuns[m]!.id}`; url = `/api/spill/${state.jobRuns[m]!.id}/response`; }
+  } else if (state.mode === 'historical' && state.selected && (state.selected as any).forcing) {
+    const r = shownRuns(state.hist)[0];
+    if (r) { key = `h:${state.selected.id}:${r.m}`; url = `/api/spills/${encodeURIComponent(state.selected.id)}/response?model=${r.m}`; }
+  }
+  const o = state.outline;
+  if (key === o.key) return;
+  Object.assign(o, { key, url, data: null, error: null, loading: key ? 'Building the response outline (ESI shorelines, windows, precedents)…' : null });
+  syncOutlineMarkers();
+  if (!key) return;
+  fetchOutline(url, () => state.outline.key !== key)
+    .then((d) => { if (d && state.outline.key === key) { o.data = d; o.loading = null; renderContent(); } })
+    .catch((e) => { if (state.outline.key === key) { o.error = String((e as Error).message ?? e); o.loading = null; renderContent(); } });
+}
+
+// Priority shorelines from the outline as numbered HTML markers on the globe.
+let outlineMarkers: maplibregl.Marker[] = [];
+let outlineMarkersKey = '';
+function syncOutlineMarkers() {
+  const o = state.outline;
+  const k = o.data ? o.key : '';
+  if (k === outlineMarkersKey) return;
+  outlineMarkersKey = k;
+  outlineMarkers.forEach((m) => m.remove());
+  outlineMarkers = [];
+  if (!o.data) return;
+  const col = ['', '#ff6b6b', '#ffb547', '#8fb8ff'];
+  for (const sh of o.data.priority_shorelines.slice(0, 6)) {
+    const el = document.createElement('div');
+    el.className = 'olpin';
+    el.style.setProperty('--c', col[sh.sensitivity_tier] ?? '#fff');
+    el.innerHTML = `<b>${sh.priority}</b><span>${esc(sh.name ?? '')} · ${sh.impact === 'landfall' ? `oil in ~${Math.round(sh.eta_h)} h` : `oil near in ~${Math.round(sh.eta_h)} h`} · ESI ${esc(sh.esi_most_sensitive)}</span>`;
+    el.title = `${sh.esi_most_sensitive_label}. ${sh.shoreline_tactic}`;
+    outlineMarkers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([sh.lon, sh.lat]).addTo(map));
+  }
+}
+
 function renderContent() {
+  ensureOutline();
+  syncOutlineMarkers();
   const s = scene();
   let html = '';
   if (state.mode === 'historical') {
@@ -442,6 +494,7 @@ function renderContent() {
         ${sel.oil_type ? `<span>Oil</span><span>${esc(sel.oil_type)}${s.tracks?.meta?.oil_type && s.tracks.meta.oil_type !== sel.oil_type ? ` <small class="hint">(model: ${esc(s.tracks.meta.oil_type)})</small>` : ''}</span>` : ''}
         <span>Position</span><span>${sel.lat.toFixed(3)}°, ${sel.lon.toFixed(3)}°</span>
       </div>${modelNoteHTML(s)}${errorsHTML(s.errors)}`;
+      if (state.outline.key) html += outlineHTML(state.outline.data, state.outline, respOpen.outline);
       html += responseHTML(sel, respOpen);
       if (sel.source_urls?.length) html += `<details class="links"><summary>Sources</summary>${sel.source_urls.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(u.replace(/^https?:\/\//, ''))}</a>`).join('<br>')}</details>`;
       html += `</div>`;
@@ -477,6 +530,7 @@ function renderContent() {
         if (m.seed_moved_km > 0) html += `<div class="hint" style="margin-top:4px">Seeded ${m.seed_moved_km} km away, at the nearest model water cell.</div>`;
       }
       html += modelNoteHTML(s);
+      if (state.outline.key) html += outlineHTML(state.outline.data, state.outline, respOpen.outline);
       html += `<div class="hint" style="margin-top:8px">Click elsewhere on the ocean for a new spill.</div></div>`;
     }
     html += errorsHTML(s.errors);
