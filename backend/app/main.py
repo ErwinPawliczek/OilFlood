@@ -93,6 +93,27 @@ def get_live():
     return out
 
 
+@app.get("/api/backtest")
+def get_backtest(spill: str | None = Query(None, description="catalog id, e.g. dwh; omit for all cases"),
+                 detail: bool = Query(False, description="include per-start rows (DWH)")):
+    """P5 backtest scores (docs/BACKTEST.md): OpenOil vs ours +ML vs ours no-ML vs observed.
+    Precomputed by `python -m app.backtest` into data/backtest/results.json."""
+    p = config.REPO_ROOT / "data" / "backtest" / "results.json"
+    if not p.exists():
+        raise HTTPException(404, "No backtest results; run `python -m app.backtest` in backend/.")
+    res = json.loads(p.read_text())
+    cases = res.get("cases", [])
+    if not detail:
+        cases = [{k: v for k, v in c.items() if k != "per_start"} for c in cases]
+    if spill is not None:
+        cases = [c for c in cases if c["id"] == spill]
+        if not cases:
+            return {**{k: v for k, v in res.items() if k != "cases"}, "cases": [],
+                    "note": f"No backtest for {spill!r}: only spills with observed positions and cached forcing "
+                            "are scored (dwh, texas_city_y, main_pass_2023)."}
+    return {**{k: v for k, v in res.items() if k != "cases"}, "cases": cases}
+
+
 @app.get("/api/models")
 def get_models():
     """The two trajectory models POST /api/spill (and hindcasts) can run, with our ML model card's
