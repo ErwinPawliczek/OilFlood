@@ -1,0 +1,1464 @@
+{
+ "meta": {
+  "title": "OilFlood response protocols: from forecast to action",
+  "task": "T22",
+  "generated": "2026-11-22",
+  "disclaimer": "Planning/education aid compiled from public documents. Not operational guidance. The FOSC / Unified Command, the Area Contingency Plan and the RRT decide every response action.",
+  "status_legend": {
+   "primary": "number read in the source document text",
+   "primary-planning-convention": "regulatory planning convention, not a forecast",
+   "unverified": "could not open the source; do not use the number"
+  },
+  "note": "Every figure here was read in a document opened this session; S26 is the one exception and is flagged."
+ },
+ "sources": {
+  "S1": {
+   "title": "RRT-6 FOSC Dispersant Pre-Approval Guidelines and Checklist (v4.0, 24 Jan 2001)",
+   "publisher": "Region 6 RRT via Texas GLO",
+   "url": "https://www.glo.texas.gov/sites/default/files/2025-07/rrt6.pdf",
+   "opened": "full text (pdftotext)"
+  },
+  "S2": {
+   "title": "RRT VI In-Situ Burn Plan, Part I Operations Section (14 Mar 1994, MSRC)",
+   "publisher": "Region 6 RRT via Texas GLO",
+   "url": "https://www.glo.texas.gov/sites/default/files/resources/glo/ost/spill-response-resources/rrtvi/isb_plan_part1_operations.pdf",
+   "opened": "full text"
+  },
+  "S3": {
+   "title": "RRT-6 In-Situ Burn Policy for the Offshore Environment (Annex 13, incl. Appendix G Deepwater Horizon lessons learned)",
+   "publisher": "Region 6 RRT via Texas GLO",
+   "url": "https://www.glo.texas.gov/sites/default/files/resources/glo/ost/spill-response-resources/rrtvi/RRT6_ISB_Policy_Offshore_Appendix13.pdf",
+   "opened": "full text"
+  },
+  "S4": {
+   "title": "RRT-6 In-Situ Burn Policy, coastal zone (Annex 13A)",
+   "publisher": "Region 6 RRT via Texas GLO",
+   "url": "https://www.glo.texas.gov/sites/default/files/resources/glo/ost/spill-response-resources/rrtvi/RRT6_ISB_Policy_Appendix13A.pdf",
+   "opened": "full text"
+  },
+  "S5": {
+   "title": "Region 6 Regional Contingency Plan, Volume 1 (final 18 Dec 2019)",
+   "publisher": "Region 6 RRT via Texas GLO",
+   "url": "https://www.glo.texas.gov/sites/default/files/2025-07/region-6-regional-contingency-plan-final-december-18-2019_0.pdf",
+   "opened": "full text"
+  },
+  "S6": {
+   "title": "NOAA/API/USCG/EPA 'Characteristics of Response Strategies: A Guide for Spill Response Planning in Marine Environments' (2010)",
+   "publisher": "NOAA OR&R",
+   "url": "https://response.restoration.noaa.gov/sites/default/files/Characteristics_Response_Strategies.pdf",
+   "opened": "full text"
+  },
+  "S7": {
+   "title": "GNOME Technical Documentation",
+   "publisher": "NOAA OR&R",
+   "url": "https://response.restoration.noaa.gov/sites/default/files/GNOME_Tech_Doc.pdf",
+   "opened": "full text"
+  },
+  "S8": {
+   "title": "FAQs about GNOME (diagnostic mode)",
+   "publisher": "NOAA OR&R",
+   "url": "https://response.restoration.noaa.gov/oil-and-chemical-spills/oil-spills/response-tools/questions-about-gnomes-diagnostic-mode.html",
+   "opened": "search extract"
+  },
+  "S9": {
+   "title": "An FOSC's Guide to NOAA Scientific Support (2015)",
+   "publisher": "NOAA OR&R",
+   "url": "https://response.restoration.noaa.gov/sites/default/files/FOSC_Booklet_2015.pdf",
+   "opened": "full text"
+  },
+  "S10": {
+   "title": "Environmental Sensitivity Index Guidelines, v3.0",
+   "publisher": "NOAA OR&R",
+   "url": "https://response.restoration.noaa.gov/sites/default/files/ESI_Guidelines.pdf",
+   "opened": "full text"
+  },
+  "S11": {
+   "title": "Trajectory Analysis Planner (TAP)",
+   "publisher": "NOAA OR&R",
+   "url": "https://response.restoration.noaa.gov/oil-and-chemical-spills/oil-spills/response-tools/trajectory-analysis-planner.html",
+   "opened": "search extract"
+  },
+  "S12": {
+   "title": "On Scene Coordinator Report: Deepwater Horizon Oil Spill (Sept 2011)",
+   "publisher": "USCG / National Incident Command (hosted by NOAA library)",
+   "url": "https://library.oarcloud.noaa.gov/noaa_documents.lib/NOAA_related_docs/oil_spills/on-scene_DWH_Report_Sep2011.pdf",
+   "opened": "full text"
+  },
+  "S13": {
+   "title": "Collision Between Bulk Carrier Summer Wind and Miss Susan Tow, Houston Ship Channel, 22 Mar 2014 (MAR-15/01)",
+   "publisher": "NTSB",
+   "url": "https://www.ntsb.gov/investigations/AccidentReports/Reports/MAR1501.pdf",
+   "opened": "full text"
+  },
+  "S14": {
+   "title": "Kirby Barge Oil Spill, Houston/Texas City Ship Channel, Port Bolivar, Texas",
+   "publisher": "NOAA OR&R Incident News",
+   "url": "https://response.restoration.noaa.gov/oil-and-chemical-spills/oil-spills/kirby-barge-oil-spill-houstontexas-city-ship-channel-port-bolivar",
+   "opened": "full page"
+  },
+  "S15": {
+   "title": "33 CFR Part 154 Appendix C - Guidelines for Determining and Evaluating Required Response Resources for Facility Response Plans",
+   "publisher": "eCFR",
+   "url": "https://www.ecfr.gov/current/title-33/chapter-I/subchapter-O/part-154/appendix-Appendix%20C%20to%20Part%20154",
+   "opened": "full text"
+  },
+  "S16": {
+   "title": "33 CFR 154.1045 - Response plan development and evaluation criteria (Group I-IV oils)",
+   "publisher": "eCFR",
+   "url": "https://www.ecfr.gov/current/title-33/chapter-I/subchapter-O/part-154/subpart-F/section-154.1045",
+   "opened": "full text"
+  },
+  "S17": {
+   "title": "Ecological Risk Assessment Principles Applied to Oil Spill Response Planning in the Galveston Bay Area (summarises the Galveston Bay ACP)",
+   "publisher": "Texas GLO",
+   "url": "https://www.glo.texas.gov/sites/default/files/documents/ost/acp/houston/galveston_bay_era.pdf",
+   "opened": "search extract"
+  },
+  "S18": {
+   "title": "Texas ESI Atlas, Galveston Bay map 69 (Priority Protection Areas table)",
+   "publisher": "Texas GLO",
+   "url": "https://www.glo.texas.gov/sites/default/files/documents/ost/responsemaps/texas/texasesi/galveston/ESIAtlas_69.pdf",
+   "opened": "search extract"
+  },
+  "S19": {
+   "title": "Central Texas Coastal Area Contingency Plan (Sector Houston/Galveston ACP) - sections 1430 GRS/GRP validation, 4400 Priority Protection Areas",
+   "publisher": "Texas GLO",
+   "url": "https://www.glo.texas.gov/sites/default/files/documents/ost/acp/houston/sectorhoustongalveston_acp.pdf",
+   "opened": "search extract"
+  },
+  "S20": {
+   "title": "SMART - Special Monitoring of Applied Response Technologies",
+   "publisher": "NOAA OR&R",
+   "url": "https://response.restoration.noaa.gov/oil-and-chemical-spills/oil-spills/resources/smart.html",
+   "opened": "full page"
+  },
+  "S21": {
+   "title": "Gulf oil spill: US scientists ... report 75% of slick has gone (quotes the NOAA/Interagency Oil Budget, 4 Aug 2010)",
+   "publisher": "The Guardian (secondary; the NOAA PDF itself could not be fetched)",
+   "url": "https://www.theguardian.com/environment/2010/aug/04/gulf-oil-spills-scientists-report",
+   "opened": "full page"
+  },
+  "S22": {
+   "title": "Texas v. Kirby Inland Marine complaint (S.D. Tex. 3:21-cv-00335), Texas City Y spill",
+   "publisher": "Texas Attorney General",
+   "url": "https://www.texasattorneygeneral.gov/sites/default/files/images/child-support/Complaint%20Kirby%20Oil%20Spill.pdf",
+   "opened": "search extract"
+  },
+  "S23": {
+   "title": "NOAA IncidentNews posts compiled in data/spills/catalog.json (T13)",
+   "publisher": "NOAA OR&R IncidentNews",
+   "url": "https://incidentnews.noaa.gov/",
+   "opened": "via repo catalog (verbatim quotes with per-post URLs)"
+  },
+  "S24": {
+   "title": "RRT-6 Expedited approval, near-shore dispersant (EAP)",
+   "publisher": "Region 6 RRT via Texas GLO",
+   "url": "https://www.glo.texas.gov/sites/default/files/resources/glo/ost/spill-response-resources/rrtvi/rrt6_nearshore_dispersant_eap_signed.pdf",
+   "opened": "full text, only the near-shore definition used"
+  },
+  "S25": {
+   "title": "OilFlood backtest (docs/BACKTEST.md, data/backtest/results.json)",
+   "publisher": "this repo",
+   "url": "docs/BACKTEST.md",
+   "opened": "repo"
+  },
+  "S26": {
+   "title": "FEMA NIMS / Incident Action Planning Guide (operational period 12-24 h)",
+   "publisher": "FEMA",
+   "url": "https://www.fema.gov/sites/default/files/2020-07/Incident_Action_Planning_Guide_Revision1_august2015.pdf",
+   "opened": "NOT opened (fema.gov blocked the fetch); figure comes from a web-search summary, treat as unverified"
+  },
+  "S27": {
+   "title": "Progress in Operational Modeling in Support of Oil Spill Response (J. Mar. Sci. Eng. 8(9):668)",
+   "publisher": "MDPI, NOAA OR&R authors",
+   "url": "https://www.mdpi.com/2077-1312/8/9/668",
+   "opened": "search extract (SSC presents a full trajectory analysis with inputs/uncertainty and a narrative; ASTM standard = forward trajectory + uncertainty)"
+  }
+ },
+ "rules": [
+  {
+   "id": "AUTH-1",
+   "topic": "authority",
+   "statement": "Dispersant pre-approval authority sits only with the pre-designated Federal On-Scene Coordinator (FOSC); the RRT is notified as soon as practicable after approval, post-application results go to the RRT within 24 h, no RRT approval needed for further sorties if results are positive.",
+   "value": {
+    "rrt_report_h": 24
+   },
+   "sources": [
+    "S1"
+   ],
+   "locator": "Pre-Approval Overview, p.1; checklist items 13-14",
+   "status": "primary",
+   "quote": "RRT 6 dispersant pre approval authority is given only to the Federal On-Scene Coordinator (FOSC)"
+  },
+  {
+   "id": "AUTH-2",
+   "topic": "authority",
+   "statement": "Burning-agent / ISB use: authority to use burning agents resides solely with the FOSC, but RRT-6 (at minimum the EPA representative, plus state/DOI/DOC reps as appropriate) must be consulted first, with the completed ISB checklist, smoke-plume models, oil-fate trajectories and weather forecasts.",
+   "value": {},
+   "sources": [
+    "S3",
+    "S4"
+   ],
+   "locator": "Offshore policy 'Preauthorized Burning Agent Use and RRT-6 Consultation'",
+   "status": "primary"
+  },
+  {
+   "id": "AUTH-3",
+   "topic": "authority",
+   "statement": "NOAA's Scientific Support Coordinator (SSC) is the chief scientific advisor to the Coast Guard FOSC and provides trajectory modeling (movement and dispersion), ESI/sensitivity information and weather/tide/current data.",
+   "value": {},
+   "sources": [
+    "S5"
+   ],
+   "locator": "RCP Vol.1, Federal agency roles, DOC (e)(i)",
+   "status": "primary",
+   "quote": "The SSC is the chief scientific advisor for the Coast Guard FOSC."
+  },
+  {
+   "id": "AUTH-4",
+   "topic": "authority",
+   "statement": "Region 6 coastal COTP/FOSC zones: Sector Corpus Christi, Sector Houston-Galveston, MSU Port Arthur, MSU Houma, Sector New Orleans (USCG 8th District provides the standing-RRT co-chair and pre-designated coastal FOSCs).",
+   "value": {},
+   "sources": [
+    "S5"
+   ],
+   "locator": "RCP Vol.1, USCG 8th District",
+   "status": "primary"
+  },
+  {
+   "id": "FCST-1",
+   "topic": "forecast_products",
+   "statement": "NOAA gives the FOSC, via the SSC, a first-hour package: initial trajectory report, oil-fate information, weather forecast (then 1-2x/day), tides/currents (then daily), incident in ERMA, initial resource-protection priority recommendations; next 2-4 h: trajectory forecast map, resources-at-risk analysis, Hotline posting; from day 2 trajectory/weather/fate forecasts are recalibrated daily from overflights and field observations.",
+   "value": {
+    "first_products_h": 1,
+    "map_products_h": "2-4",
+    "recalibrate": "daily"
+   },
+   "sources": [
+    "S9"
+   ],
+   "locator": "Ch.2 'Initial Response Products and Actions - The first hour' / 'Next Products' / 'Days Two through the End of Response'",
+   "status": "primary"
+  },
+  {
+   "id": "FCST-2",
+   "topic": "forecast_products",
+   "statement": "GNOME gives two solutions: a 'best estimate' (all inputs assumed right) and a 'minimum regret' uncertainty solution showing areas that could be hit if wind/current differ (plus possible higher-consequence outcomes). ASTM-standard trajectory results = forward trajectory + uncertainty estimate.",
+   "value": {},
+   "sources": [
+    "S7"
+   ],
+   "locator": "GNOME Tech Doc sec.11 'Trajectories'; sec.15 Uncertainty",
+   "status": "primary",
+   "quote": "The 'best estimate' solution shows the model result with all of the input data assumed to be correct."
+  },
+  {
+   "id": "FCST-3",
+   "topic": "forecast_products",
+   "statement": "NOAA's own stated skill: a 48-h trajectory can be expected within 1-2 miles IF winds/currents/windage are right; forecast winds and currents are usually not accurate enough for < 1 mile after 48 h; model is rerun at least once a day during a spill and tuned by hindcast to overflight observations.",
+   "value": {
+    "claimed_48h_error_miles": "1-2 (best case)",
+    "rerun": ">= daily"
+   },
+   "sources": [
+    "S8"
+   ],
+   "locator": "GNOME FAQ (diagnostic mode)",
+   "status": "primary"
+  },
+  {
+   "id": "FCST-4",
+   "topic": "forecast_products",
+   "statement": "GNOME uncertainty defaults: current and wind uncertainty parameters are set per mover (along-/cross-current %, wind speed scale (log-normal) and angle scale (Gaussian, max 60 deg)); uncertainty value is held for 3 h for wind and 48 h for currents before being redrawn. Default windage range 1-4 % of wind speed (uniform; ~3 % typical), adjusted from overflight reports.",
+   "value": {
+    "wind_resample_h": 3,
+    "current_resample_h": 48,
+    "windage_pct": [
+     1,
+     4
+    ],
+    "max_wind_angle_scale_deg": 60
+   },
+   "sources": [
+    "S7"
+   ],
+   "locator": "GNOME Tech Doc sec.12 Windage; sec.15.1.1 and 15.2 (uncertainty parameters)",
+   "status": "primary"
+  },
+  {
+   "id": "FCST-5",
+   "topic": "forecast_products",
+   "statement": "TAP (Trajectory Analysis Planner) = statistics over thousands of GNOME runs for planning (shoreline impact probability, response time analysis, site oiling, threat zones); NOAA says TAP is NOT for a real spill because the day's conditions may not be represented.",
+   "value": {},
+   "sources": [
+    "S11",
+    "S8"
+   ],
+   "locator": "TAP page; GNOME FAQ",
+   "status": "primary"
+  },
+  {
+   "id": "FCST-6",
+   "topic": "forecast_products",
+   "statement": "Deepwater Horizon practice: first NOAA trajectory to the FOSC on the morning of 21 Apr 2010 (the explosion was reported ~22:00 CDT on 20 Apr); it modelled the ~700,000 gal of diesel aboard the burning rig as a continuous release from 10:00 CDT 20 Apr; from the afternoon of 23 Apr, when an overflight confirmed surfacing oil near the well, every forecast assumed a continuous release from the well; surface-oil forecasts for 24, 48 and 72 h for near-shore (and later offshore) areas, twice a day 23 Apr-19 May, once daily after; a daily Shoreline Oiling Outlook from 27 Apr; >400 trajectory products in total; forecasts shown as areas of probability, not actual oil extent.",
+   "value": {
+    "horizons_h": [
+     24,
+     48,
+     72
+    ],
+    "surface_forecast_per_day_early": 2,
+    "products_total": ">400"
+   },
+   "sources": [
+    "S12"
+   ],
+   "locator": "OSC report ch.3 'Oil Spill Trajectory in Detail', Table 3.1; 'Oil Trajectory Challenges'",
+   "status": "primary"
+  },
+  {
+   "id": "ICS-1",
+   "topic": "ics_cycle",
+   "statement": "ICS forms that carry the forecast into action: ICS 201 Incident Briefing; ICS 202 Incident Objectives (includes weather, tide and current information and safety for the NEXT operational period); ICS 204/204a Assignment Lists (division/group assignments, once agreed by Unified Command); ICS 232 Resources at Risk Summary (links incident priorities to ACP/GRP site numbers on the situation map); ICS 232a ACP Site Index; ICS 214 unit log.",
+   "value": {},
+   "sources": [
+    "S9"
+   ],
+   "locator": "Ch.8 ICS forms table (Coast Guard CG-versions)",
+   "status": "primary"
+  },
+  {
+   "id": "ICS-2",
+   "topic": "ics_cycle",
+   "statement": "Operational period length is typically 12-24 h (planning cycle: objectives -> tactics -> assignments -> briefing -> execute -> evaluate). Source for the number could not be opened (fema.gov blocked); do not rely on the exact figure.",
+   "value": {
+    "operational_period_h": "12-24"
+   },
+   "sources": [
+    "S26"
+   ],
+   "locator": "web-search summary only",
+   "status": "unverified"
+  },
+  {
+   "id": "WIN-1",
+   "topic": "windows_of_opportunity",
+   "statement": "Three response windows: (1) very early, fresh concentrated oil near source, open ~1-2 days: source control, containment near the source, removal; (2) early, oil spread and threatening resources, days to weeks: keep oil from contacting resources at risk, protect most vulnerable habitats (site-specific, handled in ACPs); (3) later, oil stranded, days to months: habitat-appropriate shoreline cleanup, sometimes leave to degrade.",
+   "value": {
+    "window1_days": "1-2",
+    "window2": "days-weeks",
+    "window3": "days-months"
+   },
+   "sources": [
+    "S6"
+   ],
+   "locator": "CRS 'Windows of Opportunity' p.10-11",
+   "status": "primary"
+  },
+  {
+   "id": "WIN-2",
+   "topic": "windows_of_opportunity",
+   "statement": "During the first 24-48 h of open-water exposure most oil spills become difficult to recover, burn, or chemically disperse (evaporation, density/viscosity rise, emulsification, thinning). Spills of ~1,000 bbl or more can easily spread over 1-10 sq mi (3-26 km2) in a day or two.",
+   "value": {
+    "difficult_after_h": "24-48",
+    "area_after_1_2_days_km2": [
+     3,
+     26
+    ],
+    "volume_bbl": ">= 1000"
+   },
+   "sources": [
+    "S6"
+   ],
+   "locator": "CRS 'Oil Weathering' p.22; 'Oil Volume, Area, and Shape' p.17",
+   "status": "primary"
+  },
+  {
+   "id": "WIN-3",
+   "topic": "windows_of_opportunity",
+   "statement": "If on-water mechanical systems cannot handle enough of the spill, trade-offs between containment/recovery, dispersants and burning must be weighed against the oil reaching shore; sometimes some on-water response is forgone to focus people and equipment on shoreline protection and cleanup.",
+   "value": {},
+   "sources": [
+    "S6"
+   ],
+   "locator": "CRS 'Time Until Shoreline Impact' p.21",
+   "status": "primary"
+  },
+  {
+   "id": "WIN-4",
+   "topic": "windows_of_opportunity",
+   "statement": "Emulsification: burning is difficult or impossible once water content is > 25 %; emulsion also lowers dispersibility, raises viscosity and recovered-fluid volume.",
+   "value": {},
+   "sources": [
+    "S6"
+   ],
+   "locator": "CRS 'Emulsification' p.18",
+   "status": "primary"
+  },
+  {
+   "id": "DISP-1",
+   "topic": "dispersant",
+   "statement": "RRT-6 dispersant pre-approval zone (Texas + Louisiana, Texas-Mexico border to the Region 4/6 boundary): offshore waters from the 10 m isobath OR 3 nautical miles from shore, WHICHEVER IS FARTHEST, out to 200 nm (EEZ). Both a depth AND a distance condition: water >= 10 m deep and >= 3 nm from nearest shoreline.",
+   "value": {
+    "min_depth_m": 10,
+    "min_dist_nm": 3,
+    "outer_nm": 200
+   },
+   "sources": [
+    "S1",
+    "S5"
+   ],
+   "locator": "S1 Overview p.1 and checklist step 2/12; S5 Sec. on preauthorizations",
+   "status": "primary",
+   "quote": "no less than 10 meters in depth and at least 3 nautical miles from the nearest shoreline",
+   "response_py": "PREAUTH_NM only; depth 'not checked here'"
+  },
+  {
+   "id": "DISP-2",
+   "topic": "dispersant",
+   "statement": "Planning circle: draw a circle of 10 nm radius around the spill source (worst-case surface movement); hatch any part in < 10 m water or < 3 nm from shore; what is left is the dispersant operational area. If that area is not offshore of those limits, pre-approval does not apply (use the NCP Subpart H / RRT-6 case-by-case process).",
+   "value": {
+    "circle_radius_nm": 10,
+    "circle_radius_km": 18.5
+   },
+   "sources": [
+    "S1"
+   ],
+   "locator": "FOSC Dispersant Use Checklist step 2",
+   "status": "primary"
+  },
+  {
+   "id": "DISP-3",
+   "topic": "dispersant",
+   "statement": "Near-shore environment (< 3 mi from shore or < 10 m deep): not pre-authorized; RRT-6 concurrence is required case by case via an expedited process.",
+   "value": {},
+   "sources": [
+    "S5",
+    "S24"
+   ],
+   "locator": "RCP Vol.1 item (c) 'Expedited Approval Process to Apply Dispersants Near Shore'; EAP definition of NSE",
+   "status": "primary"
+  },
+  {
+   "id": "DISP-4",
+   "topic": "dispersant",
+   "statement": "Aerial application go/no-go (RRT-6 planning assumption): wind <= 25 kt AND visibility >= 3 nm AND ceiling >= 1,000 ft; otherwise place operation on standby, notify RRT. Boat application: sea state suitable for effective, safe spraying. DAYLIGHT HOURS ONLY.",
+   "value": {
+    "wind_kt_max": 25,
+    "vis_nm_min": 3,
+    "ceiling_ft_min": 1000,
+    "daylight_only": true
+   },
+   "sources": [
+    "S1"
+   ],
+   "locator": "Checklist steps 5 and 6; flowchart",
+   "status": "primary",
+   "quote": "Winds less than or equal to 25 knots, and Visibility greater than or equal to 3 nautical miles, and Ceiling greater than or equal to 1,000 feet",
+   "response_py": "wind 4-25 kt + daylight; visibility/ceiling not modelled"
+  },
+  {
+   "id": "DISP-5",
+   "topic": "dispersant",
+   "statement": "Dispersability screen by API gravity and pour point (ITOPF-derived table in the RRT-6 checklist): API < 17 (sg > .953): probably difficult/impossible to disperse; 17-34.5: medium weight, fairly persistent, easily dispersed if treated promptly (difficult if water temp below pour point); 34.5-45: lightweight, relatively non-persistent, easily dispersed (difficult if water below pour point); > 45: no need to disperse, dissipates rapidly.",
+   "value": {
+    "api_bands": [
+     [
+      0,
+      17,
+      "difficult/impossible"
+     ],
+     [
+      17,
+      34.5,
+      "easily dispersed if treated promptly"
+     ],
+     [
+      34.5,
+      45,
+      "easily dispersed, relatively non-persistent"
+     ],
+     [
+      45,
+      99,
+      "no need; dissipates"
+     ]
+    ]
+   },
+   "sources": [
+    "S1"
+   ],
+   "locator": "Oil Table, p.11",
+   "status": "primary",
+   "response_py": "uses own oil classes + hour limits instead of API/pour point"
+  },
+  {
+   "id": "DISP-6",
+   "topic": "dispersant",
+   "statement": "Decision gate order in the RRT-6 checklist: (1) deploy SMART team + notify DOI/DOC survey specialist if dispersant use is likely, and deploy mechanical/ISB weather allowing; (2) environmental benefit expected? (NOAA SSC consulted for trajectory and fate); (3) operational area OK; (4) contractual spray contractor established BEFORE the spill; (5) platform choice; (6) weather; (7) product on NCP Product Schedule; (8) dispersability yes; then initiate with SMART monitoring.",
+   "value": {},
+   "sources": [
+    "S1"
+   ],
+   "locator": "FOSC Dispersant Use Checklist [1]-[14]",
+   "status": "primary"
+  },
+  {
+   "id": "DISP-7",
+   "topic": "dispersant",
+   "statement": "Every dispersant application needs SMART monitoring; at minimum Tier I (visual); positive feedback from monitors is required to continue. Tier II adds on-water single-depth real-time fluorometry (1-2 m), Tier III multi-depth/transects. Aircraft keep >= 1,000 ft horizontal from rafting birds.",
+   "value": {
+    "min_bird_separation_ft": 1000
+   },
+   "sources": [
+    "S1",
+    "S20"
+   ],
+   "locator": "S1 checklist [1], step 12; S20 SMART page",
+   "status": "primary"
+  },
+  {
+   "id": "DISP-8",
+   "topic": "dispersant",
+   "statement": "Dispersant physics (NOAA/API CRS): needs a threshold of mixing energy ('a few knots of wind and a light chop'); at ~25 kt wind / ~10 ft waves natural dispersion takes over (especially light oils); works best on slicks a few thousandths to hundredths of an inch thick (up to ~0.1 in with improved dispersants, higher dose rates, multiple passes); applied at 1-5 % of oil volume.",
+   "value": {
+    "wind_natural_dispersion_kt": 25,
+    "best_thickness_in": [
+     0.001,
+     0.01
+    ],
+    "dose_pct_of_oil": [
+     1,
+     5
+    ]
+   },
+   "sources": [
+    "S6"
+   ],
+   "locator": "CRS p.23 and Dispersants sheet p.62",
+   "status": "primary"
+  },
+  {
+   "id": "DISP-9",
+   "topic": "dispersant",
+   "statement": "Deepwater Horizon tightened/relaxed the RRT-6 dispersant criteria in practice: ceiling 1,500 ft and visibility 4 nm to start aerial work; NO spraying within 5 nm of the source, 2 nm of any vessel, 3 nm from shore, or in water shallower than 33 ft (~10 m); no operations within 3 nm of visible marine life; aircraft wind limit raised to < 35 kt (RRT-6 plan said 25 kt) only when the aircraft could correct for drift; application rate 5 gal/acre (~0.0002 in film) from 50-75 ft at ~150 kt, 300-500 micron droplets, swath ~60-150 ft.",
+   "value": {
+    "ceiling_ft": 1500,
+    "vis_nm": 4,
+    "source_buffer_nm": 5,
+    "vessel_buffer_nm": 2,
+    "shore_buffer_nm": 3,
+    "min_depth_ft": 33,
+    "wind_kt_max_relaxed": 35,
+    "gal_per_acre": 5
+   },
+   "sources": [
+    "S12"
+   ],
+   "locator": "OSC report ch.3.2 'Dispersant Use and Monitoring', limitations list",
+   "status": "primary"
+  },
+  {
+   "id": "DISP-10",
+   "topic": "dispersant",
+   "statement": "Deepwater Horizon timing and volumes: first aerial dispersant request approved by the FOSC at ~1 p.m. on 22 Apr 2010 (about two days after the explosion; the FOSC approved despite an active SAR for survivors elsewhere); aerial dispersants used on 28 of 35 days to 26 May (avg 24,386 gal/day); on 26 May the FOSC/EPA directive required a 75 % cut and surface dispersant only by written exception; 27 May-19 Jul used 33 of 54 days (avg 8,892 gal). Cumulative snapshot: ~1.07 million gal surface + ~0.77 million gal subsea.",
+   "value": {
+    "first_approval": "2010-04-22 ~13:00",
+    "surface_gal": 1072514,
+    "subsea_gal": 771272
+   },
+   "sources": [
+    "S12"
+   ],
+   "locator": "OSC report ch.3.2; Appendix cumulative statistical snapshot",
+   "status": "primary"
+  },
+  {
+   "id": "ISB-1",
+   "topic": "in_situ_burn",
+   "statement": "RRT-6 ISB pre-approval area: seaward of 3 nautical miles off Louisiana and Texas, excluding offshore reefs/banks/hard-bottom/artificial reefs/shoals and a Grand Isle zone (7-mile buffer from the center of Grand Isle if the wind is onshore (S or generally onshore); the plain 3-mile zone applies with an offshore (N) wind). Inshore of 3 mi (bays, sounds, rivers) needs incident-specific RRT approval.",
+   "value": {
+    "min_dist_nm": 3,
+    "grand_isle_buffer_mi_onshore_wind": 7
+   },
+   "sources": [
+    "S2",
+    "S3",
+    "S4"
+   ],
+   "locator": "S2 cover note and App. E; S3 'Authorization Procedures'",
+   "status": "primary",
+   "response_py": "3 nm only; exclusion zones not modelled"
+  },
+  {
+   "id": "ISB-2",
+   "topic": "in_situ_burn",
+   "statement": "Go/no-go feasibility factors on the RRT-6 offshore ISB checklist (4 hourly columns): oil thickness >= 2-3 mm; emulsion <= 25-50 % water; wind <= 25 mph; wave height <= 3 ft; ocean current <= 0.75 kt; visibility >= 500 ft vertical and >= 0.5 mile horizontal; trained personnel and equipment on scene.",
+   "value": {
+    "thickness_mm_min": [
+     2,
+     3
+    ],
+    "water_pct_max": [
+     25,
+     50
+    ],
+    "wind_mph_max": 25,
+    "wave_ft_max": 3,
+    "current_kt_max": 0.75,
+    "vis_ft_min": 500,
+    "vis_mi_min": 0.5
+   },
+   "sources": [
+    "S3"
+   ],
+   "locator": "Annex 13, Operational Outlook table (Appendix A checklist)",
+   "status": "primary"
+  },
+  {
+   "id": "ISB-3",
+   "topic": "in_situ_burn",
+   "statement": "1994 ISB decision tree: emulsification < 50 % water; volume > 500 bbl per burn; thickness at least 1/10 in (prefer > 1/2 in); wind < 20-25 mph; waves < 2-3 ft (short-period); ceiling > 500 ft and horizontal visibility 1/2-1 mi; burn plume unlikely to drift toward population centers within 3 mi; if conditions change with time -> do not burn unless ongoing spill.",
+   "value": {
+    "water_pct_max": 50,
+    "bbl_per_burn_min": 500,
+    "thickness_in_min": 0.1,
+    "thickness_in_pref": 0.5,
+    "wind_mph": [
+     20,
+     25
+    ],
+    "wave_ft": [
+     2,
+     3
+    ],
+    "population_buffer_mi": 3
+   },
+   "sources": [
+    "S2"
+   ],
+   "locator": "Decision Tree p.II-11",
+   "status": "primary"
+  },
+  {
+   "id": "ISB-4",
+   "topic": "in_situ_burn",
+   "statement": "Wind: sustained > 25 mph makes ignition of a discharge difficult (oil weathers/emulsifies beyond combustible); preferred < 20 mph blowing away from public/responders; gusts > 35 mph make fire control difficult near vegetation. NOAA/API CRS: very difficult to ignite as winds approach 20 kt, but burn continues at much higher wind once lit. (20 mph = 17.4 kt; 25 mph = 21.7 kt; 35 mph = 30.4 kt.)",
+   "value": {
+    "wind_mph_pref": 20,
+    "wind_mph_max": 25,
+    "gust_mph_caution": 35,
+    "wind_kt_pref": 17.4,
+    "wind_kt_max": 21.7
+   },
+   "sources": [
+    "S4",
+    "S6"
+   ],
+   "locator": "S4 'Environmental Considerations - Winds'; S6 p.23",
+   "status": "primary",
+   "response_py": "WIND_BURN_MAX = 20 kt"
+  },
+  {
+   "id": "ISB-5",
+   "topic": "in_situ_burn",
+   "statement": "Daylight: best ISB conditions are strong incoming solar radiation (sun > 15 deg above the horizon) and low wind; burning generally not advised at night, near dawn/dusk or on very overcast, windless days. Louisiana outdoor-burn regulation quoted in the policy allows burning only 8 a.m.-5 p.m.",
+   "value": {
+    "sun_elev_deg_min": 15,
+    "la_hours": "08:00-17:00"
+   },
+   "sources": [
+    "S3"
+   ],
+   "locator": "Annex 13 'Atmospheric Stability'; Appendix on LAC 33:III 1109",
+   "status": "primary",
+   "response_py": "daylight = sun elevation > 0"
+  },
+  {
+   "id": "ISB-6",
+   "topic": "in_situ_burn",
+   "statement": "Fire boom/tow: towed in a U at <= 0.5-0.75 kt; boom entrains oil when current perpendicular to boom exceeds 0.75 kt and loses oil at a very high rate above 1 kt; a 500 ft U-boom has a ~150 ft mouth (gap ratio 0.3) and needs ~6,000-7,000 sq ft of oil; burn rate ~0.07 gal/min/sq ft; typical burn efficiency 90-98 % (> 98 % when continuously fed); 1,000 ft boom with 28 in draft in a 300 ft U holds ~400 bbl per inch of oil depth.",
+   "value": {
+    "tow_kt": [
+     0.5,
+     0.75
+    ],
+    "entrain_kt": 0.75,
+    "high_loss_kt": 1.0,
+    "burn_rate_gpm_per_ft2": 0.07,
+    "efficiency_pct": [
+     90,
+     98
+    ]
+   },
+   "sources": [
+    "S2",
+    "S3"
+   ],
+   "locator": "S2 sec. III (burn rate, efficiency, holding capacity); S3 'Currents'",
+   "status": "primary"
+  },
+  {
+   "id": "ISB-7",
+   "topic": "in_situ_burn",
+   "statement": "Air-quality trigger: SMART particulate monitoring with NRT level of concern of 150 ug/m3 PM10 averaged over 1 h (a trigger for added caution, not a bright line).",
+   "value": {
+    "pm10_ugm3_1h": 150
+   },
+   "sources": [
+    "S3"
+   ],
+   "locator": "Annex 13 'Level of Concern'",
+   "status": "primary"
+  },
+  {
+   "id": "ISB-8",
+   "topic": "in_situ_burn",
+   "statement": "Deepwater Horizon burns: 411 controlled burns 28 Apr-19 Jul 2010, ~11.1 million gal (~265,450 bbl), roughly 5 % of discharge; the only offshore ISB ever done in RRT-6 area; burn area chosen daily where burnable oil was heaviest, generally 3-8 mi from the source, no burns within 3 mi of source-control vessels; peak 3 task forces, 40+ vessels, 260+ responders, 2 spotter aircraft; just-in-time training 4 h classroom + 12 h on-water; lab test burns of the oil before starting; best day 18 Jun 2010 (16 burns, ~2.5 million gal) in unusually calm seas; late July oil was more weathered, ignition harder, crews towed burning oil into emulsified patches to ignite it. Spotter aircraft avoided low sun angles (poor for seeing oil).",
+   "value": {
+    "burns": 411,
+    "gallons": 11100000,
+    "barrels": 265450,
+    "pct_of_discharge": 5,
+    "burn_area_from_source_mi": [
+     3,
+     8
+    ]
+   },
+   "sources": [
+    "S3",
+    "S12"
+   ],
+   "locator": "S3 Appendix G; S12 ch.3 in-situ burning and cumulative snapshot",
+   "status": "primary"
+  },
+  {
+   "id": "MECH-1",
+   "topic": "mechanical_boom",
+   "statement": "Booms begin to fail by entrainment when the effective current or towing speed exceeds 0.7 kt perpendicular to the boom; waves, wind, debris and ice add to failure. Booms with draft > 1/4 of the water depth lose significant oil from entrainment in shallow, strong-current water.",
+   "value": {
+    "entrain_kt": 0.7,
+    "draft_over_depth": 0.25
+   },
+   "sources": [
+    "S6"
+   ],
+   "locator": "CRS Booming sheet p.39; 'Water Depth' p.22",
+   "status": "primary",
+   "response_py": "BOOM_CURRENT_KT = 0.75 applied to current speed, not the perpendicular component"
+  },
+  {
+   "id": "MECH-2",
+   "topic": "mechanical_boom",
+   "statement": "Mechanical cleanup effectiveness drops significantly when short-period waves exceed 2-3 ft (0.6-0.9 m) due to entrainment/splash-over; encounter rates collapse when slick thickness < 0.001 in. USCG operability criteria (33 CFR 154 App. C Table 1): boom/skimmers must work in significant wave height <= 1 ft rivers/canals, <= 3 ft inland, <= 4 ft Great Lakes, <= 6 ft ocean; offshore boom height <= 42 in with reserve-buoyancy ratio 3:1-4:1.",
+   "value": {
+    "short_period_wave_ft_limit": [
+     2,
+     3
+    ],
+    "swh_ft_ocean_equipment_rating": 6
+   },
+   "sources": [
+    "S6",
+    "S15"
+   ],
+   "locator": "S6 p.23; S15 Table 1",
+   "status": "primary"
+  },
+  {
+   "id": "MECH-3",
+   "topic": "mechanical_skimmer",
+   "statement": "Oil encounter rate (NOAA/ISB plan formula): EnR(bbl/h) = 53.33 x swath(ft) x speed(ft/s) x thickness(in); EnR(gal/min) = 37.4 x swath x speed (per inch). Rough thickness by appearance: sheen 1e-6 in; iridescent 1e-4-1e-5 in; blue-black aged 1e-2-1e-3 in; fresh dark 1e-2 (cold) to 1e-2-1e-3 (warm); brown emulsion 1e-1 in 'oil' thickness.",
+   "value": {
+    "formula_bbl_per_h": "53.33*w_ft*v_fts*t_in",
+    "t_in_fresh_dark_warm": [
+     0.001,
+     0.01
+    ]
+   },
+   "sources": [
+    "S2"
+   ],
+   "locator": "ISB Plan III-2 (Oil Encounter Rate)",
+   "status": "primary"
+  },
+  {
+   "id": "MECH-4",
+   "topic": "mechanical_skimmer",
+   "statement": "USCG planning derating: effective daily recovery capacity (EDRC) = nameplate throughput (bbl/h) x 24 h x 20 % efficiency factor (accounts for daylight, weather, sea state, emulsified fraction). Mobilization factors for on-water recovery capacity (fraction of planning volume): rivers/canals .30/.40/.60; inland/nearshore/Great Lakes .15/.25/.40; offshore .10/.165/.21 for Tier 1/2/3.",
+   "value": {
+    "edrc_efficiency": 0.2,
+    "tier_factors_nearshore": [
+     0.15,
+     0.25,
+     0.4
+    ],
+    "tier_factors_offshore": [
+     0.1,
+     0.165,
+     0.21
+    ]
+   },
+   "sources": [
+    "S15"
+   ],
+   "locator": "App. C sec. 6.2.1 and Table 4",
+   "status": "primary"
+  },
+  {
+   "id": "MECH-5",
+   "topic": "mechanical_skimmer",
+   "statement": "USCG planning fate table (App. C Table 2, % of volume: natural dissipation / recovered floating oil / oil on shore): Group 1 non-persistent nearshore 80/20/10, offshore 95/5/-; Group 2 light crudes nearshore 50/50/30, offshore 75/25/5; Group 3 medium crudes+fuels nearshore 30/50/50, offshore 60/40/20; Group 4 heavy crudes+fuels nearshore 10/50/70, offshore 50/40/30 (planning conventions for resource sizing, not forecasts; rows do not sum to 100).",
+   "value": {
+    "group4_nearshore": {
+     "dissipation": 10,
+     "recovered": 50,
+     "on_shore": 70
+    }
+   },
+   "sources": [
+    "S15"
+   ],
+   "locator": "App. C Table 2",
+   "status": "primary-planning-convention"
+  },
+  {
+   "id": "MECH-6",
+   "topic": "resource_timing",
+   "statement": "USCG response-plan arrival times for Tier 1 resources: 6 h in higher-volume port areas, 12 h elsewhere (Tier 2: 30/36 h, Tier 3: 54/60 h); Tier 1 equipment mobilized and en route within 2 h of notification; notification within 30 min of discovery. Gulf Coast dispersant Tier 1 application capability: 8,250 gal of dispersant treating 165,000 gal of oil completed within 12 h.",
+   "value": {
+    "tier1_h_hvp": 6,
+    "tier1_h_other": 12,
+    "tier2_h": [
+     30,
+     36
+    ],
+    "tier3_h": [
+     54,
+     60
+    ],
+    "mobilize_en_route_h": 2,
+    "notify_min": 30
+   },
+   "sources": [
+    "S16",
+    "S15"
+   ],
+   "locator": "154.1045(f),(g),(i)",
+   "status": "primary"
+  },
+  {
+   "id": "MECH-7",
+   "topic": "resource_timing",
+   "statement": "Protective booming of salt-marsh tributaries/inlets in the Galveston Bay ACP is extremely labor-intensive: 3-5 days for initial installation of sufficient protective boom; therefore lead time, pre-positioning and early deployment are critical. Bay strategy: rapid containment/treatment as close to the source as possible, then sorbent + deflection boom to divert oil from high-priority marshes to natural collection points; it is not possible to prevent shoreline contamination in most Galveston Bay spill situations.",
+   "value": {
+    "bay_protective_boom_install_days": [
+     3,
+     5
+    ]
+   },
+   "sources": [
+    "S17"
+   ],
+   "locator": "Sections 3.2.1, 3.2.4, 3.2.5 (summarising the ACP)",
+   "status": "primary"
+  },
+  {
+   "id": "MECH-8",
+   "topic": "boom_strategy_real",
+   "statement": "Deepwater Horizon lessons: Unified Area Command designated boom a critical resource; booming plans accounted for local current, wind, sea state and shoreline type; deflection boom for higher currents, containment boom around collection areas, isolation boom only for very low/no current (marsh interiors); >2,000 pilings with rigid-pipe/flexible boom 'defeated' by high currents in passes, weathered oil without buoyancy and heavy weather; swift-water deflection per USCG R&D report CG-D-01-02 (Florida) was cheaper and needed no pilings; the demand to place boom for visible protection 'became more important than the effectiveness of the boom'; the limited effectiveness of boom in open seas and fast currents would have been better understood through real deployment and exercises.",
+   "value": {
+    "pilings": 2000,
+    "peak_boom_ft": 3795985
+   },
+   "sources": [
+    "S12"
+   ],
+   "locator": "OSC report ch.3 (shoreline protection) and ch.5 Planning",
+   "status": "primary"
+  },
+  {
+   "id": "ESI-1",
+   "topic": "shoreline_priority",
+   "statement": "NOAA ESI rank 1-10 (increasing sensitivity, oil persistence and cleanup difficulty): 1 exposed rocky/solid structures; 2 exposed platforms/scarps; 3 fine-medium sand beaches, steep sand scarps; 4 coarse sand; 5 mixed sand/gravel; 6A gravel, 6B riprap, 6D boulder rubble; 7 exposed tidal flats; 8 sheltered scarps/structures/riprap/rubble/peat; 9 sheltered tidal and sand/mud flats, vegetated low banks; 10 marshes (10A salt/brackish), swamps, scrub-shrub, mangroves (10F). Rank is driven by wave/tidal exposure, slope, substrate (permeability, burial, trafficability) and biological productivity/sensitivity.",
+   "value": {
+    "scale": "1 (least) - 10 (most) sensitive"
+   },
+   "sources": [
+    "S10"
+   ],
+   "locator": "ESI Guidelines Fig. 2.1 and sec. 2.1",
+   "status": "primary"
+  },
+  {
+   "id": "ESI-2",
+   "topic": "shoreline_priority",
+   "statement": "ESI maps are only one of three layers: shoreline classification, biological resources (sensitive animals, rare plants, SAV, reefs, seasonal concentrations) and human-use resources (beaches, parks, intakes, archaeological sites, access points/boat ramps). Area Committees (OPA 90) identify 'priority protection areas' with their own criteria; the Galveston Bay ACP atlas ranks PPAs HIGH/MEDIUM/LOW using birds, fish and wetlands ranks (e.g. 'Gulf shoreline' HIGH for plovers/terns; 'Bolivar Flats and marsh' HIGH; 'Elmgrove Point marsh; bay inlets are good pinchpoints (e.g. Pepper Grove Cove)' HIGH; 'Hanna Reef complex' LOW).",
+   "value": {},
+   "sources": [
+    "S10",
+    "S18",
+    "S19"
+   ],
+   "locator": "S10 sec.1.1; S19 sec.4400; S18 table map 69",
+   "status": "primary"
+  },
+  {
+   "id": "ESI-3",
+   "topic": "shoreline_priority",
+   "statement": "GRS/GRPs are pre-planned, site-specific strategies meant to minimise damage to sensitive resources in the first few hours; they assume neutral weather, mean tides and a specific equipment set, and the minimum validation is adoption into the ACP (higher tiers: SME desktop, site visit, computer simulation, equipment deployment, full-scale exercise, real events).",
+   "value": {},
+   "sources": [
+    "S19"
+   ],
+   "locator": "CTCACP sec. 1430",
+   "status": "primary"
+  },
+  {
+   "id": "ESI-4",
+   "topic": "shoreline_priority",
+   "statement": "Shoreline response is chosen from the three-window logic and habitat type: Window 3 uses habitat-appropriate cleanup and sometimes natural recovery; cosmetic cleanup must be avoided where more damaging than the oil (Galveston Bay ACP).",
+   "value": {},
+   "sources": [
+    "S6",
+    "S17"
+   ],
+   "locator": "CRS p.10-11; ERA sec. 3.2.2",
+   "status": "primary"
+  },
+  {
+   "id": "MON-1",
+   "topic": "monitoring",
+   "statement": "Observations drive the next forecast: overflights (NOAA trained observers) and field teams are used to recalibrate currents/winds/trajectory; NOAA holds the common operational picture in ERMA; SCAT teams document shoreline oiling; DWH ended offshore forecasts only after 3 weeks without recoverable oil in overflights.",
+   "value": {},
+   "sources": [
+    "S9",
+    "S12"
+   ],
+   "locator": "S9 'Days Two...'; S12 trajectory background",
+   "status": "primary"
+  },
+  {
+   "id": "MON-2",
+   "topic": "monitoring",
+   "statement": "NOAA oil-budget framing for what is achievable: DWH (~4.9 million bbl): ~17 % recovered at the wellhead, 5 % burned, 3 % skimmed, 8 % removed by chemical dispersant, ~24 % dispersed (naturally or by operations), ~26 % residual (sheen, tarballs, ashore, buried). The OSC report notes the published budget was read as '24 percent ... unaccounted for', which drove parish concern during transition planning.",
+   "value": {
+    "burned_pct": 5,
+    "skimmed_pct": 3,
+    "chem_dispersed_pct": 8
+   },
+   "sources": [
+    "S21",
+    "S12"
+   ],
+   "locator": "S21 (quotes NOAA 4 Aug 2010); S12 ch.5 Planning (24 % unaccounted)",
+   "status": "primary"
+  },
+  {
+   "id": "FCST-7",
+   "topic": "forecast_products",
+   "statement": "NOAA provides the Incident Command a full trajectory ANALYSIS (inputs, uncertainties, narrative), not just model output, presented by the SSC; products are designed to the ASTM standard for oil spill trajectory results = forward trajectory plus an uncertainty estimate around the best estimate. The analyst compares observations with the previous cycle's forecast.",
+   "value": {},
+   "sources": [
+    "S27"
+   ],
+   "locator": "Sec. 'U.S. Federal Operational Response Support'",
+   "status": "primary"
+  }
+ ],
+ "pipeline": [
+  {
+   "step": 0,
+   "when": "T+0",
+   "name": "Notification and ICS stand-up",
+   "what": "Spiller/Qualified Individual notifies National Response Center + USCG COTP (FOSC). Unified Command forms (FOSC, state, RP). ICS 201 Incident Briefing is the first plan. The FOSC asks the NOAA SSC for support.",
+   "sources": [
+    "S5",
+    "S9",
+    "S13"
+   ],
+   "oilflood_input": "spill lat/lon/time, product, volume or flow rate"
+  },
+  {
+   "step": 1,
+   "when": "T+0 to T+1 h",
+   "name": "First-hour NOAA products",
+   "what": "Initial trajectory report (GNOME, ADIOS oil fate), weather forecast, tides/currents, ERMA picture, initial resource-protection priorities; hazard screening (fire/explosion, vapors for gasoline).",
+   "sources": [
+    "S9",
+    "S7"
+   ],
+   "oilflood_input": "best-guess run + oil budget; next 6/12/24/48/72 h"
+  },
+  {
+   "step": 2,
+   "when": "T+1 to T+4 h",
+   "name": "Trajectory map + resources at risk",
+   "what": "Trajectory forecast map with uncertainty (best estimate + minimum regret), RAR analysis, overflight tasking. Start priority-site matching against the ACP/GRP and ESI/PPA lists (ICS 232 / 232a).",
+   "sources": [
+    "S9",
+    "S7",
+    "S19",
+    "S18"
+   ],
+   "oilflood_input": "ETA to each ACP/GRP site and ESI stretch; uncertainty envelope"
+  },
+  {
+   "step": 3,
+   "when": "T+1 to T+6 h",
+   "name": "Tactic screening (go / no-go)",
+   "what": "For each of (a) source control/containment, (b) dispersant, (c) in-situ burn, (d) mechanical (boom + skimmers), (e) shoreline protection, test the numeric gates below (oil type/API/emulsion/thickness, wind, waves, current, visibility, daylight, distance/depth, air-quality/population). Dispersant and ISB in the pre-approval zone are FOSC decisions with RRT notification/consultation; elsewhere RRT approval case by case. SMART team is deployed as soon as dispersant or burn use is likely.",
+   "sources": [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S6"
+   ],
+   "oilflood_input": "hourly wind/current/(wave)/daylight at slick, distance to shore, depth, emulsion, thickness"
+  },
+  {
+   "step": 4,
+   "when": "T+2 to T+12 h",
+   "name": "Compare ETA with lead time",
+   "what": "Compare each site's oil arrival time with the time to put equipment there (Tier 1 on scene 6 h in higher-volume ports / 12 h elsewhere; mobilized within 2 h; notification within 30 min; protective marsh booming 3-5 days for the whole Galveston Bay strategy). If oil arrives before boom, shift effort to shoreline cleanup and the next site (CRS 'Time until shoreline impact').",
+   "sources": [
+    "S16",
+    "S17",
+    "S6"
+   ],
+   "oilflood_input": "eta_h per site; staging base distance/speed"
+  },
+  {
+   "step": 5,
+   "when": "each operational period",
+   "name": "ICS planning cycle",
+   "what": "Objectives (ICS 202, incl. weather/tide/current for the next operational period) -> tactics and resource assignments by division/group (ICS 204/204a) -> briefing -> execute -> evaluate. Trajectory forecasts are rerun at least daily and recalibrated from overflights; DWH had 24/48/72 h forecasts twice a day early, then daily.",
+   "sources": [
+    "S9",
+    "S8",
+    "S12"
+   ],
+   "oilflood_input": "re-run on each forecast cycle (live prediction does this every 6 h)"
+  },
+  {
+   "step": 6,
+   "when": "during operations",
+   "name": "Monitor and feed back",
+   "what": "SMART Tier I/II/III for dispersants (positive feedback required to continue); PM10 1-h 150 ug/m3 level of concern for burns; overflights/satellite to adjust the model; SCAT for stranded oil; after-action report to the RRT within 24 h for dispersants.",
+   "sources": [
+    "S1",
+    "S3",
+    "S20",
+    "S9"
+   ],
+   "oilflood_input": "n/a (observation inputs)"
+  }
+ ],
+ "real_responses": [
+  {
+   "incident": "Deepwater Horizon (Macondo), 2010",
+   "what_responders_did": [
+    "Unified Area Command (Robert, LA) with ICP Houma; NOAA SSC on scene; 24/48/72 h surface forecasts (twice daily to 19 May, once daily after) plus daily Shoreline Oiling Outlook from 27 Apr; >400 trajectory products",
+    "First aerial dispersant approved ~1 pm 22 Apr (RRT-6 pre-approval) and then approved daily; surface-dispersant cut 75 % by directive 26 May; ~1.07 M gal surface + ~0.77 M gal subsea",
+    "411 controlled burns (28 Apr-19 Jul), ~265,450 bbl, ~5 % of discharge, 3-8 mi from the source in a daily 'burn area' chosen from spotter overflights",
+    "3.8 M ft peak containment boom (21 Jul); >2,000 pilings for pipe/flexible boom 'defeated' by high currents; swift-water deflection (CG-D-01-02) used in Florida",
+    "Peak 47,849 responders, >6,000 vessels (one day); NOAA oil budget: 17 % wellhead recovery, 5 % burned, 3 % skimmed, 8 % chemically dispersed"
+   ],
+   "model_vs_reality": "Forecasts were probability areas, not slick extent; the FOSC had to explain jumps in heavy/medium/light contours; volume/concentration at shoreline could not be given (uncertain release rate and weathering); a 45-day wind/ocean-forecast outlook was dropped because it disagreed with observed oil movement. OilFlood backtest (52 start days): 'slick stays put' persistence beats OpenOil and our model (median 72 h centroid error 39 km vs 42-46 km).",
+   "sources": [
+    "S12",
+    "S3",
+    "S21",
+    "S25"
+   ],
+   "links": [
+    "https://library.oarcloud.noaa.gov/noaa_documents.lib/NOAA_related_docs/oil_spills/on-scene_DWH_Report_Sep2011.pdf",
+    "https://www.glo.texas.gov/sites/default/files/resources/glo/ost/spill-response-resources/rrtvi/RRT6_ISB_Policy_Offshore_Appendix13.pdf"
+   ]
+  },
+  {
+   "incident": "Texas City 'Y' collision / Kirby barge 27706, 22 Mar 2014 (168,000 gal IFO 380 / RMG 380, ~4,000 bbl)",
+   "what_responders_did": [
+    "Miss Susan crew and M/V Mission put >600 ft of boom (200 ft sorbent) around the barge; 'minimal success' because of current dragging oil through the boom; first spill-response organization on scene within 2 h; 3 of 4 VRP OROs + 2 other contractors on scene by 8.5 h (inside the 12 h Tier 1 criterion); more than 3,000 ft of boom in place before dark on 22 Mar",
+    "Coast Guard COTP closed the Houston Ship Channel to stop vessel wakes moving oil to shore (NTSB: 'prevent wakes'; Texas AG complaint: closed five days; IncidentNews log: closed 22-25 Mar, fully reopened 27 Mar)",
+    "ACP activated; boom and recovery extended into the Gulf and along Galveston Island; ~70 skimming vessels and 69,000-71,000 ft of boom in Galveston area by 26 Mar (IncidentNews); dispersants not used",
+    "Peak response early April: >2,200 personnel, 18 agencies, ~80 contractors; maximum impact 10 Apr: ~13 mi heavily oiled + ~40 mi light-moderate; sensitive areas along ~160 mi endangered; Matagorda Island (~120 mi SW) Gulf side ~25 mi oiled; cleanup ~5 weeks, ended 25 Apr",
+    "Mass balance (rules of thumb): ~18 % recovered as liquid, ~25 % evaporated/dispersed, ~57 % collected from shorelines as solid waste"
+   ],
+   "model_vs_reality": "NOAA incident-page trajectory summary (early in the response): NE winds expected to carry the oil out of the Bay, onshore winds midweek could bring it back along the ocean beaches as tarballs over a large section of ocean beaches. What happened: oil left the bay, drifted SW and reached Matagorda Island ~5 days after the spill. OilFlood backtest: HYCOM treats Galveston Bay as land, so models strand 100 % inside the bay and never reach the Gulf; seeded at the bay entrance on 23 Mar OpenOil's nearest floating oil was 15 km (24 Mar) and 8 km (25 Mar) from the overflight positions. NTSB: oil 'could not be effectively contained near the accident scene'; deflection away from critical resources plus mechanical/manual removal where stranded were the sound strategies.",
+   "sources": [
+    "S13",
+    "S14",
+    "S22",
+    "S23",
+    "S25"
+   ],
+   "links": [
+    "https://www.ntsb.gov/investigations/AccidentReports/Reports/MAR1501.pdf",
+    "https://response.restoration.noaa.gov/oil-and-chemical-spills/oil-spills/kirby-barge-oil-spill-houstontexas-city-ship-channel-port-bolivar",
+    "https://incidentnews.noaa.gov/incident/8741"
+   ]
+  },
+  {
+   "incident": "M/V Mega Borg, Galveston offshore, June 1990 (Angolan Palanca crude)",
+   "what_responders_did": [
+    "12 Navy SUPSALV skimmers and 6,000 ft of 36 in boom staged in Galveston; 5 dispersant sorties totalling 11,300 gal Corexit 9527; 13,023 bbl oil/mousse recovered; up to ~50 % lost to evaporation or burning (IncidentNews); small tarballs scattered along ~18 miles"
+   ],
+   "model_vs_reality": "Not analysed by OilFlood; quotes in data/spills/catalog.json (IncidentNews 6748).",
+   "sources": [
+    "S23"
+   ],
+   "links": [
+    "https://incidentnews.noaa.gov/incident/6748"
+   ]
+  },
+  {
+   "incident": "Burmah Agate, off Galveston, Nov 1979",
+   "what_responders_did": [
+    "Fire burned until 8 Jan 1980 and consumed ~48 % of the oil not lightered; ~160,000 bbl lightered (38 % of cargo); booms and skimmers worked poorly in winter seas and currents (skimmers ~1.7 % of remaining oil); 2,100 bbl reached beaches/marshes"
+   ],
+   "model_vs_reality": "Not analysed; catalog IncidentNews 6253.",
+   "sources": [
+    "S23"
+   ],
+   "links": [
+    "https://incidentnews.noaa.gov/incident/6253"
+   ]
+  },
+  {
+   "incident": "Ixtoc I, Bay of Campeche, 1979-80",
+   "what_responders_did": [
+    "PEMEX: 493 aerial dispersant missions treated 1,100 sq mi (Mexican waters only; none in US waters; US OSC asked Mexico to stop north of 25 N)",
+    "Texas: boom + skimmers at inlets, hand cleaning of beaches; 71,500 bbl on 162 mi of US beaches, >10,000 cu yd oiled material removed; a September storm cleared most beached oil"
+   ],
+   "model_vs_reality": "Not analysed; catalog IncidentNews 6250.",
+   "sources": [
+    "S23"
+   ],
+   "links": [
+    "https://incidentnews.noaa.gov/incident/6250"
+   ]
+  },
+  {
+   "incident": "Eugene Island pipeline, July 2009",
+   "what_responders_did": [
+    "Pipeline shut in 25 Jul but kept leaking (planning rate 100 bbl/d); Corexit 9527 from MSRC Air King: 504 gal on 27 Jul (~200 bbl dispersed), further sorties 28-29 Jul (< 600 gal 29 Jul); ~1,000 gal recovered by 28 Jul"
+   ],
+   "model_vs_reality": "Within RRT-6 offshore pre-approval practice: small sorties, SMART-monitored. Catalog IncidentNews 8061.",
+   "sources": [
+    "S23",
+    "S1"
+   ],
+   "links": [
+    "https://incidentnews.noaa.gov/incident/8061"
+   ]
+  },
+  {
+   "incident": "Main Pass pipeline, Nov 2023",
+   "what_responders_did": [
+    "Pipeline shut 6:30 a.m.; offshore slick >40 mi moving SW treated with 3 skimmers; no dispersant, no burn; no shoreline or wildlife impacts found"
+   ],
+   "model_vs_reality": "OilFlood backtest: OpenOil and ours (ML off) move floating oil SW like the observed slick (bearing 208-224 deg) and strand nothing, as observed; ours with ML strands 62 % on the Delta, which did not happen (ML kept off by default). Catalog IncidentNews 10692.",
+   "sources": [
+    "S23",
+    "S25"
+   ],
+   "links": [
+    "https://incidentnews.noaa.gov/incident/10692"
+   ]
+  }
+ ],
+ "response_py_gaps": [
+  {
+   "id": "GAP-1",
+   "severity": "high",
+   "area": "dispersant zone",
+   "current": "PREAUTH_NM=3 nm only; comment says depth '>= 10 m not checked'",
+   "finding": "RRT-6 pre-approval needs BOTH >= 3 nm from shore AND >= 10 m water ('whichever is farthest'). Bays/shelf shallows can be >3 nm offshore yet < 10 m (and DWH used >= 33 ft). The checklist also starts from a 10 nm worst-case circle around the source.",
+   "fix": "Add bathymetry (HYCOM/GEBCO depth already in forcing) and require depth >= 10 m; show the 10 nm / 18.5 km circle around the release point; mark everything else 'needs case-by-case RRT concurrence (near-shore EAP)'.",
+   "sources": [
+    "S1",
+    "S5",
+    "S12"
+   ],
+   "rules": [
+    "DISP-1",
+    "DISP-2",
+    "DISP-3",
+    "DISP-9"
+   ]
+  },
+  {
+   "id": "GAP-2",
+   "severity": "high",
+   "area": "oil-age windows",
+   "current": "OIL_CLASSES hard-codes age limits: dispersant light crude 48 h / medium 36 h / heavy 12 h; burn light 48 / medium 36 / heavy 24 / HFO 12 / diesel 24 h",
+   "finding": "None of these numbers appear in the RRT-6 documents or the NOAA CRS. Real gates are: API gravity/pour point (dispersants), emulsion water content <= 25 % (CRS; ISB policy; 50 % in the 1994 plan with test burn) and slick thickness >= 2-3 mm / 0.1 in (burn). CRS only says that in the first 24-48 h most oils become hard to recover/burn/disperse; DWH kept burning and dispersing for 11-13 weeks because fresh oil kept arriving near the source. Age limits are a heuristic.",
+   "fix": "Replace with the model's own state: use per-step emulsion water fraction (OpenOil tracks water_fraction; our model keeps Mackay emulsion Y per particle in app/ourmodel/sim.py but exports only the end mean 'emulsion_water_fraction_end', so add a time series) <= 0.25 for burn (0.5 = test burn), viscosity/API band for dispersants (DISP-5), and label any residual age cutoff 'heuristic'. For continuous releases, evaluate the freshest oil, not the whole slick.",
+   "sources": [
+    "S1",
+    "S2",
+    "S3",
+    "S6",
+    "S12"
+   ],
+   "rules": [
+    "DISP-5",
+    "ISB-2",
+    "ISB-3",
+    "WIN-2",
+    "WIN-4"
+   ]
+  },
+  {
+   "id": "GAP-3",
+   "severity": "high",
+   "area": "burn thickness",
+   "current": "no slick-thickness or volume gate for burn or dispersant",
+   "finding": "ISB needs oil corralled to >= 2-3 mm (10 mm for heavy/emulsified), >= 0.1 in (prefer 0.5 in) in the 1994 plan, and > 500 bbl per burn; dispersants work best on a few thousandths to hundredths of an inch.",
+   "fix": "Estimate thickness from particle mass per 1 km2 cell (or per patch) and flag burn only where a boom-concentrated patch could reach 2-3 mm; add the 500 bbl/burn minimum; mention fire-boom swath and tow <= 0.75 kt.",
+   "sources": [
+    "S2",
+    "S3",
+    "S6"
+   ],
+   "rules": [
+    "ISB-2",
+    "ISB-3",
+    "ISB-6",
+    "DISP-8"
+   ]
+  },
+  {
+   "id": "GAP-4",
+   "severity": "medium",
+   "area": "burn wind limit",
+   "current": "WIND_BURN_MAX = 20 kt",
+   "finding": "RRT-6 states limits in mph: <= 25 mph (21.7 kt) hard, preferred < 20 mph (17.4 kt); gusts > 35 mph caution. CRS: ignition very hard near 20 kt. 20 kt is inside the band but the units/preferred-vs-limit split is not reflected.",
+   "fix": "Use 17.4 kt 'preferred' and 21.7 kt 'limit'; show both.",
+   "sources": [
+    "S3",
+    "S4",
+    "S6"
+   ],
+   "rules": [
+    "ISB-4"
+   ]
+  },
+  {
+   "id": "GAP-5",
+   "severity": "medium",
+   "area": "burn exclusion zones and distance",
+   "current": "3 nm offshore only",
+   "finding": "Pre-approval excludes reef/bank/hard-bottom/shoal zones and a Grand Isle buffer (7 mi from the town center in onshore wind); burn plume must not drift toward population within 3 mi; DWH allowed no burns within 3 mi of source-control vessels.",
+   "fix": "Add Grand Isle onshore-wind buffer and a population-downwind check against Census places already loaded (gulf_places.json); flag banks/reefs as 'check Appendix F/E exclusion map' (data not in repo).",
+   "sources": [
+    "S2",
+    "S3",
+    "S4"
+   ],
+   "rules": [
+    "ISB-1",
+    "ISB-3",
+    "ISB-8"
+   ]
+  },
+  {
+   "id": "GAP-6",
+   "severity": "medium",
+   "area": "daylight definition",
+   "current": "daylight = solar elevation > 0 deg for dispersant, burn and mechanical",
+   "finding": "Dispersant: 'daylight hours only' (OK). Burn: policy prefers sun > 15 deg and says not near dawn/dusk; Louisiana rule 8 a.m.-5 p.m.; DWH spotters found low sun angles poor for seeing oil.",
+   "fix": "Burn windows: sun elevation > 15 deg (and 08-17 local in Louisiana waters); dispersant/skimming spotting: sun > ~0 but flag low-angle hours as degraded.",
+   "sources": [
+    "S1",
+    "S3",
+    "S12"
+   ],
+   "rules": [
+    "ISB-5",
+    "DISP-4",
+    "ISB-8"
+   ]
+  },
+  {
+   "id": "GAP-7",
+   "severity": "medium",
+   "area": "dispersant weather",
+   "current": "wind 4-25 kt, daylight",
+   "finding": "25 kt matches RRT-6 aerial go/no-go, but RRT-6 also needs visibility >= 3 nm and ceiling >= 1,000 ft (DWH ran 4 nm/1,500 ft; wind limit relaxed to < 35 kt only when the aircraft corrected for drift). The 4 kt lower bound is not in RRT-6; NOAA/API CRS only says 'a few knots of wind and light chop' (its Fig. 3 wind-sea chart bands start at 4-6 kt).",
+   "fix": "Keep 25 kt as the pre-approval limit (note 35 kt DWH exception); keep ~4 kt as a soft CRS-based lower bound; pull visibility/ceiling from GFS (VIS, cloud base) if available.",
+   "sources": [
+    "S1",
+    "S6",
+    "S12"
+   ],
+   "rules": [
+    "DISP-4",
+    "DISP-8",
+    "DISP-9"
+   ]
+  },
+  {
+   "id": "GAP-8",
+   "severity": "high",
+   "area": "boom current limit",
+   "current": "BOOM_CURRENT_KT = 0.75 compared with centroid current speed",
+   "finding": "Boom fails when the velocity PERPENDICULAR to the boom exceeds ~0.7 kt (CRS) / 0.75 kt (ISB policy; 'very high loss' above 1 kt); in higher currents responders use deflection boom angled to the current, not containment. Speed alone over-warns across-boom and under-warns along-boom geometry, and a single centroid value hides tidal inlets where booms are actually placed (DWH pilings lost to pass currents).",
+   "fix": "Report current at each boom site (inlet/pass) from the forcing grid, compare to 0.7 kt, and above it recommend deflection boom with a diversion angle to a collection point (CG-D-01-02 'Oil Spill Response in Fast Currents' field guide, not opened here); above 1 kt say 'boom will not hold'.",
+   "sources": [
+    "S6",
+    "S3",
+    "S12"
+   ],
+   "rules": [
+    "MECH-1",
+    "ISB-6",
+    "MECH-8"
+   ]
+  },
+  {
+   "id": "GAP-9",
+   "severity": "medium",
+   "area": "waves",
+   "current": "'waves < ~1 m (not modelled)' for mechanical; ISB 'waves < ~3 ft (not modelled)'",
+   "finding": "Wave limits are core: mechanical cleanup falls off above 2-3 ft short-period waves; ISB <= 3 ft; USCG rates ocean boom/skimmers to 6 ft significant wave height; dispersant natural-dispersion takeover at ~10 ft.",
+   "fix": "Add NOAA WaveWatch III / GFS-Wave (or a fetch-limited Hs from wind) as a hourly series and gate mechanical/ISB at 3 ft (~0.9 m) and dispersant boat ops by vessel-specific limit.",
+   "sources": [
+    "S6",
+    "S15",
+    "S3"
+   ],
+   "rules": [
+    "MECH-2",
+    "ISB-2"
+   ]
+  },
+  {
+   "id": "GAP-10",
+   "severity": "medium",
+   "area": "boom staging time",
+   "current": "STAGE_H = 6 h for every site",
+   "finding": "6 h is the Tier-1 arrival time only in higher-volume port areas; elsewhere 12 h (mobilization + travel; notify within 30 min, en route within 2 h). Real Texas City Y: first responders within 2 h, 3,000 ft boom before dark, 3 OROs in 8.5 h; Galveston Bay ACP: protective boom for the marsh tributaries takes 3-5 days.",
+   "fix": "Lead time = discovery-to-notification (assume 0.5 h) + 2 h mobilize + travel from the nearest staging base at 5 kt on water / 35 mph on land (USCG App. C assumptions); use 6 h floor in HVP (Houston/Galveston, New Orleans, Corpus), 12 h elsewhere, and say 'days' for multi-site marsh booming.",
+   "sources": [
+    "S16",
+    "S15",
+    "S13",
+    "S17"
+   ],
+   "rules": [
+    "MECH-6",
+    "MECH-7"
+   ]
+  },
+  {
+   "id": "GAP-11",
+   "severity": "high",
+   "area": "shoreline priority = ESI only",
+   "current": "Tier 1 = ESI 9-10, tier 2 = ESI 7-8, tier 3 = ESI 1-6; ranking by tier then ETA",
+   "finding": "ESI rank is one input; ACPs rank Priority Protection Areas from birds/fish/wetlands and human use (Galveston: Gulf shoreline HIGH for plovers; Bolivar Flats and marsh HIGH; oyster reefs and Hanna Reef differ), and seasonality (Matagorda Island oiling hit migratory shorebird season; whooping crane habitat). Sand beaches (ESI 3-4) rank low in ESI but often high on socio-economic value. The tiering itself (higher ESI = more sensitive) matches NOAA.",
+   "fix": "Add an optional PPA/GRP-site layer (Texas GLO ESI atlas PPA tables; Louisiana GRP sites) and a human-use/seasonal flag; state 'ESI only: defer to ACP/GRP site list' in the panel until that data is loaded.",
+   "sources": [
+    "S10",
+    "S18",
+    "S19",
+    "S13"
+   ],
+   "rules": [
+    "ESI-1",
+    "ESI-2",
+    "ESI-3"
+   ]
+  },
+  {
+   "id": "GAP-12",
+   "severity": "high",
+   "area": "single deterministic run",
+   "current": "one run per model; precedents but no uncertainty",
+   "finding": "NOAA never briefs a single track: GNOME best estimate + minimum-regret envelope; DWH products were probability areas for 24/48/72 h; NOAA's own skill claim is 1-2 mi at 48 h only with good winds/currents, worse otherwise, and the model is re-run daily and re-tuned to overflights.",
+   "fix": "Run an ensemble (e.g. windage 1-4 % uniform per particle, wind direction/speed perturbations with <= 60 deg angle scale, current perturbation) and report ETA as a range plus 'earliest plausible' ETA for the boom-first list; phrase panel text like NOAA's ('areas of probability, not extent of oil').",
+   "sources": [
+    "S7",
+    "S8",
+    "S12"
+   ],
+   "rules": [
+    "FCST-2",
+    "FCST-3",
+    "FCST-4",
+    "FCST-6"
+   ]
+  },
+  {
+   "id": "GAP-13",
+   "severity": "medium",
+   "area": "mechanical recovery expectation",
+   "current": "qualitative only; no recovery numbers",
+   "finding": "Real recoveries are small: DWH skimmed 3 % (burned 5 %, chemically dispersed 8 %); Texas City Y ~18 % recovered as liquid (~57 % shoreline waste); USCG planning uses EDRC = nameplate x 24 h x 20 % and fate table recoveries 40-50 % of the floating oil for planning only.",
+   "fix": "Add an 'expected on-water recovery' line using EnR = 53.33 x swath x speed x thickness with the 20 % derating and cap by storage; headline that response removes a fraction and shoreline cleanup is expected.",
+   "sources": [
+    "S15",
+    "S21",
+    "S13",
+    "S2"
+   ],
+   "rules": [
+    "MECH-3",
+    "MECH-4",
+    "MECH-5",
+    "MON-2"
+   ]
+  },
+  {
+   "id": "GAP-14",
+   "severity": "low",
+   "area": "diesel / light products dispersant",
+   "current": "dispersant not applicable to diesel, jet, gasoline, condensate",
+   "finding": "RRT-6 oil table: API > 45 'no need to disperse'; 34.5-45 'easily dispersed'. Gasoline/condensate/jet (API > 45 or very volatile) fit 'no need'; diesel (typically ~30-38 API) is not excluded by the table but evaporates and disperses naturally fast, so 'not recommended' is a judgment, not an RRT-6 rule. Gasoline: containment booming/skimming usually not attempted (fire/explosion/inhalation); only with foam and extreme safety if public health at risk.",
+   "fix": "Drive from API/pour point (DISP-5); keep gasoline fire-safety note (CRS).",
+   "sources": [
+    "S1",
+    "S6"
+   ],
+   "rules": [
+    "DISP-5"
+   ]
+  },
+  {
+   "id": "GAP-15",
+   "severity": "low",
+   "area": "closures",
+   "current": "navigation closure if oil within 15 km of a listed channel entrance; safety zone over slick bbox",
+   "finding": "Consistent with Texas City Y (COTP closed the ship channel to stop wakes pushing oil ashore; 5 days per Texas AG, 22-25 Mar with full reopening 27 Mar per IncidentNews log) but the trigger distance is ours, not a published rule.",
+   "fix": "Keep; label 'planning assumption' and cite the precedent; add safety-zone-for-responders purpose per IncidentNews.",
+   "sources": [
+    "S13",
+    "S22",
+    "S23"
+   ],
+   "rules": []
+  },
+  {
+   "id": "GAP-16",
+   "severity": "info",
+   "area": "what is right",
+   "current": "ESI tiering direction; 25 kt dispersant wind cap; 3 nm distance concept; daylight-only dispersant; 0.75 kt boom threshold value; USCG safety zone; SMART mentioned only as one line in the dispersant conditions",
+   "finding": "These match the sources. Under-stated in the panel: SMART monitoring is required for every dispersant use (Tier I minimum), not just 'a condition'; missing:, PM10 150 ug/m3 burn trigger, RRT notification/consultation steps, contract-before-spill requirement for dispersant platform, and the FOSC-decides disclaimer is correct.",
+   "fix": "Add a 'who decides / what must happen before' block to each tactic in the outline.",
+   "sources": [
+    "S1",
+    "S3",
+    "S20"
+   ],
+   "rules": [
+    "DISP-6",
+    "DISP-7",
+    "ISB-7",
+    "AUTH-1",
+    "AUTH-2"
+   ]
+  }
+ ]
+}
