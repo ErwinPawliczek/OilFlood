@@ -27,12 +27,14 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T14 | Our own spill model + ML drift correction, comparable to OpenOil | Erwin | done (agent A8, branch a8-model; merged) |
 | T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | in progress (agent A9, branch a9-backtest) |
 | T16 | First-responder action outline (P6) | Erwin | in progress (agent A10, branch a10-response) |
+| T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | in progress (agent A11, branch a11-polish) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-21 Erwin (flight loop): claimed T17 polish (A11, a11-polish).
 - 2026-11-21 Erwin (flight loop): claimed T15 backtest (A9, a9-backtest) and T16 response outline (A10, a10-response).
 - 2026-11-21 Erwin: merged T14 to main and deployed (OpenOil / Ours / Compare toggle on oilflood.xyz).
 - 2026-11-21 A8 (branch a8-model, T14): **two models to compare: OpenOil baseline + our own model with an ML drift correction.** Details in docs/OURMODEL.md.
