@@ -11,6 +11,8 @@ npm run typecheck
 ```
 
 URL flags: `?mode=prediction` opens in prediction mode (default: historical); `?spill=<id>` opens a catalog spill (e.g. `?spill=dwh`).
+Default view (T17): the page opens on the globe and flies to Houston/Galveston (`HOME` in main.ts, offset so the panel doesn't cover it).
+Prediction mode shows a pulsing suggested spill point ~30 km SE of Galveston (`DEMO_SPILL`) plus a "Release it off Galveston" button.
 To develop against another backend port: `VITE_API=http://127.0.0.1:5201 npm run dev`.
 
 ## What it does
@@ -24,6 +26,7 @@ To develop against another backend port: `VITE_API=http://127.0.0.1:5201 npm run
   layer is masked whenever the Gulf layer has real data.
   Same clock as the timeline (linear blend between steps). For performance: at most 8 decoded textures are kept (each capped at 1440×720),
   6500 particles are spawned only on the visible hemisphere, the global layer updates at half frame rate, and the Gulf streaks thin out when zoomed out.
+  Streaks slower than 0.25 m/s are drawn at 0.25 m/s length so shelf currents stay visible (colour still shows the real speed).
 - **One floating panel** (`src/panel.ts` + `main.ts`): drag it by its header (position + collapsed state saved in localStorage
   key `oilflood.panel.v1`; double-click or the chevron collapses it). It holds the mode toggle, spill list / prediction status,
   the time row (sim date+time in UTC and local, play/pause (space), scrubber, animation rate shown as "X days/sec" or

@@ -27,13 +27,21 @@ Users: Coast Guard / NOAA-style responders and local emergency managers in the f
 | T14 | Our own spill model + ML drift correction, comparable to OpenOil | Erwin | done (agent A8, branch a8-model; merged) |
 | T15 | Backtest: ours vs OpenOil vs observed (P5) | Erwin | in progress (agent A9, branch a9-backtest) |
 | T16 | First-responder action outline (P6) | Erwin | in progress (agent A10, branch a10-response) |
-| T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | in progress (agent A11, branch a11-polish) |
+| T17 | Polish: README setup, demo default view, perf, bug fixes (P7) | Erwin | done (agent A11, branch a11-polish; ready to merge) |
 | T9 | Bug fixes: fix logged bugs (small fixes directly; ask in SYNC before big refactors) | Brother | todo |
 
 ## Agents (Erwin's tower)
 Briefs in `agents/`. Each Claude agent works in its own worktree and branch and pushes there; Erwin's bot merges to main.
 
 ## Done log
+- 2026-11-21 A11 (branch a11-polish, T17): **demo polish.**
+  - `README.md` rewritten for judges: what it is, live site, screenshot placeholder list, features, the AI part (OpenOil baseline + our ML drift correction with hold-out numbers + optional LLM briefing), architecture, data sources with links + licences, clean-machine setup. Verified by following it in a fresh clone with a **new** conda env (env builds in ~1–4 min, backend starts, `smoke_test.py` passes, `npm ci && npm run build` served by the backend; data cache shared, not re-downloaded; sizes documented).
+  - Setup bug fixed: `backend/environment.yml` was missing **scikit-learn (pinned 1.9, the joblib model was saved with 1.9.1), joblib, pillow** (backend imports them) and pyshp/pyproj (data scripts). requirements.txt too.
+  - Default view: opens on the globe and flies to Houston/Galveston (zoom 6, offset so the right-side panel doesn't cover it). Prediction mode shows a pulsing suggested point 29.05N 94.55W (~30 km SE of Galveston, open water in RTOFS) + a "Release it off Galveston" button (verified: OpenOil run done in ~23 s).
+  - Bug fixed: `deck.gl assertion failed` initializing PathLayer `currents-global` after `map.jumpTo` (reproduced headless on GPU). Cause: main.ts re-pushed a cached layer instance on odd frames; once deck had dropped/finalized it, re-adding it asserts ("finalized layer cannot be reused"). FlowField.layer() now returns a fresh instance each frame on a memoized `data` object (no re-tessellation). Console is now clean after jumps (live + DWH).
+  - Currents more visible: streaks 2.2× longer, and slow (< 0.25 m/s) shelf currents get a minimum streak length (colour stays true speed). Still 60 fps (RTX 3080 Ti, headless).
+  - Perf: initial load = 0.5 MB gzipped JS + small JSON (catalog 43 KB gz). Track JSON now served from a cached `tracks.json.gz` sidecar (Texas City Y 0.22 s → 0.04 s; 9 MB prediction tracks no longer gzipped per request, was ~1 s at level 9). GZip level 6. Gulf current fields LRU-cached (0.24 → 0.08 s). Hashed `/assets/*` get `Cache-Control: immutable`, index.html `no-cache`. Favicon (was a 404) + description meta.
+  - `window.__extraLayers` does not exist in any branch (only in the A11 brief); the only debug hook is `window.__oilflood`, left in place (used by tests).
 - 2026-11-21 Erwin (flight loop): claimed T17 polish (A11, a11-polish).
 - 2026-11-21 Erwin (flight loop): claimed T15 backtest (A9, a9-backtest) and T16 response outline (A10, a10-response).
 - 2026-11-21 Erwin: merged T14 to main and deployed (OpenOil / Ours / Compare toggle on oilflood.xyz).
@@ -81,6 +89,7 @@ Format: `- [open|fixed] short title — steps to reproduce — who found / who f
 - [fixed] Prediction click on land (e.g. inland Mexico, outside the frontend's coarse mask) returns `Simulation stopped within first timestep`; the UI shows the error, but the backend could return a friendlier "seed point on land" — found by A3 / fixed by A5 (400 "That spot is on land" / "in a bay ... the model treats as land"; also fixed roaring_landmask call that always said water)
 
 ## Blockers
+- A11 merge note: a11-polish merges cleanly onto main and with **each** of a9-backtest and a10-response on its own, but a9 and a10 conflict **with each other** in `web/src/main.ts` + `web/src/style.css` (both add panel sections and CSS at the same spots). Resolve by keeping both sides. After merging: rebuild web, restart :5200; `.gz` sidecars appear next to tracks.json in backend/runs on first request. Screenshots for the README placeholders (`docs/img/*.png`) still need taking.
 - [resolved] A8: merged a8-model, rebuilt web, restarted :5200 (oilflood.xyz). GDP training CSVs are in shared `data/cache/gdp/` (1.3 MB). `backend/runs` OpenOil entries stay valid; ours runs are keyed by `ourmodel/sim.py` VERSION (ours-v4).
 - A8 notes on our model: (1) ML training is a subset: drifters only exist in 3 cached windows, mostly DWH 2010 deep water. More HYCOM-TSIS windows (`data/fetch_hycom.py`) give more training data. (2) The correction was learned against reanalysis errors; in prediction mode it is applied to RTOFS with no skill claim. (3) At Main Pass 2023 (observed: moved SW, no shoreline) ours with ML drifts NE and strands 35 % while OpenOil and ours without ML go SW, so the ML can hurt; P5 backtest should score `ml=true/false`. (4) Mackay dispersion is high for thin light slicks (diesel ~90 % dispersed in 72 h vs ~44 % in OpenOil).
 - A8 saw (not caused by A8, not fixed): headless Chrome logged `deck.gl assertion failed` initializing PathLayer `currents-global` right after a scripted `map.jumpTo` during DWH playback. The page kept rendering.
