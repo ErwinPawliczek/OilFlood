@@ -65,6 +65,8 @@ def run_member(run_dir: str, params: dict, member: dict) -> dict:
     p = {**params, "compact": True, "rng_seed": member["rng_seed"], "model_params": mp_,
          "n_particles": min(int(params["n_particles"]), MP.MEMBER_PARTICLES),
          "_oil_resolved": runner.resolve_oil_type(params.get("oil_type"), dirjs.get_oil_names())}
+    if p.get("seed_lon") is not None:  # backtest: seeded from an observed outline -> first n points
+        p["seed_lon"], p["seed_lat"] = p["seed_lon"][:p["n_particles"]], p["seed_lat"][:p["n_particles"]]
     out = sim.run(Path(run_dir), p, status)
     np.savez_compressed(md / f"{k}.npz", lon=out["lon"], lat=out["lat"], mass=out["mass"], state=out["state"],
                         strand_t=out["strand_t"], m0=out["m0"])

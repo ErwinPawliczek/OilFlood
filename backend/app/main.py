@@ -252,7 +252,10 @@ def get_backtest(spill: str | None = Query(None, description="catalog id, e.g. d
             return {**{k: v for k, v in res.items() if k != "cases"}, "cases": [],
                     "note": f"No backtest for {spill!r}: only spills with observed positions and cached forcing "
                             "are scored (dwh, texas_city_y, main_pass_2023)."}
-    return {**{k: v for k, v in res.items() if k != "cases"}, "cases": cases}
+    cal = _calibration()
+    if cal is not None and not detail:
+        cal = {k: v for k, v in cal.items() if k != "per_start"}
+    return {**{k: v for k, v in res.items() if k != "cases"}, "cases": cases, "ensemble_calibration": cal}
 
 
 @app.get("/api/models")
@@ -286,13 +289,17 @@ def get_models():
          "skill": skill, "params_url": "/api/model/params",
          "ensemble": {"max_members": 30, "default_members": 20, "probability_url": "/api/spill/{id}/probability",
                       "forces_url": "/api/spill/{id}/forces"},
-         "calibration": _calibration()},
+         "calibration": _calibration(summary_only=True)},
     ]}
 
 
-def _calibration():
+def _calibration(summary_only: bool = False):
+    """DWH ensemble calibration (python -m app.backtest.ensemble_calib, docs/METHODOLOGY.md)."""
     p = config.REPO_ROOT / "data" / "backtest" / "ensemble_calibration.json"
-    return json.loads(p.read_text()) if p.exists() else None
+    if not p.exists():
+        return None
+    c = json.loads(p.read_text())
+    return {k: v for k, v in c.items() if k not in ("per_start", "perturbations")} if summary_only else c
 
 
 @app.get("/api/oils")
